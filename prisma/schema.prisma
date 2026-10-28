@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+enum ParticipantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String        @id @default(cuid())
+  username      String?       @unique
+  name          String?
+  email         String?       @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role          @default(PLAYER)
+  accounts      Account[]
+  sessions      Session[]
+  participants  Participant[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Tournament {
+  id                 String        @id @default(cuid())
+  name               String
+  active             Boolean       @default(false)
+  regulation         String        @default("m-c")
+  startingCoins      Int           @default(0)
+  maxCopiesPerPlayer Int           @default(3)
+  maxCopiesLeague    Int?
+  rostersLocked      Boolean       @default(false)
+  participants       Participant[]
+  packs              Pack[]
+}
+
+model Participant {
+  id           String            @id @default(cuid())
+  userId       String
+  tournamentId String
+  status       ParticipantStatus @default(PENDING)
+  coins        Int               @default(0)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament   Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  purchases    Purchase[]
+  ownedPokemon OwnedPokemon[]
+  roster       Roster?
+
+  @@unique([userId, tournamentId])
+}
+
+model Species {
+  dex          Int            @id
+  name         String         @unique
+  isMega       Boolean        @default(false)
+  imageUrl     String?
+  packEntries  PackEntry[]
+  ownedPokemon OwnedPokemon[]
+}
+
+model Pack {
+  id            String      @id @default(cuid())
+  tournamentId  String
+  name          String
+  price         Int
+  pullCount     Int         @default(1)
+  purchaseLimit Int?
+  active        Boolean     @default(true)
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tiers         PackTier[]
+  entries       PackEntry[]
+  purchases     Purchase[]
+}
+
+model PackTier {
+  id      String      @id @default(cuid())
+  packId  String
+  name    String
+  weight  Decimal     @db.Decimal(10, 4)
+  color   String
+  pack    Pack        @relation(fields: [packId], references: [id], onDelete: Cascade)
+  entries PackEntry[]
+}
+
+model PackEntry {
+  id         String   @id @default(cuid())
+  packId     String
+  speciesDex Int
+  tierId     String
+  pack       Pack     @relation(fields: [packId], references: [id], onDelete: Cascade)
+  species    Species  @relation(fields: [speciesDex], references: [dex], onDelete: Cascade)
+  tier       PackTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, speciesDex])
+}
+
+model Purchase {
+  id            String         @id @default(cuid())
+  participantId String
+  packId        String
+  cost          Int
+  timestamp     DateTime       @default(now())
+  participant   Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  pack          Pack           @relation(fields: [packId], references: [id], onDelete: Cascade)
+  ownedPokemon  OwnedPokemon[]
+}
+
+model OwnedPokemon {
+  id            String      @id @default(cuid())
+  participantId String
+  speciesDex    Int
+  purchaseId    String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  species       Species     @relation(fields: [speciesDex], references: [dex], onDelete: Cascade)
+  purchase      Purchase    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+}
+
+model Roster {
+  id            String      @id @default(cuid())
+  participantId String      @unique
+  speciesIds    Int[]       @default([])
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
