@@ -40,6 +40,7 @@ export default async function AdminPackPage({
     name: tier.name,
     weight: tier.weight.toString(),
     color: tier.color,
+    minimumOne: tier.minimumOne,
   }));
   const entries = pack.entries.map((entry) => ({
     speciesDex: entry.speciesDex,

@@ -7,6 +7,7 @@ export type PackEditorTier = {
   name: string;
   weight: string;
   color: string;
+  minimumOne: boolean;
 };
 
 type PackEditorSpecies = {
@@ -123,7 +124,7 @@ function TierEditor({
         <div>
           <h2 className="text-xl font-semibold">Rarity tiers</h2>
           <p className="mt-1 text-sm text-[#9FB0E6]">
-            Tier shares are calculated from the total weight of all tiers.
+            Weight shares apply to regular pulls. Guaranteed tiers reserve one pull each in every pack.
           </p>
         </div>
         <button
@@ -131,7 +132,7 @@ function TierEditor({
           onClick={() =>
             setDraft((current) => [
               ...current,
-              { name: "", weight: "1", color: "#9FB0E6" },
+              { name: "", weight: "1", color: "#9FB0E6", minimumOne: false },
             ])
           }
           className="rounded-lg border border-[#243775] px-4 py-2 font-semibold text-[#EEF2FF] hover:border-[#F5C542]"
@@ -152,7 +153,7 @@ function TierEditor({
             return (
               <div
                 key={tier.id ?? `new-tier-${index}`}
-                className="grid gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-4 md:grid-cols-[minmax(0,1.3fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)_auto_auto]"
+                className="grid gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-4 md:grid-cols-[minmax(0,1.3fr)_minmax(7rem,0.7fr)_minmax(8rem,0.7fr)_auto_auto_auto]"
               >
                 <label className="block">
                   <span className="mb-2 block text-sm text-[#9FB0E6]">Tier name</span>
@@ -192,6 +193,16 @@ function TierEditor({
                 <div className="self-end pb-3 text-sm text-[#9FB0E6]">
                   {share.toFixed(2)}%
                 </div>
+                <label className="flex items-center gap-2 self-end pb-3 text-sm text-[#9FB0E6]">
+                  <input
+                    type="checkbox"
+                    checked={tier.minimumOne}
+                    onChange={(event) => updateTier(index, { minimumOne: event.target.checked })}
+                    className="h-4 w-4 accent-[#F5C542]"
+                    aria-label={`Guarantee at least one ${tier.name || "unnamed"} Pokémon per pack`}
+                  />
+                  <span className="whitespace-nowrap">At least one per pack</span>
+                </label>
                 <div className="self-end">
                   <button
                     type="button"

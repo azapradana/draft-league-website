@@ -122,6 +122,7 @@ model PackTier {
   name    String
   weight  Decimal     @db.Decimal(10, 4)
   color   String
+  minimumOne Boolean @default(false)
   pack    Pack        @relation(fields: [packId], references: [id], onDelete: Cascade)
   entries PackEntry[]
 }

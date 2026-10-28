@@ -42,7 +42,7 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 - **Participant:** user + tournament (unique pair), status (PENDING | APPROVED | REJECTED), coins.
 - **Species:** dex number, name (unique), isMega, imageUrl (optional override). Seeded with the 227 M-C species.
 - **Pack:** tournament, name, price, pullCount, purchaseLimit (null = unlimited), active.
-- **PackTier:** pack, name, weight (decimal), color (hex).
+- **PackTier:** pack, name, weight (decimal), color (hex), minimumOne (guarantee at least one pull from this tier).
 - **PackEntry:** pack + species (unique pair), tier. This is the pack's pool.
 - **Purchase:** participant, pack, cost, timestamp.
 - **OwnedPokemon:** participant, species, purchase. One row per copy owned.
@@ -55,13 +55,14 @@ Opening a pack runs in one database transaction:
 1. Lock the tournament row (so league-wide caps hold under simultaneous purchases).
 2. Check: tournament active, player approved, pack on sale, enough coins, purchase limit not reached.
 3. Count copies already owned, per player and league-wide.
-4. For each of the pack's pulls:
+4. Reserve one pull for each tier marked `minimumOne`, choosing uniformly among that tier's eligible Pokémon. The number of guaranteed tiers cannot exceed the pack's pull count; if a guaranteed tier has no eligible Pokémon, abort the whole transaction with a clear message.
+5. For each remaining pull:
    - A Pokémon is **eligible** if the player is under the per-player cap and the league is under the league-wide cap (if set).
    - Choose a tier by weight, using only tiers that have an eligible Pokémon and a weight above 0.
    - Choose uniformly among that tier's eligible Pokémon.
    - Update the in-memory counts so later pulls in the same pack respect the caps.
    - If no tier has an eligible Pokémon, abort the whole transaction (no coins spent) with a clear message.
-5. Save the Purchase and the OwnedPokemon rows, deduct coins, return the pulls (species + tier name and color).
+6. Save the Purchase and the OwnedPokemon rows, deduct coins, return the pulls (species + tier name and color).
 
 Use a cryptographic random source (`crypto.randomInt`).
 

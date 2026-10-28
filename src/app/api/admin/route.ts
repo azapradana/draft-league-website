@@ -335,6 +335,17 @@ export async function POST(request: NextRequest) {
           updateData.pullCount = pullCount;
         }
 
+        const effectivePullCount = updateData.pullCount ?? pack.pullCount;
+        const guaranteedTierCount = await prisma.packTier.count({
+          where: { packId: id, minimumOne: true },
+        });
+        if (guaranteedTierCount > effectivePullCount) {
+          return NextResponse.json(
+            { error: "Pull count cannot be lower than the number of tiers guaranteed at least one Pokémon." },
+            { status: 400 },
+          );
+        }
+
         if ("purchaseLimit" in body) {
           const rawPurchaseLimit = body.purchaseLimit;
           const purchaseLimit =
@@ -402,7 +413,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Pack ID and a tiers array are required." }, { status: 400 });
         }
 
-        const normalizedTiers: Array<{ id?: string; name: string; weight: string; color: string }> = [];
+        const normalizedTiers: Array<{
+          id?: string;
+          name: string;
+          weight: string;
+          color: string;
+          minimumOne: boolean;
+        }> = [];
         for (const tier of tiers) {
           if (typeof tier !== "object" || tier === null) {
             return NextResponse.json({ error: "Each tier must be an object." }, { status: 400 });
@@ -412,6 +429,12 @@ export async function POST(request: NextRequest) {
           const rawWeight = asString(value.weight).trim();
           const weight = Number(rawWeight);
           const color = asString(value.color).trim();
+          const minimumOne =
+            value.minimumOne === undefined
+              ? false
+              : typeof value.minimumOne === "boolean"
+                ? value.minimumOne
+                : null;
           if (
             !name ||
             name.length > 40 ||
@@ -419,7 +442,8 @@ export async function POST(request: NextRequest) {
             !Number.isFinite(weight) ||
             weight < 0 ||
             weight > 999_999.9999 ||
-            !/^#[0-9a-fA-F]{6}$/.test(color)
+            !/^#[0-9a-fA-F]{6}$/.test(color) ||
+            minimumOne === null
           ) {
             return NextResponse.json(
               { error: "Each tier needs a name, a non-negative weight with at most four decimals, and a #RRGGBB color." },
@@ -431,6 +455,7 @@ export async function POST(request: NextRequest) {
             name,
             weight: weight.toFixed(4),
             color,
+            minimumOne,
           });
         }
 
@@ -449,6 +474,14 @@ export async function POST(request: NextRequest) {
             return { error: "Pack not found.", status: 404 as const };
           }
 
+          const guaranteedTierCount = normalizedTiers.filter((tier) => tier.minimumOne).length;
+          if (guaranteedTierCount > pack.pullCount) {
+            return {
+              error: `This pack has ${pack.pullCount} pull(s), so no more than ${pack.pullCount} tiers can be guaranteed.`,
+              status: 400 as const,
+            };
+          }
+
           const existingTiers = await tx.packTier.findMany({
             where: { packId },
             include: { _count: { select: { entries: true } } },
@@ -464,7 +497,12 @@ export async function POST(request: NextRequest) {
           }
 
           for (const tier of normalizedTiers) {
-            const data = { name: tier.name, weight: tier.weight, color: tier.color };
+            const data = {
+              name: tier.name,
+              weight: tier.weight,
+              color: tier.color,
+              minimumOne: tier.minimumOne,
+            };
             if (tier.id) {
               await tx.packTier.update({ where: { id: tier.id }, data });
             } else {
