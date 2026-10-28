@@ -1,101 +1,106 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { AccountMenu } from "@/components/auth/account-menu";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getServerSession(authOptions);
+  const tournaments = await prisma.tournament.findMany({
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    include: {
+      participants: session?.user?.id
+        ? {
+            where: { userId: session.user.id },
+            select: { status: true },
+          }
+        : false,
+    },
+  });
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <main className="min-h-screen bg-[#070D24] px-6 py-12 text-[#EEF2FF] sm:px-10">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-12 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#F5C542]">
+              Draft League
+            </p>
+            <h1 className="mt-2 text-4xl font-bold">Tournaments</h1>
+          </div>
+          {session?.user ? (
+            <div className="flex items-center gap-3">
+              {session.user.role === "ADMIN" && (
+                <Link
+                  className="rounded-lg border border-[#F5C542] bg-[#F5C542] px-4 py-2 text-sm font-semibold text-[#070D24] hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
+                  href="/admin"
+                >
+                  Admin
+                </Link>
+              )}
+              <AccountMenu
+                email={session.user.email}
+                name={session.user.name ?? session.user.email ?? "Player"}
+                role={session.user.role}
+              />
+            </div>
+          ) : (
+            <Link
+              className="rounded-lg border border-[#243775] px-4 py-2 text-sm font-semibold hover:border-[#F5C542] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
+              href="/login"
+            >
+              Sign in
+            </Link>
+          )}
+        </header>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        {tournaments.length === 0 ? (
+          <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-8">
+            <h2 className="text-xl font-semibold">No tournaments yet</h2>
+            <p className="mt-2 text-[#9FB0E6]">
+              Check back later for a tournament to join.
+            </p>
+          </section>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {tournaments.map((tournament) => {
+              const participation = Array.isArray(tournament.participants)
+                ? tournament.participants[0]
+                : undefined;
+              return (
+                <li key={tournament.id}>
+                  <Link
+                    className="block h-full rounded-2xl border border-[#243775] bg-[#0C1638] p-6 transition hover:border-[#F5C542] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
+                    href={`/t/${tournament.id}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <h2 className="text-xl font-semibold">{tournament.name}</h2>
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                          tournament.active
+                            ? "bg-[#F5C542] text-[#070D24]"
+                            : "bg-[#243775] text-[#9FB0E6]"
+                        }`}
+                      >
+                        {tournament.active ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-[#9FB0E6]">
+                      Regulation {tournament.regulation.toUpperCase()} ·{" "}
+                      {tournament.startingCoins.toLocaleString()} starting coins
+                    </p>
+                    {participation && (
+                      <p className="mt-4 text-sm font-semibold text-[#F5C542]">
+                        Your status: {participation.status}
+                      </p>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </main>
   );
 }
