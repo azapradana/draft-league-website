@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = [
@@ -35,6 +35,8 @@ export function ImageUpload({
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadingRef = useRef(false);
 
   useEffect(
     () => () => {
@@ -42,6 +44,27 @@ export function ImageUpload({
     },
     [previewUrl],
   );
+
+  useEffect(() => {
+    const form = fileInputRef.current?.form;
+    if (!form) return;
+
+    function preventSubmitDuringUpload(event: SubmitEvent) {
+      if (!uploadingRef.current) return;
+
+      event.preventDefault();
+      setError("Wait for the image upload to finish before submitting.");
+    }
+
+    form.addEventListener("submit", preventSubmitDuringUpload, true);
+    return () => form.removeEventListener("submit", preventSubmitDuringUpload, true);
+  }, []);
+
+  function setUploadInProgress(isUploading: boolean) {
+    uploadingRef.current = isUploading;
+    setUploading(isUploading);
+    onUploadingChange?.(isUploading);
+  }
 
   function uploadImage(file: File) {
     setError("");
@@ -58,8 +81,7 @@ export function ImageUpload({
 
     const localPreview = URL.createObjectURL(file);
     setPreviewUrl(localPreview);
-    setUploading(true);
-    onUploadingChange?.(true);
+    setUploadInProgress(true);
     setProgress(0);
 
     const data = new FormData();
@@ -78,22 +100,19 @@ export function ImageUpload({
       if (request.status < 200 || request.status >= 300 || !result?.url) {
         setError(result?.error ?? "The image could not be uploaded. Please try again.");
         setPreviewUrl(imageUrl);
-        setUploading(false);
-        onUploadingChange?.(false);
+        setUploadInProgress(false);
         return;
       }
 
       setImageUrl(result.url);
       setPreviewUrl(result.url);
       setProgress(100);
-      setUploading(false);
-      onUploadingChange?.(false);
+      setUploadInProgress(false);
     };
     request.onerror = () => {
       setError("The image could not be uploaded. Check your connection and try again.");
       setPreviewUrl(imageUrl);
-      setUploading(false);
-      onUploadingChange?.(false);
+      setUploadInProgress(false);
     };
     request.send(data);
   }
@@ -110,6 +129,7 @@ export function ImageUpload({
       <label className="block">
         <span className="mb-2 block text-sm text-[#9FB0E6]">{label}</span>
         <input
+          ref={fileInputRef}
           type="file"
           accept={ACCEPTED_IMAGE_TYPES.join(",")}
           disabled={uploading}

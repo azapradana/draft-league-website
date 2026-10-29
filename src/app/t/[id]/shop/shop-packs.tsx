@@ -23,6 +23,44 @@ export type ShopPack = {
   tiers: ShopTier[];
 };
 
+function isPackPull(value: unknown): value is PackPull {
+  if (typeof value !== "object" || value === null || !("species" in value) || !("tier" in value)) {
+    return false;
+  }
+
+  const { species, tier } = value;
+  return (
+    typeof species === "object" &&
+    species !== null &&
+    "dex" in species &&
+    typeof species.dex === "number" &&
+    "name" in species &&
+    typeof species.name === "string" &&
+    "isMega" in species &&
+    typeof species.isMega === "boolean" &&
+    "imageUrl" in species &&
+    (typeof species.imageUrl === "string" || species.imageUrl === null) &&
+    typeof tier === "object" &&
+    tier !== null &&
+    "name" in tier &&
+    typeof tier.name === "string" &&
+    "color" in tier &&
+    typeof tier.color === "string"
+  );
+}
+
+function isPackOpenResult(value: unknown): value is { pulls: PackPull[]; coins: number } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "pulls" in value &&
+    Array.isArray(value.pulls) &&
+    value.pulls.every(isPackPull) &&
+    "coins" in value &&
+    typeof value.coins === "number"
+  );
+}
+
 export default function ShopPacks({
   tournamentId,
   packs,
@@ -58,11 +96,30 @@ export default function ShopPacks({
           body: JSON.stringify({ packId: pack.id }),
         },
       );
-      const result = (await response.json()) as
-        | { pulls: PackPull[]; coins: number }
-        | { error: string };
-      if (!response.ok || !("pulls" in result)) {
-        throw new Error("error" in result ? result.error : "The pack could not be opened.");
+      const responseText = await response.text();
+      let result: unknown;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          "The server returned an invalid response while opening this pack. Please try again.",
+        );
+      }
+
+      if (!response.ok) {
+        const message =
+          typeof result === "object" &&
+          result !== null &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : "The pack could not be opened. Please try again.";
+        throw new Error(message);
+      }
+      if (!isPackOpenResult(result)) {
+        throw new Error(
+          "The server returned an invalid response while opening this pack. Please try again.",
+        );
       }
       setBalance(result.coins);
       setOpeningResultPack(pack);
