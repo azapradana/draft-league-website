@@ -20,7 +20,6 @@ export default async function TournamentShopPage({
     select: {
       id: true,
       active: true,
-      cardBackImage: true,
       participants: {
         where: { userId: session.user.id },
         select: { status: true, coins: true },
@@ -65,7 +64,6 @@ export default async function TournamentShopPage({
     <ShopPacks
       tournamentId={id}
       packs={shopPacks}
-      cardBackImage={tournament.cardBackImage}
       tournamentActive={tournament.active}
       approved={participant?.status === "APPROVED"}
       initialCoins={participant?.coins ?? null}

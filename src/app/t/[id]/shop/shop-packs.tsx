@@ -65,14 +65,12 @@ function isPackOpenResult(value: unknown): value is { pulls: PackPull[]; coins: 
 export default function ShopPacks({
   tournamentId,
   packs,
-  cardBackImage,
   tournamentActive,
   approved,
   initialCoins,
 }: {
   tournamentId: string;
   packs: ShopPack[];
-  cardBackImage: string | null;
   tournamentActive: boolean;
   approved: boolean;
   initialCoins: number | null;
@@ -208,7 +206,6 @@ export default function ShopPacks({
             key={openingResultPack?.id ?? "opened-pack"}
             pulls={pulls}
             packImage={openingResultPack?.packImage ?? null}
-            cardBackImage={cardBackImage}
             packPrice={openingResultPack?.price ?? 0}
             onClose={() => {
               setPulls(null);

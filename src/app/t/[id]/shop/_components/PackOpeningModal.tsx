@@ -71,25 +71,21 @@ function PullArtwork({
 export default function PackOpeningModal({
   pulls,
   packImage,
-  cardBackImage,
   packPrice,
   onClose,
 }: {
   pulls: PackPull[];
   packImage: string | null;
-  cardBackImage: string | null;
   packPrice: number;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<OpeningPhase>("sealed");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [packImageFailed, setPackImageFailed] = useState(false);
-  const [cardBackImageFailed, setCardBackImageFailed] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const reduceMotion = prefersReducedMotion ?? false;
 
   useEffect(() => setPackImageFailed(false), [packImage]);
-  useEffect(() => setCardBackImageFailed(false), [cardBackImage]);
 
   useEffect(() => {
     if (phase !== "tearing" && phase !== "flash") return;
@@ -282,15 +278,6 @@ export default function PackOpeningModal({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: reduceMotion ? 0.01 : 0.2 }}
                   >
-                    {cardBackImage && !cardBackImageFailed && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={cardBackImage}
-                        alt=""
-                        onError={() => setCardBackImageFailed(true)}
-                        className="absolute inset-0 -z-10 h-full w-full object-cover opacity-[0.08]"
-                      />
-                    )}
                     <div className="battle-scanlines pointer-events-none absolute inset-0 -z-0" />
                     <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 border-b border-[#243775]/80 bg-[#070D24]/75 px-4 py-3">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F5C542] sm:text-sm">

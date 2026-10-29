@@ -239,6 +239,9 @@ export async function POST(
       });
 
       return { pulls, coins: updatedParticipant.coins };
+    }, {
+      maxWait: 10_000,
+      timeout: 30_000,
     });
 
     return NextResponse.json(result);
