@@ -35,7 +35,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getServerSession(authOptions);
+  let session;
+  try {
+    session = await getServerSession(authOptions);
+  } catch (error) {
+    console.error("Pack opening authentication error:", error);
+    return NextResponse.json(
+      { error: "The pack could not be opened due to a server error. Please try again." },
+      { status: 500 },
+    );
+  }
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to open a pack." }, { status: 401 });
   }
@@ -237,6 +246,10 @@ export async function POST(
     if (error instanceof GachaError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    throw error;
+    console.error("Pack opening route error:", error);
+    return NextResponse.json(
+      { error: "The pack could not be opened due to a server error. Please try again." },
+      { status: 500 },
+    );
   }
 }
