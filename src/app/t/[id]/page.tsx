@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
+import { RichText } from "@/components/rich-text";
 
 export default async function TournamentOverview({
   params,
@@ -24,6 +25,7 @@ export default async function TournamentOverview({
     select: {
       id: true,
       name: true,
+      description: true,
       regulation: true,
       startingCoins: true,
       maxCopiesPerPlayer: true,
@@ -105,6 +107,54 @@ export default async function TournamentOverview({
   const rounds = Array.from(
     new Set(tournament.matches.map((match) => match.roundNumber)),
   );
+  const finalRoundMatches = tournament.matches.filter(
+    (match) => match.roundNumber === currentRound,
+  );
+  const finalMatch =
+    finalRoundMatches.length === 1 ? finalRoundMatches[0] : null;
+  const tournamentCompleted =
+    finalMatch?.status === "COMPLETED" &&
+    finalMatch.winnerId !== null &&
+    (finalMatch.winnerId === finalMatch.player1Id ||
+      finalMatch.winnerId === finalMatch.player2Id) &&
+    tournament.matches.every((match) => match.status === "COMPLETED");
+  const eliminatedInRound = new Map<string, number>();
+
+  if (tournamentCompleted) {
+    for (const match of tournament.matches) {
+      if (match.status !== "COMPLETED" || !match.winnerId) continue;
+
+      for (const participantId of [match.player1Id, match.player2Id]) {
+        if (participantId && participantId !== match.winnerId) {
+          eliminatedInRound.set(participantId, match.roundNumber);
+        }
+      }
+    }
+  }
+
+  const participantsToDisplay = tournamentCompleted
+    ? [...approvedParticipants].sort((a, b) => {
+      const aIsChampion = a.id === finalMatch.winnerId;
+      const bIsChampion = b.id === finalMatch.winnerId;
+      if (aIsChampion !== bIsChampion) return aIsChampion ? -1 : 1;
+
+      const roundDifference =
+        (eliminatedInRound.get(b.id) ?? 0) -
+        (eliminatedInRound.get(a.id) ?? 0);
+      if (roundDifference !== 0) return roundDifference;
+
+      const aName = a.user.name ?? a.user.username ?? "Unnamed player";
+      const bName = b.user.name ?? b.user.username ?? "Unnamed player";
+      return aName.localeCompare(bName) || a.id.localeCompare(b.id);
+    })
+    : approvedParticipants;
+
+  const participantRanks = new Map(
+    participantsToDisplay.map((participant, index) => [
+      participant.id,
+      index + 1,
+    ]),
+  );
 
   function displayName(
     participant: {
@@ -123,9 +173,15 @@ export default async function TournamentOverview({
           Tournament overview
         </p>
         <h2 className="mt-2 text-3xl font-bold">{tournament.name}</h2>
-        <p className="mt-3 max-w-2xl text-[#9FB0E6]">
-          Review the tournament settings and your participation status.
-        </p>
+        {tournament.description ? (
+          <div className="mt-3 max-w-2xl">
+            <RichText value={tournament.description} />
+          </div>
+        ) : (
+          <p className="mt-3 max-w-2xl text-[#9FB0E6]">
+            Review the tournament settings and your participation status.
+          </p>
+        )}
       </section>
 
       <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
@@ -219,7 +275,10 @@ export default async function TournamentOverview({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+      <section
+        id="bracket"
+        className="scroll-mt-20 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
+      >
         <div>
           <h3 className="text-xl font-semibold">Tournament bracket</h3>
           <p className="mt-1 text-sm text-[#9FB0E6]">
@@ -229,7 +288,28 @@ export default async function TournamentOverview({
           </p>
         </div>
 
-        {tournament.matches.length > 0 && (
+        {tournament.matches.length === 0 ? (
+          <div className="mt-6 flex items-start gap-4 rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
+            <svg
+              aria-hidden="true"
+              className="mt-0.5 h-6 w-6 shrink-0 text-[#F5C542]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1Zm4 10h2m2 0h2"
+              />
+            </svg>
+            <p>
+              Tournament bracket has not been generated yet. Check in and wait for the admin to
+              start Round 1.
+            </p>
+          </div>
+        ) : (
           <div className="mt-6 space-y-8">
             {rounds.map((roundNumber) => {
               const roundMatches = tournament.matches.filter(
@@ -348,13 +428,16 @@ export default async function TournamentOverview({
           </span>
         </div>
 
-        {approvedParticipants.length === 0 ? (
+        {participantsToDisplay.length === 0 ? (
           <p className="mt-5 text-[#9FB0E6]">No approved participants yet.</p>
         ) : (
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[36rem] border-collapse text-left">
               <thead>
                 <tr className="border-b border-[#243775] text-sm text-[#9FB0E6]">
+                  {tournamentCompleted && (
+                    <th scope="col" className="px-3 py-3 font-semibold">Rank</th>
+                  )}
                   <th scope="col" className="px-3 py-3 font-semibold">Participant</th>
                   <th scope="col" className="px-3 py-3 font-semibold">Check-in</th>
                   <th scope="col" className="px-3 py-3 font-semibold">
@@ -363,19 +446,44 @@ export default async function TournamentOverview({
                 </tr>
               </thead>
               <tbody>
-                {approvedParticipants.map((participant) => {
+                {participantsToDisplay.map((participant) => {
                   const isOwnParticipant = participant.id === participation?.id;
                   const canViewRoster = canViewAllRosters || isOwnParticipant;
                   const roster = canViewRoster
                     ? (rosterByParticipant.get(participant.id) ?? [])
                     : null;
+                  const rank = participantRanks.get(participant.id);
+                  const medal =
+                    rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
 
                   return (
                     <tr key={participant.id} className="border-b border-[#243775]/70 align-top last:border-0">
+                      {tournamentCompleted && (
+                        <td className="px-3 py-4 font-bold text-[#F5C542]">
+                          {rank}
+                        </td>
+                      )}
                       <th scope="row" className="px-3 py-4 font-semibold">
-                        {participant.user.name ??
-                          participant.user.username ??
-                          "Unnamed player"}
+                        <span className="inline-flex items-center gap-2">
+                          {participant.user.name ??
+                            participant.user.username ??
+                            "Unnamed player"}
+                          {medal && (
+                            <span
+                              aria-label={
+                                rank === 1
+                                  ? "Gold medal"
+                                  : rank === 2
+                                    ? "Silver medal"
+                                    : "Bronze medal"
+                              }
+                              role="img"
+                              title={`Rank ${rank}`}
+                            >
+                              {medal}
+                            </span>
+                          )}
+                        </span>
                       </th>
                       <td className="px-3 py-4">
                         <span

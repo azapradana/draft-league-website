@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const MAX_DESCRIPTION_LENGTH = 5000;
+
 function asString(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -89,8 +91,12 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case "createTournament": {
         const name = asString(body.name).trim();
+        const description = asString(body.description);
         if (!name) {
           return NextResponse.json({ error: "Tournament name is required." }, { status: 400 });
+        }
+        if (description.length > MAX_DESCRIPTION_LENGTH) {
+          return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
         }
 
         const startingCoins = asInt(body.startingCoins, 0);
@@ -104,6 +110,7 @@ export async function POST(request: NextRequest) {
         const tournament = await prisma.tournament.create({
           data: {
             name,
+            description,
             regulation: "m-c",
             startingCoins,
             maxCopiesPerPlayer,
@@ -133,7 +140,9 @@ export async function POST(request: NextRequest) {
 
         const updateData: {
           name?: string;
+          description?: string;
           active?: boolean;
+          completed?: boolean;
           rostersLocked?: boolean;
           rostersPublic?: boolean;
           checkInOpen?: boolean;
@@ -150,8 +159,20 @@ export async function POST(request: NextRequest) {
           updateData.name = name;
         }
 
+        if ("description" in body) {
+          const description = asString(body.description);
+          if (description.length > MAX_DESCRIPTION_LENGTH) {
+            return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
+          }
+          updateData.description = description;
+        }
+
         if ("active" in body) {
           updateData.active = asBoolean(body.active, tournament.active);
+        }
+
+        if ("completed" in body) {
+          updateData.completed = asBoolean(body.completed, tournament.completed);
         }
 
         if ("rostersLocked" in body) {
@@ -180,6 +201,11 @@ export async function POST(request: NextRequest) {
             rawLeagueCopyLimit === undefined || rawLeagueCopyLimit === null || asString(rawLeagueCopyLimit) === ""
               ? null
               : asInt(rawLeagueCopyLimit, tournament.maxCopiesLeague ?? 0);
+        }
+
+        if (updateData.completed ?? tournament.completed) {
+          updateData.active = false;
+          updateData.checkInOpen = false;
         }
 
         const updatedTournament = await prisma.tournament.update({
@@ -255,6 +281,7 @@ export async function POST(request: NextRequest) {
       case "createPack": {
         const tournamentId = asString(body.tournamentId);
         const name = asString(body.name).trim();
+        const description = asString(body.description);
         const price = asStrictInt(body.price) ?? -1;
         const pullCount = asStrictInt(body.pullCount) ?? -1;
         const rawPurchaseLimit = body.purchaseLimit;
@@ -270,6 +297,9 @@ export async function POST(request: NextRequest) {
             { error: "Choose a tournament, enter a pack name of 1–80 characters, a non-negative whole-number price, and at least one pull." },
             { status: 400 },
           );
+        }
+        if (description.length > MAX_DESCRIPTION_LENGTH) {
+          return NextResponse.json({ error: "Pack description cannot exceed 5,000 characters." }, { status: 400 });
         }
 
         if (purchaseLimit !== null && (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)) {
@@ -288,6 +318,7 @@ export async function POST(request: NextRequest) {
           data: {
             tournamentId,
             name,
+            description,
             price,
             pullCount,
             purchaseLimit,
@@ -315,6 +346,7 @@ export async function POST(request: NextRequest) {
 
         const updateData: {
           name?: string;
+          description?: string;
           price?: number;
           pullCount?: number;
           purchaseLimit?: number | null;
@@ -327,6 +359,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Pack name must be between 1 and 80 characters." }, { status: 400 });
           }
           updateData.name = name;
+        }
+
+        if ("description" in body) {
+          const description = asString(body.description);
+          if (description.length > MAX_DESCRIPTION_LENGTH) {
+            return NextResponse.json({ error: "Pack description cannot exceed 5,000 characters." }, { status: 400 });
+          }
+          updateData.description = description;
         }
 
         if ("price" in body) {

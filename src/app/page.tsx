@@ -77,12 +77,18 @@ export default async function Home() {
                       <h2 className="text-xl font-semibold">{tournament.name}</h2>
                       <span
                         className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                          tournament.active
+                          tournament.completed
+                            ? "bg-emerald-950 text-emerald-300"
+                            : tournament.active
                             ? "bg-[#F5C542] text-[#070D24]"
                             : "bg-[#243775] text-[#9FB0E6]"
                         }`}
                       >
-                        {tournament.active ? "Active" : "Inactive"}
+                        {tournament.completed
+                          ? "Completed"
+                          : tournament.active
+                            ? "Active"
+                            : "Inactive"}
                       </span>
                     </div>
                     <p className="mt-3 text-sm text-[#9FB0E6]">

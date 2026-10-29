@@ -40,7 +40,7 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 - **User:** id, username (unique, optional for Google users), name, email, image, passwordHash, role (PLAYER | ADMIN). Plus the standard NextAuth tables: Account, Session, VerificationToken.
 - **Tournament:** name, active, regulation ("m-c"), startingCoins, maxCopiesPerPlayer, maxCopiesLeague (null = no limit), rostersLocked.
 - **Participant:** user + tournament (unique pair), status (PENDING | APPROVED | REJECTED), coins.
-- **Species:** dex number, name (unique), isMega, imageUrl (optional override). Seeded with the 227 M-C species.
+- **Species:** dex number, name (unique), types, isMega, imageUrl (optional override). Seeded with the 227 M-C species and their battle types.
 - **Pack:** tournament, name, price, pullCount, purchaseLimit (null = unlimited), active.
 - **PackTier:** pack, name, weight (decimal), color (hex), minimumOne (guarantee at least one pull from this tier).
 - **PackEntry:** pack + species (unique pair), tier. This is the pack's pool.

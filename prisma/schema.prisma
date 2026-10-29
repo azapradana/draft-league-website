@@ -75,7 +75,9 @@ model VerificationToken {
 model Tournament {
   id                 String        @id @default(cuid())
   name               String
+  description        String        @default("")
   active             Boolean       @default(false)
+  completed          Boolean       @default(false)
   regulation         String        @default("m-c")
   startingCoins      Int           @default(0)
   maxCopiesPerPlayer Int           @default(3)
@@ -146,6 +148,7 @@ model MatchMessage {
 model Species {
   dex          Int            @id
   name         String         @unique
+  types        String[]       @default([])
   isMega       Boolean        @default(false)
   imageUrl     String?
   packEntries  PackEntry[]
@@ -156,6 +159,7 @@ model Pack {
   id            String      @id @default(cuid())
   tournamentId  String
   name          String
+  description   String      @default("")
   price         Int
   pullCount     Int         @default(1)
   purchaseLimit Int?

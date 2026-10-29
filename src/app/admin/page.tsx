@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -52,6 +53,14 @@ export default async function AdminPage() {
                 placeholder="Spring Open"
               />
             </label>
+
+            <div className="md:col-span-2">
+              <RichTextEditor
+                name="description"
+                label="Tournament description"
+                placeholder="Share the format, schedule, rules, and anything players should know."
+              />
+            </div>
 
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
@@ -114,12 +123,18 @@ export default async function AdminPage() {
                       <h3 className="text-lg font-semibold">{tournament.name}</h3>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          tournament.active
+                          tournament.completed
+                            ? "bg-emerald-950 text-emerald-300"
+                            : tournament.active
                             ? "bg-[#F5C542] text-[#070D24]"
                             : "bg-[#243775] text-[#9FB0E6]"
                         }`}
                       >
-                        {tournament.active ? "Open" : "Closed"}
+                        {tournament.completed
+                          ? "Completed"
+                          : tournament.active
+                            ? "Open"
+                            : "Closed"}
                       </span>
                     </div>
                     <p className="mt-3 text-sm text-[#9FB0E6]">

@@ -131,9 +131,25 @@ export default function RosterManager({
         </div>
 
         {collection.length === 0 ? (
-          <p className="mt-5 rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
-            Your collection is empty. Open packs in the shop to collect Pokémon.
-          </p>
+          <div className="mt-5 flex items-start gap-4 rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
+            <svg
+              aria-hidden="true"
+              className="mt-0.5 h-6 w-6 shrink-0 text-[#F5C542]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.7"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 3.5 20.5 8v8L12 20.5 3.5 16V8L12 3.5ZM3.8 8.2 12 12.5l8.2-4.3M12 12.5v8"
+              />
+            </svg>
+            <p>
+              Your roster is empty. Open some packs in the shop to start collecting!
+            </p>
+          </div>
         ) : (
           <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {collection.map(({ dex, name, isMega, imageUrl, quantity, sources }) => {

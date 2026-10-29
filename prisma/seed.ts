@@ -16,11 +16,11 @@ async function main() {
 
   await prisma.$transaction(async (tx) => {
     await Promise.all(
-      species.map(({ dex, name }) =>
+      species.map(({ dex, name, types }) =>
         tx.species.upsert({
           where: { dex },
-          update: { name },
-          create: { dex, name },
+          update: { name, types },
+          create: { dex, name, types },
         }),
       ),
     );

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { ParticipantStatus } from "@prisma/client";
 import RoundControls from "./round-controls";
+import DisputeResolutionPanel from "./dispute-resolution-panel";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -88,6 +89,51 @@ export default async function AdminTournamentMatchesPage({
     notFound();
   }
 
+  const disputedMatches = tournament.matches.filter(
+    (match) => match.status === "DISPUTED",
+  );
+  const disputeChats =
+    disputedMatches.length > 0
+      ? await prisma.match.findMany({
+          where: { id: { in: disputedMatches.map((match) => match.id) } },
+          select: {
+            id: true,
+            messages: {
+              orderBy: [{ timestamp: "desc" }, { id: "desc" }],
+              take: 100,
+              select: {
+                id: true,
+                senderName: true,
+                content: true,
+                timestamp: true,
+              },
+            },
+          },
+        })
+      : [];
+  const messagesByMatch = new Map(
+    disputeChats.map((match) => [
+      match.id,
+      match.messages.reverse(),
+    ]),
+  );
+  const disputePanelMatches = disputedMatches.map((match) => ({
+    id: match.id,
+    roundNumber: match.roundNumber,
+    player1: match.player1
+      ? { id: match.player1.id, name: playerName(match.player1) }
+      : null,
+    player2: match.player2
+      ? { id: match.player2.id, name: playerName(match.player2) }
+      : null,
+    player1Vote: match.player1Vote,
+    player2Vote: match.player2Vote,
+    messages: (messagesByMatch.get(match.id) ?? []).map((message) => ({
+      ...message,
+      timestamp: message.timestamp.toISOString(),
+    })),
+  }));
+
   const currentRound =
     tournament.matches.length > 0
       ? tournament.matches[tournament.matches.length - 1].roundNumber
@@ -150,6 +196,13 @@ export default async function AdminTournamentMatchesPage({
               </p>
             )}
         </header>
+
+        {disputePanelMatches.length > 0 && (
+          <DisputeResolutionPanel
+            tournamentId={tournament.id}
+            matches={disputePanelMatches}
+          />
+        )}
 
         <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
           <h2 className="text-xl font-semibold">Matches</h2>

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { closeTournamentIfComplete } from "@/lib/tournament-completion";
 
 class RoundGenerationError extends Error {
   constructor(
@@ -76,9 +77,9 @@ export async function generateRound(
   try {
     const result = await prisma.$transaction(async (tx) => {
       const tournament = await tx.$queryRaw<
-        Array<{ id: string; checkInOpen: boolean }>
+        Array<{ id: string; checkInOpen: boolean; completed: boolean }>
       >`
-        SELECT "id", "checkInOpen"
+        SELECT "id", "checkInOpen", "completed"
         FROM "Tournament"
         WHERE "id" = ${tournamentId}
         FOR UPDATE
@@ -86,6 +87,12 @@ export async function generateRound(
 
       if (tournament.length === 0) {
         throw new RoundGenerationError("Tournament not found.", 404);
+      }
+      if (tournament[0].completed) {
+        throw new RoundGenerationError(
+          "This tournament is completed and cannot start another round.",
+          409,
+        );
       }
 
       const latestMatch = await tx.match.findFirst({
@@ -184,6 +191,7 @@ export async function generateRound(
         participantIds,
       );
       await tx.match.createMany({ data: matches });
+      await closeTournamentIfComplete(tx, tournamentId);
 
       return {
         roundNumber,

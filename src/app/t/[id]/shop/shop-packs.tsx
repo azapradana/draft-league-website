@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import PackOpeningModal, { type PackPull } from "./_components/PackOpeningModal";
 import { useCoinBalance } from "../coin-balance";
+import { RichText } from "@/components/rich-text";
 
 type ShopTier = {
   name: string;
@@ -14,6 +15,7 @@ type ShopTier = {
 export type ShopPack = {
   id: string;
   name: string;
+  description: string;
   price: number;
   pullCount: number;
   purchaseLimit: number | null;
@@ -103,9 +105,23 @@ export default function ShopPacks({
       )}
 
       {packs.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
-          There are no packs on sale right now.
-        </p>
+        <div className="flex items-start gap-4 rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
+          <svg
+            aria-hidden="true"
+            className="mt-0.5 h-6 w-6 shrink-0 text-[#F5C542]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="1.7"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 9.5 4.5 4h15L21 9.5M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M9 20v-6h6v6"
+            />
+          </svg>
+          <p>No packs currently available in the store.</p>
+        </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-2">
           {packs.map((pack) => (
@@ -113,6 +129,9 @@ export default function ShopPacks({
               key={pack.id}
               pack={pack}
               disabled={!canBuy || coins === null || coins < pack.price || openingPack !== null}
+              coinsShortfall={
+                canBuy && coins !== null && coins < pack.price ? pack.price - coins : null
+              }
               opening={openingPack === pack.id}
               onBuy={() => void buyAndOpen(pack)}
             />
@@ -133,11 +152,13 @@ export default function ShopPacks({
 function PackCard({
   pack,
   disabled,
+  coinsShortfall,
   opening,
   onBuy,
 }: {
   pack: ShopPack;
   disabled: boolean;
+  coinsShortfall: number | null;
   opening: boolean;
   onBuy: () => void;
 }) {
@@ -167,6 +188,12 @@ function PackCard({
           {pack.price.toLocaleString()} coins
         </p>
       </div>
+
+      {pack.description && (
+        <div className="mt-4">
+          <RichText value={pack.description} />
+        </div>
+      )}
 
       <section className="mt-5">
         <h4 className="text-sm font-semibold text-[#EEF2FF]">Tier odds</h4>
@@ -223,6 +250,11 @@ function PackCard({
       >
         {opening ? "Opening pack…" : "Buy & open"}
       </button>
+      {coinsShortfall !== null && (
+        <p className="mt-2 text-sm text-amber-200" role="status">
+          You need {coinsShortfall.toLocaleString()} more coins to open this pack.
+        </p>
+      )}
     </article>
   );
 }

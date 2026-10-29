@@ -11,10 +11,16 @@ Add the following models and fields to `prisma/schema.prisma`:
 ### Updates to Existing Models
 
 - **Tournament**:
+  - Add `description` (String, default empty) for a formatted overview of the tournament format, schedule, and rules
   - Add `checkInOpen` (Boolean, default `false`)
+  - Add `completed` (Boolean, default `false`) so admins can mark a tournament completed; completion also closes the tournament and check-in
   - Add `rostersPublic` (Boolean, default `false`) to control whether participants can view every approved player's roster
 - **Participant**:
   - Add `checkedIn` (Boolean, default `false`)
+- **Pack**:
+  - Add `description` (String, default empty) for formatted details about the pack
+- **Species**:
+  - Add `types` (String array, default empty) so match roster inspectors can display battle types.
 
 ### New Models
 
@@ -62,7 +68,7 @@ Add the following models and fields to `prisma/schema.prisma`:
 1. **Match Room Access**: Paired players and admins can access the match room.
 2. **Features**:
    - **Match Chat**: Real-time or polled text chat between Player 1, Player 2, and admins.
-   - **Roster Inspector**: Side-by-side display of both players' locked 6-Pokémon rosters (sprites, types, names).
+   - **Roster Inspector**: Side-by-side display of both players' locked 6-Pokémon rosters (sprites, names, types, and collection tiers).
 
 ### Phase 4: Mutual Result Confirmation & Disputes
 1. **Result Submission**: 
@@ -72,12 +78,14 @@ Add the following models and fields to `prisma/schema.prisma`:
    - **Match**: If both votes match (`player1Vote === player2Vote`), the match automatically transitions to `COMPLETED`, `winnerId` is set, and the loser is eliminated.
    - **Dispute**: If Player 1 votes themselves and Player 2 votes themselves (conflicting votes), the match status immediately updates to `DISPUTED`, locking further automated changes and alerting admins.
 3. **Admin Resolution**:
-   - Admins see a **Dispute Panel** on `/admin/t/[id]`.
+   - Admins see a **Dispute Panel** on `/admin/t/[id]/matches`.
    - The admin can override votes, manually select the winner, and force-complete the match.
 
 ### Phase 5: Subsequent Rounds
 1. Once all matches in the current round have a `COMPLETED` status, the admin can click **"Start Next Round"**.
 2. Winners from the current round are paired randomly into the next round (`roundNumber + 1`) until a Grand Final determines the champion.
+3. When the final round's sole match is completed and every match has a valid winner, the tournament closes automatically (`active = false`) and check-in is closed. This also applies when a one-player tournament finishes immediately via a bye.
+4. Admins can manually toggle completion in tournament settings. Marking a tournament completed closes it and check-in; marking it not completed does not reopen either. Completed tournaments do not accept match results or generate further rounds.
 
 ---
 
@@ -87,7 +95,7 @@ Add the following models and fields to `prisma/schema.prisma`:
 - `POST /api/admin/tournaments/[id]/rounds/generate` and `/rounds/start`: Generate Round 1 or subsequent rounds (Admin only).
 - `GET /api/tournaments/[id]/matches/[matchId]`: Fetch match details, rosters, chat messages, and vote status.
 - `POST /api/tournaments/[id]/matches/[matchId]/chat`: Post a message to match chat.
-- `POST /api/tournaments/[id]/matches/[matchId]/vote`: Submit a match winner vote.
+- `POST /api/tournaments/[id]/matches/[matchId]/result`: Submit a match winner vote.
 - `POST /api/admin/tournaments/[id]/matches/[matchId]/resolve`: Admin override for disputed or stuck matches.
 
 ---
@@ -95,16 +103,30 @@ Add the following models and fields to `prisma/schema.prisma`:
 ## 4. UI Pages & Components
 
 1. **Tournament Overview (`/t/[id]/page.tsx`)**:
+   - Show the tournament description with rich-text formatting.
    - Participant table with check-in status and saved rosters. Admins can always view approved rosters; participants can view all approved rosters when `rostersPublic` is enabled, otherwise only their own.
+   - After the final match is completed, show every approved participant in a unique finishing order from 1 to the participant count. Display gold, silver, and bronze medals beside the first-, second-, and third-place names; rank earlier-round eliminations below later-round eliminations.
    - Check-in status banner and check-in button.
    - Live bracket tree view showing current rounds, pairings, and match statuses.
 2. **Match Room (`/t/[id]/matches/[matchId]/page.tsx`)**:
    - Header with Round info and opponent details.
-   - Side-by-side Roster Inspector (6 Pokémon cards with sprites per player).
+   - Side-by-side Roster Inspector (up to 6 Pokémon cards with sprites, names, types, and collection tiers per player).
    - Match Chat box with message history and input.
    - Result voting panel with confirmation states ("Waiting for opponent", "Votes match! Match completed", "Conflict detected: Admin notified").
 3. **Admin Tournament Management (`/admin/t/[id]/page.tsx`)**:
+   - Provide rich-text description editors for the tournament and its packs; render the pack description in the shop.
    - Check-in toggle switch.
    - Roster editing lock and roster visibility toggle.
    - Round generation buttons and bracket management at `/admin/t/[id]/matches`.
    - Disputed matches alert queue with manual override controls.
+
+## 5. Final Polish, Loading, and Error Handling
+
+- Show low-profile pulse skeletons while the collection, shop packs, tournament bracket, or match room is loading; respect reduced-motion preferences.
+- Use contextual empty states:
+  - Shop: "No packs currently available in the store."
+  - Collection: "Your roster is empty. Open some packs in the shop to start collecting!"
+  - Bracket: "Tournament bracket has not been generated yet. Check in and wait for the admin to start Round 1."
+  - Match chat: "No messages yet. Coordinate your match or say glhf!"
+- Surface failed actions and refresh errors in accessible inline alerts, including insufficient pack funds, failed check-in, chat/result submission failures, and conflicting match votes.
+- Provide an application-level recovery screen with a retry action for unexpected page-rendering failures.

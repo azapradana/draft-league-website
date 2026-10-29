@@ -1,0 +1,5 @@
+ALTER TABLE "Tournament"
+ADD COLUMN "description" TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE "Pack"
+ADD COLUMN "description" TEXT NOT NULL DEFAULT '';

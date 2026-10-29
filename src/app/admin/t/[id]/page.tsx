@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default async function AdminTournamentDetailPage({
   params,
@@ -68,12 +69,18 @@ export default async function AdminTournamentDetailPage({
               </Link>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${
-                  tournament.active
+                  tournament.completed
+                    ? "bg-emerald-950 text-emerald-300"
+                    : tournament.active
                     ? "bg-[#F5C542] text-[#070D24]"
                     : "bg-[#243775] text-[#9FB0E6]"
                 }`}
               >
-                {tournament.active ? "Open" : "Closed"}
+                {tournament.completed
+                  ? "Completed"
+                  : tournament.active
+                    ? "Open"
+                    : "Closed"}
               </span>
             </div>
           </div>
@@ -90,6 +97,15 @@ export default async function AdminTournamentDetailPage({
                 className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
               />
             </label>
+
+            <div className="md:col-span-2">
+              <RichTextEditor
+                name="description"
+                label="Tournament description"
+                defaultValue={tournament.description}
+                placeholder="Share the format, schedule, rules, and anything players should know."
+              />
+            </div>
 
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
@@ -181,6 +197,40 @@ export default async function AdminTournamentDetailPage({
             </div>
           </form>
         </div>
+
+        <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Tournament completion</h2>
+              <p className="mt-2 text-sm text-[#9FB0E6]">
+                {tournament.completed
+                  ? "This tournament is marked completed. Reopening completion does not reopen the tournament or check-in."
+                  : "Mark this tournament completed to close it and stop check-in, match results, and new rounds. Completion is also set automatically after the final match."}
+              </p>
+            </div>
+            <form action="/api/admin" method="POST">
+              <input type="hidden" name="action" value="updateTournament" />
+              <input type="hidden" name="id" value={tournament.id} />
+              <input
+                type="hidden"
+                name="completed"
+                value={tournament.completed ? "false" : "true"}
+              />
+              <button
+                type="submit"
+                className={
+                  tournament.completed
+                    ? "rounded-lg border border-[#243775] px-5 py-3 font-bold text-[#EEF2FF] hover:border-[#F5C542]"
+                    : "rounded-lg bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B]"
+                }
+              >
+                {tournament.completed
+                  ? "Mark as not completed"
+                  : "Mark tournament completed"}
+              </button>
+            </form>
+          </div>
+        </section>
 
         <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
           <h2 className="text-xl font-semibold">Participants</h2>
@@ -297,6 +347,14 @@ export default async function AdminTournamentDetailPage({
               />
             </label>
 
+            <div className="md:col-span-2">
+              <RichTextEditor
+                name="description"
+                label="Pack description"
+                placeholder="Describe the pack contents, theme, or what makes it special."
+              />
+            </div>
+
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Price (coins)</span>
               <input
@@ -392,6 +450,15 @@ export default async function AdminTournamentDetailPage({
                         className="w-full rounded-lg border border-[#243775] bg-[#0C1638] p-3 text-[#EEF2FF]"
                       />
                     </label>
+
+                    <div className="md:col-span-2">
+                      <RichTextEditor
+                        name="description"
+                        label="Pack description"
+                        defaultValue={pack.description}
+                        placeholder="Describe the pack contents, theme, or what makes it special."
+                      />
+                    </div>
 
                     <label className="block">
                       <span className="mb-2 block text-sm text-[#9FB0E6]">Price (coins)</span>

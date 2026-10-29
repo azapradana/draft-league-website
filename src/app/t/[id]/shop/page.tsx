@@ -47,6 +47,7 @@ export default async function TournamentShopPage({
   const shopPacks: ShopPack[] = packs.map((pack) => ({
     id: pack.id,
     name: pack.name,
+    description: pack.description,
     price: pack.price,
     pullCount: pack.pullCount,
     purchaseLimit: pack.purchaseLimit,
