@@ -53,7 +53,10 @@ export default async function AdminTournamentDetailPage({
           ← Back to admin dashboard
         </Link>
 
-        <div className="mt-4 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <div
+          id="general"
+          className="mt-4 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
+        >
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#F5C542]">
@@ -249,7 +252,10 @@ export default async function AdminTournamentDetailPage({
           </div>
         </section>
 
-        <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <section
+          id="participants"
+          className="mt-8 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
+        >
           <h2 className="text-xl font-semibold">Participants</h2>
 
           {tournament.participants.length === 0 ? (
@@ -276,6 +282,12 @@ export default async function AdminTournamentDetailPage({
                         </p>
                         <p className="mt-1 text-sm text-[#9FB0E6]">
                           Coins: <span className="font-semibold text-[#EEF2FF]">{participant.coins.toLocaleString()}</span>
+                        </p>
+                        <p className="mt-1 text-sm text-[#9FB0E6]">
+                          Check-in:{" "}
+                          <span className="font-semibold text-[#EEF2FF]">
+                            {participant.checkedIn ? "Checked in" : "Not checked in"}
+                          </span>
                         </p>
                       </div>
 
@@ -342,7 +354,10 @@ export default async function AdminTournamentDetailPage({
           )}
         </section>
 
-        <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <section
+          id="packs"
+          className="mt-8 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
+        >
           <div>
             <h2 className="text-xl font-semibold">Packs</h2>
             <p className="mt-1 text-sm text-[#9FB0E6]">

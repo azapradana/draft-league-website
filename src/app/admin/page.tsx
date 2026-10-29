@@ -19,43 +19,156 @@ export default async function AdminPage() {
 
   const tournaments = await prisma.tournament.findMany({
     orderBy: { name: "asc" },
+    include: {
+      _count: {
+        select: {
+          matches: true,
+          participants: true,
+        },
+      },
+    },
   });
 
   return (
-    <main className="min-h-screen bg-[#070D24] px-6 py-10 text-[#EEF2FF] sm:px-10">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-8 flex items-center justify-between gap-4">
+    <main className="min-h-screen bg-[#070D24] px-4 py-8 text-[#EEF2FF] sm:px-8 sm:py-10">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-5">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#F5C542]">
-              Admin
+              Admin workspace
             </p>
-            <h1 className="mt-2 text-3xl font-bold">Tournament dashboard</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
+              Tournaments
+            </h1>
+            <p className="mt-2 text-sm text-[#9FB0E6]">
+              Manage events, players, brackets, and packs from one place.
+            </p>
           </div>
-          <Link
-            href="/"
-            className="rounded-lg border border-[#243775] px-4 py-2 text-sm font-semibold hover:border-[#F5C542] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
-          >
-            Back to tournaments
-          </Link>
-        </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/settings"
+              className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
+            >
+              Website settings
+            </Link>
+            <a
+              href="#create-tournament"
+              className="rounded-lg bg-[#F5C542] px-5 py-3 text-sm font-bold text-[#070D24] transition hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542]"
+            >
+              Create Tournament
+            </a>
+          </div>
+        </header>
 
-        <Link
-          href="/admin/settings"
-          className="mb-8 flex items-center justify-between gap-4 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 transition hover:border-[#F5C542]"
+        <section
+          aria-labelledby="tournaments-heading"
+          className="overflow-hidden rounded-2xl border border-[#243775] bg-[#0C1638]"
         >
-          <span>
-            <span className="block font-semibold">Website branding</span>
-            <span className="mt-1 block text-sm text-[#9FB0E6]">
-              Customize your platform title, hero, logo, favicon, and accent color.
-            </span>
-          </span>
-          <span className="shrink-0 text-sm font-bold text-[#F5C542]">Customize →</span>
-        </Link>
+          <div className="flex items-center justify-between border-b border-[#243775] px-5 py-4 sm:px-6">
+            <div>
+              <h2 id="tournaments-heading" className="text-lg font-semibold">
+                All tournaments
+              </h2>
+              <p className="mt-1 text-sm text-[#9FB0E6]">
+                {tournaments.length} {tournaments.length === 1 ? "tournament" : "tournaments"}
+              </p>
+            </div>
+          </div>
 
-        <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
-          <h2 className="text-xl font-semibold">Create tournament</h2>
+          {tournaments.length === 0 ? (
+            <p className="px-6 py-10 text-center text-sm text-[#9FB0E6]">
+              No tournaments yet. Create your first tournament to get started.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className="bg-[#070D24]/60 text-xs uppercase tracking-wide text-[#9FB0E6]">
+                  <tr>
+                    <th scope="col" className="px-6 py-4 font-semibold">
+                      Tournament name
+                    </th>
+                    <th scope="col" className="px-5 py-4 font-semibold">
+                      Format
+                    </th>
+                    <th scope="col" className="px-5 py-4 font-semibold">
+                      Status
+                    </th>
+                    <th scope="col" className="px-5 py-4 text-right font-semibold">
+                      Participants
+                    </th>
+                    <th scope="col" className="px-6 py-4 text-right font-semibold">
+                      Manage
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#243775]">
+                  {tournaments.map((tournament) => {
+                    const status = tournament.completed
+                      ? "COMPLETED"
+                      : tournament._count.matches > 0
+                        ? "IN_PROGRESS"
+                        : tournament.active
+                          ? "REGISTRATION"
+                          : "DRAFT";
+                    const statusClass =
+                      status === "COMPLETED"
+                        ? "bg-emerald-950 text-emerald-300"
+                        : status === "REGISTRATION"
+                          ? "bg-[#F5C542] text-[#070D24]"
+                          : status === "IN_PROGRESS"
+                            ? "bg-blue-950 text-blue-200"
+                            : "bg-[#243775] text-[#C2CCF2]";
 
-          <form action="/api/admin" method="POST" className="mt-5 grid gap-4 md:grid-cols-2">
+                    return (
+                      <tr
+                        key={tournament.id}
+                        className="transition-colors hover:bg-[#122050]/60"
+                      >
+                        <th scope="row" className="px-6 py-4 font-semibold text-[#EEF2FF]">
+                          {tournament.name}
+                        </th>
+                        <td className="px-5 py-4 text-[#C2CCF2]">
+                          Regulation {tournament.regulation.toUpperCase()}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold tracking-wide ${statusClass}`}
+                          >
+                            {status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right tabular-nums text-[#C2CCF2]">
+                          {tournament._count.participants}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <Link
+                            href={`/admin/t/${tournament.id}`}
+                            className="inline-flex items-center rounded-lg border border-[#243775] px-4 py-2 font-semibold text-[#EEF2FF] transition hover:border-[#F5C542] hover:text-[#F5C542] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
+                          >
+                            Manage
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section
+          id="create-tournament"
+          className="mt-10 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7"
+        >
+          <div className="mb-6">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F5C542]">
+              New event
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold">Create tournament</h2>
+          </div>
+
+          <form action="/api/admin" method="POST" className="grid gap-4 md:grid-cols-2">
             <input type="hidden" name="action" value="createTournament" />
 
             <label className="block">
@@ -126,48 +239,6 @@ export default async function AdminPage() {
               </button>
             </div>
           </form>
-        </section>
-
-        <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
-          <h2 className="text-xl font-semibold">Tournaments</h2>
-
-          {tournaments.length === 0 ? (
-            <p className="mt-4 text-[#9FB0E6]">No tournaments found.</p>
-          ) : (
-            <ul className="mt-4 grid gap-4 md:grid-cols-2">
-              {tournaments.map((tournament) => (
-                <li key={tournament.id}>
-                  <Link
-                    href={`/admin/t/${tournament.id}`}
-                    className="block rounded-2xl border border-[#243775] bg-[#070D24] p-5 transition hover:border-[#F5C542]"
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="text-lg font-semibold">{tournament.name}</h3>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          tournament.completed
-                            ? "bg-emerald-950 text-emerald-300"
-                            : tournament.active
-                            ? "bg-[#F5C542] text-[#070D24]"
-                            : "bg-[#243775] text-[#9FB0E6]"
-                        }`}
-                      >
-                        {tournament.completed
-                          ? "Completed"
-                          : tournament.active
-                            ? "Open"
-                            : "Closed"}
-                      </span>
-                    </div>
-                    <p className="mt-3 text-sm text-[#9FB0E6]">
-                      Starting coins: {tournament.startingCoins.toLocaleString()} ·
-                      Max copies: {tournament.maxCopiesPerPlayer}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
         </section>
       </div>
     </main>

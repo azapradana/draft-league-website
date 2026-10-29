@@ -197,14 +197,19 @@ export default async function AdminTournamentMatchesPage({
             )}
         </header>
 
-        {disputePanelMatches.length > 0 && (
-          <DisputeResolutionPanel
-            tournamentId={tournament.id}
-            matches={disputePanelMatches}
-          />
-        )}
+        <div id="disputes" className="scroll-mt-6">
+          {disputePanelMatches.length > 0 && (
+            <DisputeResolutionPanel
+              tournamentId={tournament.id}
+              matches={disputePanelMatches}
+            />
+          )}
+        </div>
 
-        <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <section
+          id="brackets"
+          className="mt-8 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
+        >
           <h2 className="text-xl font-semibold">Matches</h2>
           {tournament.matches.length === 0 ? (
             <p className="mt-4 text-[#9FB0E6]">
