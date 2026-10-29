@@ -67,23 +67,110 @@ To stop the local database, run `docker compose down`. Data persists in the Dock
 
 ## Deploy to Vercel with Neon
 
-1. Create a PostgreSQL project in [Neon](https://neon.tech/) and import this repository into [Vercel](https://vercel.com/). Select the Next.js framework preset and use the default build command (`npm run build`).
-2. In Vercel project settings, add these environment variables for **Production**:
-   - `DATABASE_URL`: Neon pooled connection string.
-   - `DATABASE_URL_UNPOOLED`: Neon direct, unpooled connection string.
-   - `NEXTAUTH_SECRET`: a newly generated, long random secret.
-   - `NEXTAUTH_URL`: your production site URL, such as `https://your-project.vercel.app`. Do not set the production URL for Preview deployments; NextAuth can infer the preview URL from Vercel.
+Follow these steps in order. You will need accounts on GitHub (or the Git provider holding this repository), [Neon](https://neon.tech/), and [Vercel](https://vercel.com/).
 
-   If you enable Preview deployments, use a separate Neon branch/database and set its connection strings for Vercel's **Preview** environment rather than pointing previews at production data.
-3. Before opening the deployed site, initialize Neon from a trusted local machine. Put the two Neon connection strings and a strong `ADMIN_USERNAME` / `ADMIN_PASSWORD` in a local, untracked `.env`, then run:
+### 1. Check in the deployment code
+
+1. Make sure the latest version of this repository, including `package.json`, `package-lock.json`, and this README, is pushed to the Git branch you want to deploy.
+2. Confirm you can sign in to your Git hosting account and that the repository is accessible to Vercel.
+3. Use Node.js **20.19 or later** for local setup commands. In Vercel, choose Node.js **22.x** in the project settings.
+
+### 2. Create the production database in Neon
+
+1. Sign in to Neon and create a project. Choose a project name and region close to your expected users. Keep the default PostgreSQL database and branch unless you have a reason to change them.
+2. Open the project's **Connect** dialog and select the production branch and database.
+3. Copy both connection strings and keep them private:
+   - **Pooled** connection string (the hostname usually contains `-pooler`). This will be `DATABASE_URL` in Vercel and is used by the running website.
+   - **Direct / unpooled** connection string. This will be `DATABASE_URL_UNPOOLED` in Vercel and is used by Prisma for schema operations.
+4. Do not paste either connection string into source files, chat, or a Git commit. They contain database credentials.
+
+### 3. Initialize the Neon schema and administrator
+
+Do this once, from your own computer, before using the website. These commands connect to the production Neon database, so double-check that you copied the correct project and branch.
+
+1. In the repository folder, install dependencies:
+
+   ```bash
+   npm ci
+   ```
+
+2. Copy the sample environment file and edit it. In PowerShell:
+
+   ```powershell
+   Copy-Item .env.example .env
+   notepad .env
+   ```
+
+   Set `DATABASE_URL` and `DATABASE_URL_UNPOOLED` to the **direct / unpooled** Neon connection string for this one-time initialization. Set `ADMIN_USERNAME` to a new username and `ADMIN_PASSWORD` to a unique, strong password of at least 8 characters. Replace `NEXTAUTH_SECRET` too if you will run the app locally. Do not use the example credentials.
+
+   For a production database, do not use the sample `.env.example` database URL: it points to local PostgreSQL. `.env` is ignored by Git; never force-add it.
+3. Create the tables and load the species list plus the first administrator:
 
    ```bash
    npx prisma db push
    npx prisma db seed
    ```
 
-   `DATABASE_URL_UNPOOLED` is used for schema operations; the seed connects with `DATABASE_URL`. Keep these credentials private and never add them to source control.
-4. Deploy from Vercel or push a commit to the connected Git branch. Vercel will generate Prisma Client and build the Next.js app. Future pushes to the production branch deploy automatically.
-5. If enabling Google sign-in, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the appropriate Vercel environments and allow the callback URL `https://your-production-domain/api/auth/callback/google` in Google OAuth settings.
+   Wait for both commands to finish successfully. The seed command creates the `ADMIN_USERNAME` account with the `ADMIN` role. Running the seed again with the same username **resets that account's password** to the current `ADMIN_PASSWORD`.
+4. Keep a safe record of the admin username/password. Do not add `ADMIN_USERNAME` or `ADMIN_PASSWORD` to Vercel; they are only needed for the seed command.
 
-The repository does not yet have a baseline Prisma migration. Initialize a new Neon database with `prisma db push` as above; do not use `prisma migrate deploy` until a baseline migration has been created.
+This repository currently has no baseline Prisma migration. Use `prisma db push` to initialize this database; do not use `prisma migrate deploy`. Do not run `db push` against an existing database containing data unless you have reviewed the schema changes and have a backup.
+
+### 4. Import the app into Vercel
+
+1. In Vercel, choose **Add New → Project**, connect the Git provider if prompted, find this repository, and select **Import**.
+2. Set the project/root directory to the repository root (the folder containing `package.json`).
+3. Confirm Vercel detects **Next.js**. Use these build settings:
+   - Install command: `npm ci` (default is fine).
+   - Build command: `npm run build`.
+   - Output directory: leave the default; do not override it.
+   - Node.js version: `22.x`.
+4. Before deploying, add these environment variables under **Environment Variables**, with the **Production** environment selected:
+   - `DATABASE_URL`: the Neon **pooled** connection string.
+   - `DATABASE_URL_UNPOOLED`: the Neon **direct / unpooled** connection string.
+   - `NEXTAUTH_SECRET`: a newly generated random secret. You can generate one in PowerShell with:
+
+     ```powershell
+     node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+     ```
+
+   - `NEXTAUTH_URL`: the complete production URL, including `https://`, for example `https://your-project.vercel.app`. Use the Vercel project name/domain you selected.
+5. Add each variable with the exact spelling above. Do not include surrounding quotes in Vercel's value field. Do not add `ADMIN_PASSWORD` or the database URL to a `NEXT_PUBLIC_` variable.
+6. Select **Deploy** and wait for the deployment to finish. A successful build should show `prisma generate` and `next build` completing successfully.
+
+If you change an environment variable after deploying, go to **Deployments**, redeploy the latest production deployment, and ensure the redeploy uses the latest build.
+
+### 5. Open the deployed site and verify administrator access
+
+1. Open the production URL from Vercel. The home page should load without a server error.
+2. Select **Sign in**, then sign in with the `ADMIN_USERNAME` and `ADMIN_PASSWORD` used when seeding Neon.
+3. Open **Admin**. If the dashboard loads, the app can authenticate and read the production database.
+4. If you land on the home page as a non-admin, confirm you seeded the correct Neon project and used the exact username. If login fails, check the Vercel runtime logs and the `NEXTAUTH_SECRET` / database environment variables before reseeding.
+
+### 6. Set up and test a tournament
+
+To make the website usable by players, finish the in-app setup:
+
+1. In **Admin**, create a tournament. Fill in its name, rules/description, starting coins, and copy limits.
+2. Open that tournament's admin page. Add one or more packs. Configure each pack's name, description, price, pull count, and optional purchase limit; then open its pack editor and add tiers and eligible Pokémon species. A pack needs configured tiers and entries to offer useful pulls.
+3. Open the tournament settings and enable **Open / active** when you are ready for players to join. Keep check-in closed until the event is ready.
+4. In a separate browser or private window, create a normal player account using **Sign up**. Usernames must be 3–20 lowercase letters, numbers, or underscores; passwords must be at least 8 characters.
+5. As that player, open the tournament and request to join. Return to the admin page and approve the participant. Repeat for the real players.
+6. As an approved player, confirm the shop shows the configured pack, open a pack, and set a roster from the collection page. Test this with a test account before inviting the whole group.
+7. When ready for the event, open check-in in the tournament admin settings. Players check in on the tournament page. Close check-in, then use the admin matches page to generate round one. Participants submit match results in their match rooms; admins can resolve disputes and start subsequent rounds.
+8. Test sign-out and sign-in again, and verify tournament, shop, roster, and match pages still load after a page refresh. This confirms the data persists in Neon rather than only in a browser session.
+
+### 7. Optional custom domain and Google sign-in
+
+- **Custom domain:** Add the domain in Vercel's **Settings → Domains** and follow Vercel's DNS instructions. After Vercel confirms the domain, update `NEXTAUTH_URL` in the Production environment to the exact canonical `https://` URL, then redeploy.
+- **Google sign-in:** In Google Cloud Console, configure an OAuth consent screen and OAuth client. Add the exact callback URL `https://your-production-domain/api/auth/callback/google` to the authorized redirect URIs. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Vercel's Production environment and redeploy. Both variables must be present together. Username/password sign-in works without Google OAuth.
+- **Preview deployments:** Do not connect Vercel Preview deployments to production Neon data. If previews are needed, create a separate Neon branch/database and set its pooled and direct URLs under Vercel's **Preview** environment.
+
+### Troubleshooting
+
+- **Build fails before Next.js starts:** Confirm the latest commit is deployed, Node.js is set to 22.x, and the install/build commands are `npm ci` and `npm run build`.
+- **App returns a database error:** Check that both Neon URLs are present in Vercel Production, have no missing characters/quotes, and refer to the same Neon project/branch. Use the pooled URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
+- **Prisma reports missing tables:** Run `npx prisma db push` locally with the correct production Neon URLs, then run `npx prisma db seed`.
+- **Admin cannot sign in:** Confirm the seed completed, use the seeded username (not the database password), and rerun `npx prisma db seed` with the intended admin credentials if needed. Reseeding that username resets its password.
+- **Changes to environment variables have no effect:** Redeploy after editing the Vercel environment variables.
+- **Need to inspect a runtime failure:** In Vercel, open the failed deployment or **Logs** and check the server/runtime error. Never paste secrets into a public issue or log excerpt.
