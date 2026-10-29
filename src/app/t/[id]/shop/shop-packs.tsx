@@ -206,6 +206,7 @@ export default function ShopPacks({
           pulls={pulls}
           packImage={openingResultPack?.packImage ?? null}
           cardBackImage={cardBackImage}
+          packPrice={openingResultPack?.price ?? 0}
           onClose={() => {
             setPulls(null);
             setOpeningResultPack(null);
