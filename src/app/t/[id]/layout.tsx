@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import TournamentNavigation from "./tournament-navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
+import { CoinBalanceDisplay, CoinBalanceProvider } from "./coin-balance";
 
 export default async function TournamentLayout({
   children,
@@ -36,40 +37,38 @@ export default async function TournamentLayout({
     ? tournament.participants[0]?.coins
     : undefined;
   return (
-    <div className="min-h-screen bg-[#070D24] text-[#EEF2FF]">
-      <header className="border-b border-[#243775] bg-[#0C1638]">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-6 sm:px-10">
-          <div>
-            <Link className="text-sm text-[#9FB0E6] hover:text-[#EEF2FF]" href="/">
-              All tournaments
-            </Link>
-            <h1 className="mt-1 text-2xl font-bold">{tournament.name}</h1>
+    <CoinBalanceProvider key={id} initialBalance={coinBalance ?? null}>
+      <div className="min-h-screen bg-[#070D24] text-[#EEF2FF]">
+        <header className="border-b border-[#243775] bg-[#0C1638]">
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-6 sm:px-10">
+            <div>
+              <Link className="text-sm text-[#9FB0E6] hover:text-[#EEF2FF]" href="/">
+                All tournaments
+              </Link>
+              <h1 className="mt-1 text-2xl font-bold">{tournament.name}</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  tournament.active
+                    ? "bg-[#F5C542] text-[#070D24]"
+                    : "bg-[#243775] text-[#9FB0E6]"
+                }`}
+              >
+                {tournament.active ? "Active" : "Inactive"}
+              </span>
+              <CoinBalanceDisplay />
+              <AccountMenu
+                email={session.user.email}
+                name={session.user.name ?? session.user.email ?? "Player"}
+                role={session.user.role}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-bold ${
-                tournament.active
-                  ? "bg-[#F5C542] text-[#070D24]"
-                  : "bg-[#243775] text-[#9FB0E6]"
-              }`}
-            >
-              {tournament.active ? "Active" : "Inactive"}
-            </span>
-            <p className="text-sm font-semibold text-[#F5C542]">
-              {coinBalance === undefined
-                ? "Coins: —"
-                : `${coinBalance.toLocaleString()} coins`}
-            </p>
-            <AccountMenu
-              email={session.user.email}
-              name={session.user.name ?? session.user.email ?? "Player"}
-              role={session.user.role}
-            />
-          </div>
-        </div>
-        <TournamentNavigation tournamentId={id} />
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-10 sm:px-10">{children}</main>
-    </div>
+          <TournamentNavigation tournamentId={id} />
+        </header>
+        <main className="mx-auto max-w-5xl px-6 py-10 sm:px-10">{children}</main>
+      </div>
+    </CoinBalanceProvider>
   );
 }

@@ -79,7 +79,9 @@ function TierEditor({
   populatedTierIds: Set<string>;
   onSaved: (tiers: PackEditorTier[]) => void;
 }) {
-  const [draft, setDraft] = useState(tiers);
+  const [draft, setDraft] = useState(() =>
+    tiers.map((tier) => ({ ...tier, minimumOne: tier.minimumOne === true })),
+  );
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
   const [saving, setSaving] = useState(false);
@@ -108,8 +110,12 @@ function TierEditor({
       if (!result.tiers) {
         throw new Error("The server did not return the saved tiers.");
       }
-      setDraft(result.tiers);
-      onSaved(result.tiers);
+      const savedTiers = result.tiers.map((tier) => ({
+        ...tier,
+        minimumOne: tier.minimumOne === true,
+      }));
+      setDraft(savedTiers);
+      onSaved(savedTiers);
       setSaved("Tiers saved.");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "The tiers could not be saved.");
@@ -196,7 +202,7 @@ function TierEditor({
                 <label className="flex items-center gap-2 self-end pb-3 text-sm text-[#9FB0E6]">
                   <input
                     type="checkbox"
-                    checked={tier.minimumOne}
+                    checked={tier.minimumOne === true}
                     onChange={(event) => updateTier(index, { minimumOne: event.target.checked })}
                     className="h-4 w-4 accent-[#F5C542]"
                     aria-label={`Guarantee at least one ${tier.name || "unnamed"} Pokémon per pack`}

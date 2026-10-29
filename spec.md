@@ -45,7 +45,7 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 - **PackTier:** pack, name, weight (decimal), color (hex), minimumOne (guarantee at least one pull from this tier).
 - **PackEntry:** pack + species (unique pair), tier. This is the pack's pool.
 - **Purchase:** participant, pack, cost, timestamp.
-- **OwnedPokemon:** participant, species, purchase. One row per copy owned.
+- **OwnedPokemon:** participant, species, purchase, tier name and color snapshots. One row per copy owned.
 - **Roster:** participant (one-to-one), speciesIds (int array, max 6).
 
 ## 4. Gacha rules

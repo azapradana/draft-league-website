@@ -135,6 +135,8 @@ export async function POST(request: NextRequest) {
           name?: string;
           active?: boolean;
           rostersLocked?: boolean;
+          rostersPublic?: boolean;
+          checkInOpen?: boolean;
           startingCoins?: number;
           maxCopiesPerPlayer?: number;
           maxCopiesLeague?: number | null;
@@ -154,6 +156,14 @@ export async function POST(request: NextRequest) {
 
         if ("rostersLocked" in body) {
           updateData.rostersLocked = asBoolean(body.rostersLocked, tournament.rostersLocked);
+        }
+
+        if ("rostersPublic" in body) {
+          updateData.rostersPublic = asBoolean(body.rostersPublic, tournament.rostersPublic);
+        }
+
+        if ("checkInOpen" in body) {
+          updateData.checkInOpen = asBoolean(body.checkInOpen, tournament.checkInOpen);
         }
 
         if ("startingCoins" in body) {

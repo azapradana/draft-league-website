@@ -1,8 +1,11 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
+import PokemonArtwork from "./pokemon-artwork";
 
 export default async function TournamentOverview({
   params,
@@ -18,19 +21,100 @@ export default async function TournamentOverview({
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      regulation: true,
+      startingCoins: true,
+      maxCopiesPerPlayer: true,
+      maxCopiesLeague: true,
+      checkInOpen: true,
+      rostersLocked: true,
+      rostersPublic: true,
       participants: {
         where: { userId: session.user.id },
-        select: { status: true },
+        select: { id: true, status: true, checkedIn: true },
+      },
+      matches: {
+        orderBy: [{ roundNumber: "asc" }, { createdAt: "asc" }],
+        include: {
+          player1: {
+            include: {
+              user: { select: { name: true, username: true } },
+            },
+          },
+          player2: {
+            include: {
+              user: { select: { name: true, username: true } },
+            },
+          },
+          winner: {
+            include: {
+              user: { select: { name: true, username: true } },
+            },
+          },
+        },
       },
     },
   });
 
   if (!tournament) notFound();
 
+  const canViewAllRosters =
+    session.user.role === "ADMIN" || tournament.rostersPublic;
+  const approvedParticipants = await prisma.participant.findMany({
+    where: { tournamentId: id, status: "APPROVED" },
+    orderBy: [{ user: { name: "asc" } }, { id: "asc" }],
+    select: {
+      id: true,
+      checkedIn: true,
+      user: { select: { name: true, username: true } },
+    },
+  });
+  const visibleRosters = await prisma.roster.findMany({
+    where: {
+      participant: {
+        is: {
+          tournamentId: id,
+          status: "APPROVED",
+          ...(canViewAllRosters ? {} : { userId: session.user.id }),
+        },
+      },
+    },
+    select: { participantId: true, speciesIds: true },
+  });
+  const speciesIds = [...new Set(visibleRosters.flatMap((roster) => roster.speciesIds))];
+  const species = speciesIds.length
+    ? await prisma.species.findMany({
+        where: { dex: { in: speciesIds } },
+        select: { dex: true, name: true, isMega: true, imageUrl: true },
+      })
+    : [];
+  const speciesByDex = new Map(species.map((entry) => [entry.dex, entry]));
+  const rosterByParticipant = new Map(
+    visibleRosters.map((roster) => [roster.participantId, roster.speciesIds]),
+  );
+
   const participation = Array.isArray(tournament.participants)
     ? tournament.participants[0]
     : undefined;
+  const currentRound =
+    tournament.matches.length > 0
+      ? tournament.matches[tournament.matches.length - 1].roundNumber
+      : null;
+  const rounds = Array.from(
+    new Set(tournament.matches.map((match) => match.roundNumber)),
+  );
+
+  function displayName(
+    participant: {
+      id: string;
+      user: { name: string | null; username: string | null };
+    } | null,
+  ) {
+    if (!participant) return "Bye";
+    return participant.user.name ?? participant.user.username ?? "Unnamed player";
+  }
 
   return (
     <div className="space-y-8">
@@ -105,6 +189,235 @@ export default async function TournamentOverview({
           <div className="mt-4">
             <p className="text-[#9FB0E6]">You have not joined this tournament.</p>
             <JoinTournamentButton tournamentId={id} />
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[#F5C542]/50 bg-[#0C1638] p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold">Tournament check-in</h3>
+            <p className="mt-2 text-[#9FB0E6]">
+              {!tournament.checkInOpen
+                ? "Check-in is currently closed."
+                : participation?.status !== "APPROVED"
+                  ? "Check-in is open. An approved tournament place is required."
+                  : participation.checkedIn
+                    ? "You are checked in for this tournament."
+                    : "Check in now to confirm your participation."}
+            </p>
+          </div>
+          {tournament.checkInOpen &&
+            participation?.status === "APPROVED" &&
+            (participation.checkedIn ? (
+              <span className="rounded-lg border border-emerald-500/60 px-5 py-3 font-semibold text-emerald-300">
+                Checked in
+              </span>
+            ) : (
+              <CheckInButton tournamentId={id} />
+            ))}
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <div>
+          <h3 className="text-xl font-semibold">Tournament bracket</h3>
+          <p className="mt-1 text-sm text-[#9FB0E6]">
+            {currentRound === null
+              ? "Pairings will appear here when the tournament starts."
+              : `Current round: Round ${currentRound}. Your active pairing is highlighted.`}
+          </p>
+        </div>
+
+        {tournament.matches.length > 0 && (
+          <div className="mt-6 space-y-8">
+            {rounds.map((roundNumber) => {
+              const roundMatches = tournament.matches.filter(
+                (match) => match.roundNumber === roundNumber,
+              );
+
+              return (
+                <section key={roundNumber}>
+                  <h4 className="mb-3 text-lg font-semibold">
+                    Round {roundNumber}
+                    {roundNumber === currentRound ? " · Current" : ""}
+                  </h4>
+                  <ul className="space-y-3">
+                    {roundMatches.map((match, index) => {
+                      const isOwnMatch =
+                        roundNumber === currentRound &&
+                        Boolean(participation?.id) &&
+                        (match.player1Id === participation?.id ||
+                          match.player2Id === participation?.id);
+
+                      return (
+                        <li
+                          key={match.id}
+                          className={`rounded-xl border p-4 ${
+                            isOwnMatch
+                              ? "border-[#F5C542] bg-[#F5C542]/10 ring-1 ring-[#F5C542]/50"
+                              : "border-[#243775] bg-[#070D24]"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className="text-sm text-[#9FB0E6]">
+                              Match {index + 1}
+                              {isOwnMatch && (
+                                <span className="ml-2 font-bold text-[#F5C542]">
+                                  Your pairing
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                match.status === "COMPLETED"
+                                  ? "bg-emerald-950 text-emerald-300"
+                                  : match.status === "DISPUTED"
+                                    ? "bg-red-950 text-red-300"
+                                    : "bg-[#243775] text-[#9FB0E6]"
+                              }`}
+                            >
+                              {match.status}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2 font-semibold">
+                            {[match.player1, match.player2].map(
+                              (player, playerIndex) => (
+                                <span
+                                  key={player?.id ?? `bye-${match.id}-${playerIndex}`}
+                                  className="inline-flex items-center gap-2"
+                                >
+                                  {playerIndex > 0 && (
+                                    <span className="text-[#9FB0E6]">vs.</span>
+                                  )}
+                                  <span
+                                    className={
+                                      player?.id === participation?.id
+                                        ? "text-[#F5C542]"
+                                        : undefined
+                                    }
+                                  >
+                                    {displayName(player)}
+                                  </span>
+                                  {player && (
+                                    <Link
+                                      href={`/t/${tournament.id}/matches/${match.id}`}
+                                      className="rounded-md border border-[#243775] px-2 py-1 text-xs font-semibold text-[#9FB0E6] hover:border-[#F5C542] hover:text-[#F5C542]"
+                                    >
+                                      Open match
+                                    </Link>
+                                  )}
+                                </span>
+                              ),
+                            )}
+                          </div>
+
+                          {match.player2 === null ? (
+                            <p className="mt-2 text-sm text-emerald-300">
+                              Bye — {displayName(match.winner)} advanced automatically.
+                            </p>
+                          ) : match.winner ? (
+                            <p className="mt-2 text-sm text-[#9FB0E6]">
+                              Winner: {displayName(match.winner)}
+                            </p>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 className="text-xl font-semibold">Participants</h3>
+            <p className="mt-1 text-sm text-[#9FB0E6]">
+              {canViewAllRosters
+                ? "Check-in status and participant rosters."
+                : "Check-in status is public. Rosters are private except for your own."}
+            </p>
+          </div>
+          <span className="text-sm text-[#9FB0E6]">
+            {tournament.rostersLocked ? "Rosters locked" : "Roster editing open"}
+          </span>
+        </div>
+
+        {approvedParticipants.length === 0 ? (
+          <p className="mt-5 text-[#9FB0E6]">No approved participants yet.</p>
+        ) : (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[36rem] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-[#243775] text-sm text-[#9FB0E6]">
+                  <th scope="col" className="px-3 py-3 font-semibold">Participant</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">Check-in</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">
+                    {tournament.rostersLocked ? "Locked roster" : "Current roster"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {approvedParticipants.map((participant) => {
+                  const isOwnParticipant = participant.id === participation?.id;
+                  const canViewRoster = canViewAllRosters || isOwnParticipant;
+                  const roster = canViewRoster
+                    ? (rosterByParticipant.get(participant.id) ?? [])
+                    : null;
+
+                  return (
+                    <tr key={participant.id} className="border-b border-[#243775]/70 align-top last:border-0">
+                      <th scope="row" className="px-3 py-4 font-semibold">
+                        {participant.user.name ??
+                          participant.user.username ??
+                          "Unnamed player"}
+                      </th>
+                      <td className="px-3 py-4">
+                        <span
+                          className={
+                            participant.checkedIn
+                              ? "font-semibold text-emerald-300"
+                              : "text-[#9FB0E6]"
+                          }
+                        >
+                          {participant.checkedIn ? "Checked in" : "Not checked in"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4">
+                        {roster === null ? (
+                          <span className="text-[#9FB0E6]">Private</span>
+                        ) : roster.length === 0 ? (
+                          <span className="text-[#9FB0E6]">No roster saved</span>
+                        ) : (
+                          <ul className="flex flex-wrap gap-2">
+                            {roster.map((speciesDex) => {
+                              const entry = speciesByDex.get(speciesDex);
+                              if (!entry) return null;
+
+                              return (
+                                <li
+                                  key={speciesDex}
+                                  className="flex items-center gap-1.5 rounded-lg border border-[#243775] bg-[#070D24] px-2 py-1"
+                                  title={`${entry.name} #${entry.dex}${entry.isMega ? " · Mega" : ""}`}
+                                >
+                                  <PokemonArtwork species={entry} className="h-8 w-8" />
+                                  <span className="text-sm">{entry.name}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </section>

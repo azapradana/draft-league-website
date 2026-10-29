@@ -18,18 +18,25 @@ enum ParticipantStatus {
   REJECTED
 }
 
+enum MatchStatus {
+  PENDING
+  COMPLETED
+  DISPUTED
+}
+
 model User {
-  id            String        @id @default(cuid())
-  username      String?       @unique
+  id            String         @id @default(cuid())
+  username      String?        @unique
   name          String?
-  email         String?       @unique
+  email         String?        @unique
   emailVerified DateTime?
   image         String?
   passwordHash  String?
-  role          Role          @default(PLAYER)
+  role          Role           @default(PLAYER)
   accounts      Account[]
   sessions      Session[]
   participants  Participant[]
+  matchMessages MatchMessage[]
 }
 
 model Account {
@@ -74,23 +81,66 @@ model Tournament {
   maxCopiesPerPlayer Int           @default(3)
   maxCopiesLeague    Int?
   rostersLocked      Boolean       @default(false)
+  rostersPublic      Boolean       @default(false)
+  checkInOpen        Boolean       @default(false)
   participants       Participant[]
   packs              Pack[]
+  matches            Match[]
 }
 
 model Participant {
-  id           String            @id @default(cuid())
-  userId       String
-  tournamentId String
-  status       ParticipantStatus @default(PENDING)
-  coins        Int               @default(0)
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tournament   Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  purchases    Purchase[]
-  ownedPokemon OwnedPokemon[]
-  roster       Roster?
+  id             String            @id @default(cuid())
+  userId         String
+  tournamentId   String
+  status         ParticipantStatus @default(PENDING)
+  checkedIn      Boolean           @default(false)
+  coins          Int               @default(0)
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament     Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  purchases      Purchase[]
+  ownedPokemon   OwnedPokemon[]
+  roster         Roster?
+  player1Matches Match[]           @relation("MatchPlayer1")
+  player2Matches Match[]           @relation("MatchPlayer2")
+  wonMatches     Match[]           @relation("MatchWinner")
+  player1Votes   Match[]           @relation("MatchPlayer1Vote")
+  player2Votes   Match[]           @relation("MatchPlayer2Vote")
 
   @@unique([userId, tournamentId])
+}
+
+model Match {
+  id           String         @id @default(cuid())
+  tournamentId String
+  roundNumber  Int
+  player1Id    String?
+  player2Id    String?
+  winnerId     String?
+  player1Vote  String?
+  player2Vote  String?
+  status       MatchStatus    @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tournament   Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player1      Participant?   @relation("MatchPlayer1", fields: [player1Id], references: [id], onDelete: SetNull)
+  player2      Participant?   @relation("MatchPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
+  winner       Participant?   @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  player1Voted Participant?   @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
+  player2Voted Participant?   @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
+  messages     MatchMessage[]
+
+  @@index([tournamentId, roundNumber])
+}
+
+model MatchMessage {
+  id         String   @id @default(cuid())
+  matchId    String
+  senderId   String
+  senderName String
+  content    String
+  timestamp  DateTime @default(now())
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Species {
@@ -117,14 +167,14 @@ model Pack {
 }
 
 model PackTier {
-  id      String      @id @default(cuid())
-  packId  String
-  name    String
-  weight  Decimal     @db.Decimal(10, 4)
-  color   String
-  minimumOne Boolean @default(false)
-  pack    Pack        @relation(fields: [packId], references: [id], onDelete: Cascade)
-  entries PackEntry[]
+  id         String      @id @default(cuid())
+  packId     String
+  name       String
+  weight     Decimal     @db.Decimal(10, 4)
+  color      String
+  minimumOne Boolean     @default(false)
+  pack       Pack        @relation(fields: [packId], references: [id], onDelete: Cascade)
+  entries    PackEntry[]
 }
 
 model PackEntry {
@@ -155,6 +205,8 @@ model OwnedPokemon {
   participantId String
   speciesDex    Int
   purchaseId    String
+  tierName      String?
+  tierColor     String?
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   species       Species     @relation(fields: [speciesDex], references: [dex], onDelete: Cascade)
   purchase      Purchase    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)

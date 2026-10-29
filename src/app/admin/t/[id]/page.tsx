@@ -59,15 +59,23 @@ export default async function AdminTournamentDetailPage({
               </p>
               <h1 className="mt-2 text-3xl font-bold">{tournament.name}</h1>
             </div>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-bold ${
-                tournament.active
-                  ? "bg-[#F5C542] text-[#070D24]"
-                  : "bg-[#243775] text-[#9FB0E6]"
-              }`}
-            >
-              {tournament.active ? "Open" : "Closed"}
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={`/admin/t/${tournament.id}/matches`}
+                className="rounded-lg border border-[#F5C542] px-4 py-2 text-sm font-bold text-[#F5C542] hover:bg-[#F5C542] hover:text-[#070D24]"
+              >
+                Manage bracket
+              </Link>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  tournament.active
+                    ? "bg-[#F5C542] text-[#070D24]"
+                    : "bg-[#243775] text-[#9FB0E6]"
+                }`}
+              >
+                {tournament.active ? "Open" : "Closed"}
+              </span>
+            </div>
           </div>
 
           <form action="/api/admin" method="POST" className="mt-6 grid gap-4 md:grid-cols-2">
@@ -134,7 +142,33 @@ export default async function AdminTournamentDetailPage({
                 defaultChecked={tournament.rostersLocked}
                 className="h-4 w-4 accent-[#F5C542]"
               />
-              <span className="text-sm text-[#9FB0E6]">Lock rosters</span>
+              <span className="text-sm text-[#9FB0E6]">Lock roster editing</span>
+            </label>
+
+            <label className="flex items-center gap-3">
+              <input type="hidden" name="rostersPublic" value="false" />
+              <input
+                type="checkbox"
+                name="rostersPublic"
+                value="true"
+                defaultChecked={tournament.rostersPublic}
+                className="h-4 w-4 accent-[#F5C542]"
+              />
+              <span className="text-sm text-[#9FB0E6]">
+                Open rosters for participants to view
+              </span>
+            </label>
+
+            <label className="flex items-center gap-3">
+              <input type="hidden" name="checkInOpen" value="false" />
+              <input
+                type="checkbox"
+                name="checkInOpen"
+                value="true"
+                defaultChecked={tournament.checkInOpen}
+                className="h-4 w-4 accent-[#F5C542]"
+              />
+              <span className="text-sm text-[#9FB0E6]">Open participant check-in</span>
             </label>
 
             <div className="md:col-span-2">
