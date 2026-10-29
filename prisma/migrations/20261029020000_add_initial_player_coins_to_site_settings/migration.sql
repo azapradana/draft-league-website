@@ -1,0 +1,2 @@
+ALTER TABLE "SiteSettings"
+ADD COLUMN "initialPlayerCoins" INTEGER NOT NULL DEFAULT 500;

@@ -1,9 +1,11 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import type { AdapterUser } from "next-auth/adapters";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettings } from "@/lib/site-settings";
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
@@ -61,6 +63,24 @@ const providers: NextAuthOptions["providers"] = [
   }),
 ];
 
+const adapter = PrismaAdapter(prisma);
+adapter.createUser = async (user: Omit<AdapterUser, "id">) => {
+  const settings = await getSiteSettings();
+  const createdUser = await prisma.user.create({
+    data: {
+      ...user,
+      coinsBalance: settings.initialPlayerCoins,
+    },
+  });
+  return {
+    id: createdUser.id,
+    name: createdUser.name,
+    email: user.email,
+    emailVerified: createdUser.emailVerified,
+    image: createdUser.image,
+  };
+};
+
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -80,7 +100,7 @@ if (googleClientId && googleClientSecret) {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter,
   providers,
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: "jwt" },

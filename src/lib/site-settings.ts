@@ -11,6 +11,7 @@ export const DEFAULT_SITE_SETTINGS = {
   faviconUrl: null,
   siteLogoUrl: null,
   accentColor: "#F5C542",
+  initialPlayerCoins: 500,
 };
 
 export async function getSiteSettings() {

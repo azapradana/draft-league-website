@@ -26,7 +26,7 @@ export default async function AdminSettingsPage() {
               Admin · Site settings
             </p>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Branding &amp; customization
+              Branding &amp; player economy
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#9FB0E6]">
               Shape the first impression of your league. Updates are reflected across the

@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
         const faviconUrl = asString(body.faviconUrl).trim();
         const siteLogoUrl = asString(body.siteLogoUrl).trim();
         const accentColor = asString(body.accentColor).trim();
+        const initialPlayerCoins = asStrictInt(body.initialPlayerCoins);
 
         if (!siteTitle || siteTitle.length > 80) {
           return NextResponse.json({ error: "Platform title is required and must be 80 characters or fewer." }, { status: 400 });
@@ -143,6 +144,16 @@ export async function POST(request: NextRequest) {
         if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) {
           return NextResponse.json({ error: "Accent color must be a six-digit hex color." }, { status: 400 });
         }
+        if (
+          initialPlayerCoins === undefined ||
+          initialPlayerCoins < 0 ||
+          initialPlayerCoins > 2_147_483_647
+        ) {
+          return NextResponse.json(
+            { error: "Initial player coins must be a whole number from 0 to 2,147,483,647." },
+            { status: 400 },
+          );
+        }
 
         const settings = await prisma.siteSettings.upsert({
           where: { id: SITE_SETTINGS_ID },
@@ -155,6 +166,7 @@ export async function POST(request: NextRequest) {
             faviconUrl: faviconUrl || null,
             siteLogoUrl: siteLogoUrl || null,
             accentColor,
+            initialPlayerCoins,
           },
           update: {
             siteTitle,
@@ -164,6 +176,7 @@ export async function POST(request: NextRequest) {
             faviconUrl: faviconUrl || null,
             siteLogoUrl: siteLogoUrl || null,
             accentColor,
+            initialPlayerCoins,
           },
         });
 
@@ -890,6 +903,24 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.redirect(new URL("/admin/packs", request.url), 303);
+      }
+
+      case "deleteTournament": {
+        const id = asString(body.id);
+        if (!id) {
+          return NextResponse.json({ error: "Tournament ID is required." }, { status: 400 });
+        }
+
+        const result = await prisma.tournament.deleteMany({ where: { id } });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
+        }
+
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          return NextResponse.json({ success: true });
+        }
+
+        return NextResponse.redirect(new URL("/admin", request.url), 303);
       }
 
       case "attachTournamentPack": {

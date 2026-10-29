@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -38,11 +39,13 @@ export async function POST(request: NextRequest) {
   const passwordHash = await bcrypt.hash(password, 12);
 
   try {
+    const settings = await getSiteSettings();
     const user = await prisma.user.create({
       data: {
         username,
         name: username,
         passwordHash,
+        coinsBalance: settings.initialPlayerCoins,
       },
       select: { id: true },
     });

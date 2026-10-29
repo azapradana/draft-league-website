@@ -96,6 +96,7 @@ model SiteSettings {
   faviconUrl          String?
   siteLogoUrl         String?
   accentColor         String  @default("#F5C542")
+  initialPlayerCoins  Int     @default(500)
 }
 
 model Tournament {

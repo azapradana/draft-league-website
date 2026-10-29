@@ -12,6 +12,7 @@ type SettingsValues = {
   faviconUrl: string | null;
   siteLogoUrl: string | null;
   accentColor: string;
+  initialPlayerCoins: number;
 };
 
 type UploadKey = "heroBackgroundImage" | "faviconUrl" | "siteLogoUrl";
@@ -56,7 +57,7 @@ export function SiteSettingsForm({ settings }: { settings: SettingsValues }) {
         return;
       }
 
-      setMessage("Branding saved. Your website is up to date.");
+      setMessage("Site settings saved.");
       router.refresh();
     } catch {
       setError("Your site settings could not be saved. Check your connection and try again.");
@@ -143,6 +144,35 @@ export function SiteSettingsForm({ settings }: { settings: SettingsValues }) {
       <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
         <div className="mb-6">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F5C542]">
+            Player economy
+          </p>
+          <h2 className="mt-1 text-xl font-bold">New account wallet</h2>
+          <p className="mt-2 text-sm leading-6 text-[#9FB0E6]">
+            This amount is credited to a player&apos;s persistent wallet when they create an
+            account. It does not change existing balances or tournament starting coins.
+          </p>
+        </div>
+
+        <label className="block max-w-sm">
+          <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">
+            Initial wallet coins
+          </span>
+          <input
+            name="initialPlayerCoins"
+            type="number"
+            min={0}
+            max={2147483647}
+            step={1}
+            required
+            defaultValue={settings.initialPlayerCoins}
+            className="w-full rounded-xl border border-[#243775] bg-[#070D24] px-4 py-3 text-sm outline-none transition focus:border-[#F5C542]"
+          />
+        </label>
+      </section>
+
+      <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
+        <div className="mb-6">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F5C542]">
             Homepage
           </p>
           <h2 className="mt-1 text-xl font-bold">Hero content</h2>
@@ -198,7 +228,7 @@ export function SiteSettingsForm({ settings }: { settings: SettingsValues }) {
           disabled={saving || hasUploadsInProgress}
           className="inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F5C542] px-6 py-3 text-sm font-extrabold text-[#070D24] transition hover:bg-[#D9A21B] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {saving ? "Saving changes…" : "Save branding"}
+          {saving ? "Saving changes…" : "Save settings"}
         </button>
       </div>
     </form>

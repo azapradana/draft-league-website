@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { AdminDialog } from "./admin-dialog";
+import { DeleteTournamentButton } from "./delete-tournament-button";
 import { TournamentFormatFields } from "./tournament-format-fields";
 
 export default async function AdminPage() {
@@ -167,12 +168,18 @@ export default async function AdminPage() {
                             ` / ${tournament.maxParticipants}`}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <Link
-                            href={`/admin/t/${tournament.id}`}
-                            className="inline-flex items-center rounded-lg border border-[#243775] px-4 py-2 font-semibold text-[#EEF2FF] transition hover:border-[#F5C542] hover:text-[#F5C542]"
-                          >
-                            Manage
-                          </Link>
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/admin/t/${tournament.id}`}
+                              className="inline-flex items-center rounded-lg border border-[#243775] px-4 py-2 font-semibold text-[#EEF2FF] transition hover:border-[#F5C542] hover:text-[#F5C542]"
+                            >
+                              Manage
+                            </Link>
+                            <DeleteTournamentButton
+                              tournamentId={tournament.id}
+                              tournamentName={tournament.name}
+                            />
+                          </div>
                         </td>
                       </tr>
                     );

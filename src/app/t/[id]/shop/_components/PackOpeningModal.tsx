@@ -99,6 +99,16 @@ export default function PackOpeningModal({
   const currentPull = pulls[currentIndex];
   const isLastPull = currentIndex >= pulls.length - 1;
   const canReveal = phase === "flash" || phase === "encounter";
+  const packArtwork =
+    packImage && !packImageFailed ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={packImage} alt="" onError={() => setPackImageFailed(true)} />
+    ) : (
+      <span className="pack-copy">
+        <strong>Draft League</strong>
+        <b>Mystery<br />Pack</b>
+      </span>
+    );
 
   function startTear() {
     if (phase === "sealed") setPhase("tearing");
@@ -178,8 +188,17 @@ export default function PackOpeningModal({
                   style={{ touchAction: "none", rotate: -3 }}
                   whileHover={phase === "sealed" ? { rotate: 0, scale: 1.035 } : undefined}
                 >
+                  <span
+                    className="pack-art"
+                    aria-hidden="true"
+                    style={{ visibility: phase === "sealed" ? "visible" : "hidden" }}
+                  >
+                    {packArtwork}
+                    <span className="pack-inner-border" />
+                  </span>
                   <motion.span
                     className="pack-art pack-top-half"
+                    initial="rest"
                     animate={phase === "tearing" ? "torn" : "rest"}
                     variants={{
                       rest: { x: 0, y: 0, rotate: 0, opacity: 1, skewY: 0 },
@@ -190,21 +209,15 @@ export default function PackOpeningModal({
                         ? { duration: 0.01 }
                         : { type: "spring", stiffness: 150, damping: 18, mass: 0.8 }
                     }
+                    style={{ visibility: phase === "tearing" ? "visible" : "hidden" }}
                     aria-hidden="true"
                   >
-                    {packImage && !packImageFailed ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={packImage} alt="" onError={() => setPackImageFailed(true)} />
-                    ) : (
-                      <span className="pack-copy">
-                        <strong>Draft League</strong>
-                        <b>Mystery<br />Pack</b>
-                      </span>
-                    )}
+                    {packArtwork}
                     <span className="pack-inner-border" />
                   </motion.span>
                   <motion.span
                     className="pack-art pack-bottom-half"
+                    initial="rest"
                     animate={phase === "tearing" ? "torn" : "rest"}
                     variants={{
                       rest: { x: 0, y: 0, rotate: 0, opacity: 1, skewY: 0 },
@@ -215,17 +228,10 @@ export default function PackOpeningModal({
                         ? { duration: 0.01 }
                         : { type: "spring", stiffness: 130, damping: 19, mass: 0.9 }
                     }
+                    style={{ visibility: phase === "tearing" ? "visible" : "hidden" }}
                     aria-hidden="true"
                   >
-                    {packImage && !packImageFailed ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={packImage} alt="" onError={() => setPackImageFailed(true)} />
-                    ) : (
-                      <span className="pack-copy">
-                        <strong>Draft League</strong>
-                        <b>Mystery<br />Pack</b>
-                      </span>
-                    )}
+                    {packArtwork}
                     <span className="pack-inner-border" />
                   </motion.span>
                   <svg
