@@ -1,6 +1,6 @@
 # Pokémon VGC Gacha Draft League
 
-A local-first web app for organizing Pokémon VGC draft leagues and tournaments. Players use tournament coins to open Pokémon packs, build a roster of up to six Pokémon, and compete in a tournament. Admins manage tournaments, players, pack contents, and tournament matches.
+A web app for organizing Pokémon VGC draft leagues and tournaments. Players use tournament coins to open Pokémon packs, build a roster, and compete. Admins manage tournaments, players, pack contents, and matches.
 
 ## What the website does
 
@@ -18,7 +18,7 @@ See [spec.md](./spec.md) for the core league rules and [tournament_module_specif
 
 ### Requirements
 
-- Node.js 20.9 or later and npm
+- Node.js 20.19 or later and npm
 - Docker Desktop (or Docker Engine with the Compose plugin) to run PostgreSQL
 - Git
 
@@ -34,32 +34,17 @@ npm ci
 
 Replace `<repository-url>` with the URL of your Git repository.
 
-### 2. Start PostgreSQL
+### 2. Configure local environment
 
-The included Compose file starts a local PostgreSQL database on port `5432`:
+Copy `.env.example` to `.env`. The example values work with the local PostgreSQL container; keep `.env` private and do not commit it. Generate a strong `NEXTAUTH_SECRET` (for example, with `openssl rand -base64 32`) and replace the example administrator password before seeding.
+
+Google sign-in is optional. To enable it, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+
+### 3. Start PostgreSQL
 
 ```bash
 docker compose up -d db
 ```
-
-### 3. Configure local environment
-
-Create a `.env` file in the project root and set the following values:
-
-```dotenv
-DATABASE_URL="postgresql://draft:draft@localhost:5432/draft?schema=public"
-DATABASE_URL_UNPOOLED="<same local PostgreSQL connection string as DATABASE_URL>"
-NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="replace-with-a-long-random-secret"
-ADMIN_USERNAME="admin"
-ADMIN_PASSWORD="replace-with-a-strong-local-password"
-```
-
-Generate a secret, for example, with `openssl rand -base64 32`, and use the result for `NEXTAUTH_SECRET`. Choose a strong `ADMIN_PASSWORD`; these credentials create the initial local administrator when you seed the database. Keep `.env` private and do not commit it.
-
-For local PostgreSQL, set `DATABASE_URL_UNPOOLED` to the same connection string as `DATABASE_URL`. For Neon, use the pooled connection string as `DATABASE_URL` for the app and the direct connection string as `DATABASE_URL_UNPOOLED` for Prisma CLI operations. The Prisma schema uses the direct URL for schema changes and the pooled URL for application queries.
-
-Google sign-in is optional. To enable it, also set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env` using credentials configured for `http://localhost:3000`. Leave both unset to use username and password sign-in only.
 
 ### 4. Set up the database and initial data
 
@@ -68,7 +53,7 @@ npx prisma db push
 npx prisma db seed
 ```
 
-The first command creates or updates the local database schema. The seed command loads the Pokémon species data and creates or updates the administrator account using `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
+`db push` creates or updates the schema. `db seed` loads the Pokémon species data and creates or updates the administrator account using `ADMIN_USERNAME` and `ADMIN_PASSWORD`.
 
 ### 5. Start the website
 
@@ -76,12 +61,29 @@ The first command creates or updates the local database schema. The seed command
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Sign in with the administrator credentials from your `.env` file to create and manage tournaments. Players can sign up from the site.
+Open [http://localhost:3000](http://localhost:3000). Sign in with the administrator credentials from `.env` to create and manage tournaments. Players can sign up from the site.
 
-To stop the local database when you are finished:
+To stop the local database, run `docker compose down`. Data persists in the Docker volume; `docker compose down -v` permanently removes it.
 
-```bash
-docker compose down
-```
+## Deploy to Vercel with Neon
 
-Your database data is kept in the Docker volume between restarts. To remove the database and its data, run `docker compose down -v` (this permanently deletes the local `pgdata` volume).
+1. Create a PostgreSQL project in [Neon](https://neon.tech/) and import this repository into [Vercel](https://vercel.com/). Select the Next.js framework preset and use the default build command (`npm run build`).
+2. In Vercel project settings, add these environment variables for **Production**:
+   - `DATABASE_URL`: Neon pooled connection string.
+   - `DATABASE_URL_UNPOOLED`: Neon direct, unpooled connection string.
+   - `NEXTAUTH_SECRET`: a newly generated, long random secret.
+   - `NEXTAUTH_URL`: your production site URL, such as `https://your-project.vercel.app`. Do not set the production URL for Preview deployments; NextAuth can infer the preview URL from Vercel.
+
+   If you enable Preview deployments, use a separate Neon branch/database and set its connection strings for Vercel's **Preview** environment rather than pointing previews at production data.
+3. Before opening the deployed site, initialize Neon from a trusted local machine. Put the two Neon connection strings and a strong `ADMIN_USERNAME` / `ADMIN_PASSWORD` in a local, untracked `.env`, then run:
+
+   ```bash
+   npx prisma db push
+   npx prisma db seed
+   ```
+
+   `DATABASE_URL_UNPOOLED` is used for schema operations; the seed connects with `DATABASE_URL`. Keep these credentials private and never add them to source control.
+4. Deploy from Vercel or push a commit to the connected Git branch. Vercel will generate Prisma Client and build the Next.js app. Future pushes to the production branch deploy automatically.
+5. If enabling Google sign-in, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the appropriate Vercel environments and allow the callback URL `https://your-production-domain/api/auth/callback/google` in Google OAuth settings.
+
+The repository does not yet have a baseline Prisma migration. Initialize a new Neon database with `prisma db push` as above; do not use `prisma migrate deploy` until a baseline migration has been created.
