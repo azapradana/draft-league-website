@@ -4,6 +4,9 @@ import SignupForm from "./signup-form";
 
 export default async function SignupPage() {
   const settings = await getSiteSettings();
+  const googleEnabled = Boolean(
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+  );
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 text-white">
@@ -24,7 +27,7 @@ export default async function SignupPage() {
             personal wallet.
           </p>
         </div>
-        <SignupForm />
+        <SignupForm googleEnabled={googleEnabled} />
         <p className="text-center text-sm text-slate-300">
           Already have an account?{" "}
           <Link className="font-semibold text-amber-300 hover:underline" href="/login">

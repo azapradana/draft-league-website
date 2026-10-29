@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-export default function SignupForm() {
+export default function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -97,6 +97,15 @@ export default function SignupForm() {
       >
         {isSubmitting ? "Creating account…" : "Create account"}
       </button>
+      {googleEnabled && (
+        <button
+          className="w-full rounded-md border border-slate-600 px-4 py-2 font-semibold hover:bg-slate-800"
+          onClick={() => signIn("google", { callbackUrl: "/" })}
+          type="button"
+        >
+          Sign up with Google
+        </button>
+      )}
       <Link
         className="block text-center text-sm text-slate-300 hover:text-white"
         href="/login"

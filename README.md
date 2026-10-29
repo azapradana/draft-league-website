@@ -40,7 +40,7 @@ Copy `.env.example` to `.env`. The example values work with the local PostgreSQL
 
 Image uploads require a public Vercel Blob store. Connect the store to your Vercel project to use Vercel's OIDC authentication in deployments. For local development, run `vercel env pull` from the linked project to load its Blob credentials, or set `BLOB_READ_WRITE_TOKEN` from the store's read/write token settings in `.env`. Never commit the token.
 
-Google sign-in is optional. To enable it, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
+Google sign-in and sign-up are optional. To enable them, create a Google OAuth client and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env` (or your deployment's environment variables). See [Connect Google sign-in](#connect-google-sign-in) below.
 
 ### 3. Start PostgreSQL
 
@@ -166,8 +166,31 @@ To make the website usable by players, finish the in-app setup:
 ### 7. Optional custom domain and Google sign-in
 
 - **Custom domain:** Add the domain in Vercel's **Settings → Domains** and follow Vercel's DNS instructions. After Vercel confirms the domain, update `NEXTAUTH_URL` in the Production environment to the exact canonical `https://` URL, then redeploy.
-- **Google sign-in:** In Google Cloud Console, configure an OAuth consent screen and OAuth client. Add the exact callback URL `https://your-production-domain/api/auth/callback/google` to the authorized redirect URIs. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to Vercel's Production environment and redeploy. Both variables must be present together. Username/password sign-in works without Google OAuth.
+- **Google sign-in:** Follow [Connect Google sign-in](#connect-google-sign-in) below. Username/password sign-in works without Google OAuth.
 - **Preview deployments:** Do not connect Vercel Preview deployments to production Neon data. If previews are needed, create a separate Neon branch/database and set its pooled and direct URLs under Vercel's **Preview** environment.
+
+### Connect Google sign-in
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create or select a project. Configure the OAuth consent screen (Google Auth Platform → **Branding** and **Audience**). For an external app still in testing, add the Google accounts that should be able to sign in as test users.
+2. Go to **Google Auth Platform → Clients → Create client**, choose **Web application**, and create an OAuth 2.0 Client ID.
+3. Add your app origins as **Authorized JavaScript origins**:
+   - Local development: `http://localhost:3000`
+   - Production: `https://your-production-domain`
+4. Add these **Authorized redirect URIs** (the callback path must match exactly):
+   - Local development: `http://localhost:3000/api/auth/callback/google`
+   - Production: `https://your-production-domain/api/auth/callback/google`
+5. Copy the client ID and client secret. In local `.env`, set:
+
+   ```dotenv
+   GOOGLE_CLIENT_ID="your-client-id"
+   GOOGLE_CLIENT_SECRET="your-client-secret"
+   NEXTAUTH_URL="http://localhost:3000"
+   ```
+
+   For Vercel, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in **Settings → Environment Variables** for Production, and confirm `NEXTAUTH_URL` is your production `https://` URL. Keep the secret private and never use a `NEXT_PUBLIC_` variable for it.
+6. Restart the local dev server or redeploy Vercel after setting the variables. Open **Sign in** or **Sign up**; the Google button appears when both credentials are configured. Google sign-up creates a regular player account and applies the configured initial player coins.
+
+Both Google variables must be set together. To use Google on a Vercel Preview deployment, add that deployment's exact callback URL to the OAuth client's authorized redirect URIs and configure both variables for the Preview environment as well.
 
 ### Troubleshooting
 
