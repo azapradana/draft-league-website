@@ -48,6 +48,7 @@ Create a `.env` file in the project root and set the following values:
 
 ```dotenv
 DATABASE_URL="postgresql://draft:draft@localhost:5432/draft?schema=public"
+DATABASE_URL_UNPOOLED="<same local PostgreSQL connection string as DATABASE_URL>"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="replace-with-a-long-random-secret"
 ADMIN_USERNAME="admin"
@@ -55,6 +56,8 @@ ADMIN_PASSWORD="replace-with-a-strong-local-password"
 ```
 
 Generate a secret, for example, with `openssl rand -base64 32`, and use the result for `NEXTAUTH_SECRET`. Choose a strong `ADMIN_PASSWORD`; these credentials create the initial local administrator when you seed the database. Keep `.env` private and do not commit it.
+
+For local PostgreSQL, set `DATABASE_URL_UNPOOLED` to the same connection string as `DATABASE_URL`. For Neon, use the pooled connection string as `DATABASE_URL` for the app and the direct connection string as `DATABASE_URL_UNPOOLED` for Prisma CLI operations. The Prisma schema uses the direct URL for schema changes and the pooled URL for application queries.
 
 Google sign-in is optional. To enable it, also set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env` using credentials configured for `http://localhost:3000`. Leave both unset to use username and password sign-in only.
 
