@@ -1,4 +1,4 @@
-import { ParticipantStatus } from "@prisma/client";
+import { ParticipantStatus, Prisma, TournamentFormat } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { SITE_SETTINGS_ID } from "@/lib/site-settings";
 
 const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_SWISS_ROUNDS = 20;
 
 function asString(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
@@ -162,8 +163,52 @@ export async function POST(request: NextRequest) {
         const description = asString(body.description);
         const imageUrl = asString(body.imageUrl).trim();
         const cardBackImage = asString(body.cardBackImage).trim();
+        const formatValue =
+          body.format === undefined ? "SINGLE_ELIMINATION" : asString(body.format);
+        const format =
+          formatValue === "SINGLE_ELIMINATION" || formatValue === "SWISS"
+            ? formatValue
+            : null;
+        const rawMaxParticipants = body.maxParticipants;
+        const maxParticipantsIsEmpty =
+          rawMaxParticipants === undefined ||
+          rawMaxParticipants === null ||
+          (typeof rawMaxParticipants === "string" && rawMaxParticipants.trim() === "");
+        const maxParticipants = maxParticipantsIsEmpty
+          ? null
+          : asStrictInt(rawMaxParticipants);
+        const swissRounds =
+          format === "SWISS" ? asStrictInt(body.swissRounds) ?? 0 : 4;
+
         if (!name) {
           return NextResponse.json({ error: "Tournament name is required." }, { status: 400 });
+        }
+        if (!format) {
+          return NextResponse.json(
+            { error: "Choose Single Elimination or Swiss Rounds." },
+            { status: 400 },
+          );
+        }
+        if (
+          !maxParticipantsIsEmpty &&
+          (maxParticipants === null ||
+            maxParticipants === undefined ||
+            maxParticipants < 2 ||
+            maxParticipants > 2_147_483_647)
+        ) {
+          return NextResponse.json(
+            { error: "Maximum participants must be a whole number of at least 2." },
+            { status: 400 },
+          );
+        }
+        if (
+          format === "SWISS" &&
+          (swissRounds < 1 || swissRounds > MAX_SWISS_ROUNDS)
+        ) {
+          return NextResponse.json(
+            { error: `Swiss rounds must be a whole number from 1 to ${MAX_SWISS_ROUNDS}.` },
+            { status: 400 },
+          );
         }
         if (description.length > MAX_DESCRIPTION_LENGTH) {
           return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
@@ -184,6 +229,9 @@ export async function POST(request: NextRequest) {
           data: {
             name,
             description,
+            format: format as TournamentFormat,
+            maxParticipants,
+            swissRounds,
             imageUrl: imageUrl || null,
             cardBackImage: cardBackImage || null,
             regulation: "m-c",
@@ -224,6 +272,9 @@ export async function POST(request: NextRequest) {
           startingCoins?: number;
           maxCopiesPerPlayer?: number;
           maxCopiesLeague?: number | null;
+          format?: TournamentFormat;
+          maxParticipants?: number | null;
+          swissRounds?: number;
           imageUrl?: string | null;
           cardBackImage?: string | null;
         } = {};
@@ -242,6 +293,74 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
           }
           updateData.description = description;
+        }
+
+        if ("format" in body) {
+          const formatValue = asString(body.format);
+          if (formatValue !== "SINGLE_ELIMINATION" && formatValue !== "SWISS") {
+            return NextResponse.json(
+              { error: "Choose Single Elimination or Swiss Rounds." },
+              { status: 400 },
+            );
+          }
+          updateData.format = formatValue;
+        }
+
+        if ("maxParticipants" in body) {
+          const rawMaxParticipants = body.maxParticipants;
+          const isEmpty =
+            rawMaxParticipants === null ||
+            (typeof rawMaxParticipants === "string" &&
+              rawMaxParticipants.trim() === "");
+          const maxParticipants = isEmpty
+            ? null
+            : asStrictInt(rawMaxParticipants);
+          if (
+            !isEmpty &&
+            (maxParticipants === null ||
+              maxParticipants === undefined ||
+              maxParticipants < 2 ||
+              maxParticipants > 2_147_483_647)
+          ) {
+            return NextResponse.json(
+              { error: "Maximum participants must be a whole number of at least 2." },
+              { status: 400 },
+            );
+          }
+
+          if (maxParticipants !== null && maxParticipants !== undefined) {
+            const activeParticipants = await prisma.participant.count({
+              where: {
+                tournamentId: id,
+                status: { in: [ParticipantStatus.PENDING, ParticipantStatus.APPROVED] },
+              },
+            });
+            if (maxParticipants < activeParticipants) {
+              return NextResponse.json(
+                {
+                  error: `Maximum participants cannot be lower than the ${activeParticipants} pending or approved participants.`,
+                },
+                { status: 400 },
+              );
+            }
+          }
+          updateData.maxParticipants = maxParticipants;
+        }
+
+        const updatedFormat = updateData.format ?? tournament.format;
+        if (updatedFormat === TournamentFormat.SWISS && "swissRounds" in body) {
+          const swissRounds = asStrictInt(body.swissRounds);
+          if (
+            swissRounds === undefined ||
+            swissRounds < 1 ||
+            swissRounds > MAX_SWISS_ROUNDS
+          ) {
+            return NextResponse.json(
+              { error: `Swiss rounds must be a whole number from 1 to ${MAX_SWISS_ROUNDS}.` },
+              { status: 400 },
+            );
+          }
+          updateData.swissRounds = swissRounds;
         }
 
         if ("imageUrl" in body) {
@@ -359,10 +478,54 @@ export async function POST(request: NextRequest) {
           updateData.coins = asInt(body.coins, participant.coins);
         }
 
-        const updatedParticipant = await prisma.participant.update({
-          where: { id: participant.id },
-          data: updateData,
-        });
+        const participantUpdate = await prisma.$transaction(
+          async (transaction) => {
+            if (
+              updateData.status === ParticipantStatus.APPROVED &&
+              participant.status !== ParticipantStatus.APPROVED
+            ) {
+              const tournament = await transaction.tournament.findUnique({
+                where: { id: tournamentId },
+                select: { maxParticipants: true },
+              });
+              if (!tournament) {
+                return { kind: "not-found" as const };
+              }
+              if (tournament.maxParticipants !== null) {
+                const activeParticipants = await transaction.participant.count({
+                  where: {
+                    tournamentId,
+                    id: { not: participant.id },
+                    status: {
+                      in: [ParticipantStatus.PENDING, ParticipantStatus.APPROVED],
+                    },
+                  },
+                });
+                if (activeParticipants >= tournament.maxParticipants) {
+                  return { kind: "full" as const };
+                }
+              }
+            }
+
+            const updatedParticipant = await transaction.participant.update({
+              where: { id: participant.id },
+              data: updateData,
+            });
+            return { kind: "updated" as const, participant: updatedParticipant };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+
+        if (participantUpdate.kind === "not-found") {
+          return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
+        }
+        if (participantUpdate.kind === "full") {
+          return NextResponse.json(
+            { error: "This tournament has reached its participant limit." },
+            { status: 409 },
+          );
+        }
+        const updatedParticipant = participantUpdate.participant;
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(updatedParticipant);
@@ -754,6 +917,15 @@ export async function POST(request: NextRequest) {
       error.code === "P2002"
     ) {
       return NextResponse.json({ error: "This record already exists." }, { status: 409 });
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2034"
+    ) {
+      return NextResponse.json(
+        { error: "Tournament capacity changed while updating. Please try again." },
+        { status: 409 },
+      );
     }
 
     console.error("Admin route error:", error);

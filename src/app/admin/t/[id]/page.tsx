@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { TournamentFormatFields } from "../../tournament-format-fields";
 
 export default async function AdminTournamentSettingsPage({
   params,
@@ -84,6 +85,11 @@ export default async function AdminTournamentSettingsPage({
                 initialUrl={tournament.cardBackImage}
               />
             </div>
+            <TournamentFormatFields
+              initialFormat={tournament.format}
+              initialMaxParticipants={tournament.maxParticipants ?? ""}
+              initialSwissRounds={tournament.swissRounds}
+            />
 
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>

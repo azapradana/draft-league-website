@@ -25,6 +25,11 @@ enum MatchStatus {
   DISPUTED
 }
 
+enum TournamentFormat {
+  SINGLE_ELIMINATION
+  SWISS
+}
+
 model User {
   id            String         @id @default(cuid())
   username      String?        @unique
@@ -85,20 +90,23 @@ model SiteSettings {
 }
 
 model Tournament {
-  id                 String        @id @default(cuid())
+  id                 String           @id @default(cuid())
   name               String
-  description        String        @default("")
+  description        String           @default("")
+  format             TournamentFormat @default(SINGLE_ELIMINATION)
+  maxParticipants    Int?
+  swissRounds        Int              @default(4)
   imageUrl           String?
   cardBackImage      String?
-  active             Boolean       @default(false)
-  completed          Boolean       @default(false)
-  regulation         String        @default("m-c")
-  startingCoins      Int           @default(0)
-  maxCopiesPerPlayer Int           @default(3)
+  active             Boolean          @default(false)
+  completed          Boolean          @default(false)
+  regulation         String           @default("m-c")
+  startingCoins      Int              @default(0)
+  maxCopiesPerPlayer Int              @default(3)
   maxCopiesLeague    Int?
-  rostersLocked      Boolean       @default(false)
-  rostersPublic      Boolean       @default(false)
-  checkInOpen        Boolean       @default(false)
+  rostersLocked      Boolean          @default(false)
+  rostersPublic      Boolean          @default(false)
+  checkInOpen        Boolean          @default(false)
   participants       Participant[]
   packs              Pack[]
   matches            Match[]

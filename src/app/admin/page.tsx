@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { AdminDialog } from "./admin-dialog";
+import { TournamentFormatFields } from "./tournament-format-fields";
 
 export default async function AdminPage() {
   const session = await getServerSession(authOptions);
@@ -14,7 +15,16 @@ export default async function AdminPage() {
 
   const tournaments = await prisma.tournament.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { matches: true, participants: true } } },
+    include: {
+      _count: {
+        select: {
+          matches: true,
+          participants: {
+            where: { status: { in: ["PENDING", "APPROVED"] } },
+          },
+        },
+      },
+    },
   });
 
   return (
@@ -62,6 +72,7 @@ export default async function AdminPage() {
                 <div className="md:col-span-2">
                   <ImageUpload name="cardBackImage" label="Card back image" />
                 </div>
+                <TournamentFormatFields />
                 <label className="block">
                   <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
                   <input name="startingCoins" type="number" min={0} defaultValue={500} className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]" />
@@ -135,7 +146,9 @@ export default async function AdminPage() {
                           {tournament.name}
                         </th>
                         <td className="px-5 py-4 text-[#C2CCF2]">
-                          Regulation {tournament.regulation.toUpperCase()}
+                          {tournament.format === "SWISS"
+                            ? `Swiss · ${tournament.swissRounds} rounds`
+                            : "Single Elimination"}
                         </td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold tracking-wide ${statusClass}`}>
@@ -144,6 +157,8 @@ export default async function AdminPage() {
                         </td>
                         <td className="px-5 py-4 text-right tabular-nums text-[#C2CCF2]">
                           {tournament._count.participants}
+                          {tournament.maxParticipants !== null &&
+                            ` / ${tournament.maxParticipants}`}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <Link
