@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { TournamentFormatFields } from "../../tournament-format-fields";
+import { PrizeConfigurationForm } from "./prize-configuration-form";
 
 export default async function AdminTournamentSettingsPage({
   params,
@@ -173,6 +174,22 @@ export default async function AdminTournamentSettingsPage({
               </button>
             </div>
           </form>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
+          <h2 className="text-xl font-semibold">Tournament coin prizes</h2>
+          <p className="mt-2 text-sm text-[#9FB0E6]">
+            Prize coins are credited to each winner&apos;s persistent wallet when
+            the tournament is completed. A payout is recorded once and is not
+            repeated if completion is reopened.
+          </p>
+          <PrizeConfigurationForm
+            tournamentId={tournament.id}
+            initialPool={tournament.coinPrizePool}
+            initialWinnersCount={tournament.prizeWinnersCount}
+            initialDistribution={tournament.prizeDistribution}
+            disabled={tournament.completed}
+          />
         </section>
 
         <section className="mt-6 flex flex-col gap-4 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">

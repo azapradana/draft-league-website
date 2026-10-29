@@ -3,6 +3,7 @@ import {
   TournamentStage,
   type Prisma,
 } from "@prisma/client";
+import { awardTournamentPrizes } from "@/lib/tournament-prizes";
 
 export async function closeTournamentIfComplete(
   tx: Prisma.TransactionClient,
@@ -15,6 +16,7 @@ export async function closeTournamentIfComplete(
       currentStage: TournamentStage;
       topCut: number;
       swissRounds: number;
+      completed: boolean;
     }>
   >`
     SELECT "id"
@@ -22,12 +24,14 @@ export async function closeTournamentIfComplete(
          , "currentStage"
          , "topCut"
          , "swissRounds"
+         , "completed"
     FROM "Tournament"
     WHERE "id" = ${tournamentId}
     FOR UPDATE
   `;
   if (lockedTournament.length === 0) return false;
   const tournament = lockedTournament[0];
+  if (tournament.completed) return false;
 
   const matches = await tx.match.findMany({
     where: { tournamentId },
@@ -109,6 +113,7 @@ export async function closeTournamentIfComplete(
       currentStage: TournamentStage.COMPLETED,
     },
   });
+  await awardTournamentPrizes(tx, tournamentId);
 
   return true;
 }

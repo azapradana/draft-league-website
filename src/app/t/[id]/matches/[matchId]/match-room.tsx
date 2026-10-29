@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import PokemonArtwork, { type PokemonArtworkSpecies } from "../../pokemon-artwork";
+import { useCoinBalance } from "../../coin-balance";
 
 type MatchPlayer = {
   id: string;
@@ -126,6 +127,7 @@ export default function MatchRoom({
   initialMessages: MatchMessage[];
   isAdmin: boolean;
 }) {
+  const { setWalletBalance } = useCoinBalance();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -241,6 +243,7 @@ export default function MatchRoom({
             winnerId: string | null;
             player1Vote: string | null;
             player2Vote: string | null;
+            walletBalance: number;
           }
         | { error: string };
       if (
@@ -257,6 +260,7 @@ export default function MatchRoom({
       setWinnerId(result.winnerId);
       setPlayer1Vote(result.player1Vote);
       setPlayer2Vote(result.player2Vote);
+      setWalletBalance(result.walletBalance);
     } catch (error) {
       setResultError(
         error instanceof Error

@@ -12,6 +12,7 @@ type SubmissionResult =
       winnerId: string | null;
       player1Vote: string | null;
       player2Vote: string | null;
+      walletBalance: number;
     }
   | { ok: false; statusCode: number; error: string };
 
@@ -152,7 +153,15 @@ export async function POST(
       await closeTournamentIfComplete(tx, tournamentId);
     }
 
-    return { ok: true, ...updatedMatch };
+    const user = await tx.user.findUniqueOrThrow({
+      where: { id: session.user.id },
+      select: { coinsBalance: true },
+    });
+    return {
+      ok: true,
+      ...updatedMatch,
+      walletBalance: user.coinsBalance,
+    };
   });
 
   if (!result.ok) {

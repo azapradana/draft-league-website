@@ -9,9 +9,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SITE_SETTINGS_ID } from "@/lib/site-settings";
+import { awardTournamentPrizes } from "@/lib/tournament-prizes";
+import {
+  parsePrizeDistribution,
+  suggestPrizeDistribution,
+} from "@/lib/prize-distribution";
 
 const MAX_DESCRIPTION_LENGTH = 5000;
 const MAX_SWISS_ROUNDS = 20;
+const MAX_PRIZE_WINNERS = 1000;
+const MAX_COIN_PRIZE_POOL = 2_147_483_647;
 
 function asString(value: unknown, fallback = ""): string {
   if (typeof value === "string") return value;
@@ -297,6 +304,17 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
         }
 
+        const hasPrizeConfiguration =
+          "coinPrizePool" in body ||
+          "prizeWinnersCount" in body ||
+          "prizeDistribution" in body;
+        if (hasPrizeConfiguration && tournament.completed) {
+          return NextResponse.json(
+            { error: "Prize settings cannot be changed after the tournament is completed." },
+            { status: 409 },
+          );
+        }
+
         const updateData: {
           name?: string;
           description?: string;
@@ -315,7 +333,92 @@ export async function POST(request: NextRequest) {
           swissRounds?: number;
           imageUrl?: string | null;
           cardBackImage?: string | null;
+          coinPrizePool?: number;
+          prizeWinnersCount?: number;
+          prizeDistribution?: Prisma.InputJsonValue;
         } = {};
+
+        if (hasPrizeConfiguration) {
+          const coinPrizePool =
+            "coinPrizePool" in body
+              ? asStrictInt(body.coinPrizePool)
+              : tournament.coinPrizePool;
+          const prizeWinnersCount =
+            "prizeWinnersCount" in body
+              ? asStrictInt(body.prizeWinnersCount)
+              : tournament.prizeWinnersCount;
+          if (
+            coinPrizePool === undefined ||
+            coinPrizePool < 0 ||
+            coinPrizePool > MAX_COIN_PRIZE_POOL
+          ) {
+            return NextResponse.json(
+              { error: "The coin prize pool must be a whole number from 0 to 2,147,483,647." },
+              { status: 400 },
+            );
+          }
+          if (
+            prizeWinnersCount === undefined ||
+            prizeWinnersCount < 0 ||
+            prizeWinnersCount > MAX_PRIZE_WINNERS
+          ) {
+            return NextResponse.json(
+              { error: `Winning ranks must be a whole number from 0 to ${MAX_PRIZE_WINNERS}.` },
+              { status: 400 },
+            );
+          }
+          if (
+            (coinPrizePool === 0 && prizeWinnersCount !== 0) ||
+            (coinPrizePool > 0 &&
+              (prizeWinnersCount === 0 || prizeWinnersCount > coinPrizePool))
+          ) {
+            return NextResponse.json(
+              { error: "A zero prize pool requires zero winning ranks; otherwise each winning rank must receive at least one coin." },
+              { status: 400 },
+            );
+          }
+
+          let distribution: number[] | null = null;
+          if ("prizeDistribution" in body) {
+            let rawDistribution: unknown = body.prizeDistribution;
+            if (typeof rawDistribution === "string") {
+              try {
+                rawDistribution = JSON.parse(rawDistribution);
+              } catch {
+                return NextResponse.json(
+                  { error: "Prize distribution must be valid JSON." },
+                  { status: 400 },
+                );
+              }
+            }
+            distribution = parsePrizeDistribution(rawDistribution);
+          } else if (
+            coinPrizePool !== tournament.coinPrizePool ||
+            prizeWinnersCount !== tournament.prizeWinnersCount
+          ) {
+            distribution = suggestPrizeDistribution(
+              coinPrizePool,
+              prizeWinnersCount,
+            );
+          } else {
+            distribution = parsePrizeDistribution(tournament.prizeDistribution);
+          }
+
+          if (
+            !distribution ||
+            distribution.length !== prizeWinnersCount ||
+            distribution.reduce((sum, amount) => sum + amount, 0) !==
+              coinPrizePool
+          ) {
+            return NextResponse.json(
+              { error: "Prize amounts must be whole coins, one amount per winning rank, and add up to the total prize pool." },
+              { status: 400 },
+            );
+          }
+          updateData.coinPrizePool = coinPrizePool;
+          updateData.prizeWinnersCount = prizeWinnersCount;
+          updateData.prizeDistribution = distribution;
+        }
 
         if ("name" in body) {
           const name = asString(body.name).trim();
@@ -535,9 +638,15 @@ export async function POST(request: NextRequest) {
           updateData.currentStage = TournamentStage.COMPLETED;
         }
 
-        const updatedTournament = await prisma.tournament.update({
-          where: { id },
-          data: updateData,
+        const updatedTournament = await prisma.$transaction(async (transaction) => {
+          const updated = await transaction.tournament.update({
+            where: { id },
+            data: updateData,
+          });
+          if (!tournament.completed && updated.completed) {
+            await awardTournamentPrizes(transaction, id);
+          }
+          return updated;
         });
 
         if (request.headers.get("content-type")?.includes("application/json")) {

@@ -19,23 +19,33 @@ export default async function TournamentLayout({
     redirect(`/login?callbackUrl=${encodeURIComponent(`/t/${id}`)}`);
   }
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      participants: {
-        where: { userId: session.user.id },
-        select: { coins: true },
+  const [tournament, user] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: {
+        participants: {
+          where: { userId: session.user.id },
+          select: { coins: true },
+        },
       },
-    },
-  });
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { coinsBalance: true },
+    }),
+  ]);
 
-  if (!tournament) notFound();
+  if (!tournament || !user) notFound();
 
   const coinBalance = Array.isArray(tournament.participants)
     ? tournament.participants[0]?.coins
     : undefined;
   return (
-    <CoinBalanceProvider key={id} initialBalance={coinBalance ?? null}>
+    <CoinBalanceProvider
+      key={id}
+      initialBalance={coinBalance ?? null}
+      initialWalletBalance={user.coinsBalance}
+    >
       <div className="min-h-screen overflow-x-hidden bg-[#070D24] text-[#EEF2FF]">
         <TournamentNavigation
           tournamentId={id}

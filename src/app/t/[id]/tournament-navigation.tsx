@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/auth/account-menu";
-import { CoinBalanceDisplay } from "./coin-balance";
+import { CoinBalanceDisplay, WalletBalanceDisplay } from "./coin-balance";
 
 type TournamentNavigationProps = {
   tournamentId: string;
@@ -160,10 +160,16 @@ export default function TournamentNavigation({
 
         <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
-            Player balance
+            Tournament balance
           </p>
           <div className="mt-1 text-lg font-bold text-[#F5C542]">
             <CoinBalanceDisplay />
+          </div>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
+            Persistent wallet
+          </p>
+          <div className="mt-1 text-lg font-bold text-[#F5C542]">
+            <WalletBalanceDisplay />
           </div>
         </div>
 
@@ -225,10 +231,16 @@ export default function TournamentNavigation({
 
           <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
-              Player balance
+              Tournament balance
             </p>
             <div className="mt-1 text-lg font-bold text-[#F5C542]">
               <CoinBalanceDisplay />
+            </div>
+            <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
+              Persistent wallet
+            </p>
+            <div className="mt-1 text-lg font-bold text-[#F5C542]">
+              <WalletBalanceDisplay />
             </div>
           </div>
 

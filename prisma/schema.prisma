@@ -38,18 +38,20 @@ enum TournamentStage {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  username      String?        @unique
+  id            String                  @id @default(cuid())
+  username      String?                 @unique
   name          String?
-  email         String?        @unique
+  email         String?                 @unique
   emailVerified DateTime?
   image         String?
   passwordHash  String?
-  role          Role           @default(PLAYER)
+  role          Role                    @default(PLAYER)
+  coinsBalance  Int                     @default(0)
   accounts      Account[]
   sessions      Session[]
   participants  Participant[]
   matchMessages MatchMessage[]
+  prizePayouts  TournamentPrizePayout[]
 }
 
 model Account {
@@ -97,49 +99,70 @@ model SiteSettings {
 }
 
 model Tournament {
-  id                 String           @id @default(cuid())
+  id                 String                  @id @default(cuid())
   name               String
-  description        String           @default("")
-  format             TournamentFormat @default(SINGLE_ELIMINATION)
-  topCut             Int              @default(0)
-  currentStage       TournamentStage  @default(SINGLE_ELIMINATION)
+  description        String                  @default("")
+  format             TournamentFormat        @default(SINGLE_ELIMINATION)
+  topCut             Int                     @default(0)
+  currentStage       TournamentStage         @default(SINGLE_ELIMINATION)
   maxParticipants    Int?
-  swissRounds        Int              @default(4)
+  swissRounds        Int                     @default(4)
   imageUrl           String?
   cardBackImage      String?
-  active             Boolean          @default(false)
-  completed          Boolean          @default(false)
-  regulation         String           @default("m-c")
-  startingCoins      Int              @default(0)
-  maxCopiesPerPlayer Int              @default(3)
+  active             Boolean                 @default(false)
+  completed          Boolean                 @default(false)
+  regulation         String                  @default("m-c")
+  startingCoins      Int                     @default(0)
+  coinPrizePool      Int                     @default(0)
+  prizeWinnersCount  Int                     @default(0)
+  prizeDistribution  Json                    @default("[]")
+  maxCopiesPerPlayer Int                     @default(3)
   maxCopiesLeague    Int?
-  rostersLocked      Boolean          @default(false)
-  rostersPublic      Boolean          @default(false)
-  checkInOpen        Boolean          @default(false)
+  rostersLocked      Boolean                 @default(false)
+  rostersPublic      Boolean                 @default(false)
+  checkInOpen        Boolean                 @default(false)
   participants       Participant[]
   packs              TournamentPack[]
   matches            Match[]
+  prizePayouts       TournamentPrizePayout[]
 }
 
 model Participant {
-  id             String            @id @default(cuid())
+  id             String                  @id @default(cuid())
   userId         String
   tournamentId   String
-  status         ParticipantStatus @default(PENDING)
-  checkedIn      Boolean           @default(false)
-  coins          Int               @default(0)
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tournament     Tournament        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  status         ParticipantStatus       @default(PENDING)
+  checkedIn      Boolean                 @default(false)
+  coins          Int                     @default(0)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament     Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   purchases      Purchase[]
   ownedPokemon   OwnedPokemon[]
   roster         Roster?
-  player1Matches Match[]           @relation("MatchPlayer1")
-  player2Matches Match[]           @relation("MatchPlayer2")
-  wonMatches     Match[]           @relation("MatchWinner")
-  player1Votes   Match[]           @relation("MatchPlayer1Vote")
-  player2Votes   Match[]           @relation("MatchPlayer2Vote")
+  player1Matches Match[]                 @relation("MatchPlayer1")
+  player2Matches Match[]                 @relation("MatchPlayer2")
+  wonMatches     Match[]                 @relation("MatchWinner")
+  player1Votes   Match[]                 @relation("MatchPlayer1Vote")
+  player2Votes   Match[]                 @relation("MatchPlayer2Vote")
+  prizePayouts   TournamentPrizePayout[]
 
   @@unique([userId, tournamentId])
+}
+
+model TournamentPrizePayout {
+  id            String      @id @default(cuid())
+  tournamentId  String
+  participantId String
+  userId        String
+  place         Int
+  amount        Int
+  createdAt     DateTime    @default(now())
+  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, participantId])
+  @@index([userId, createdAt])
 }
 
 model Match {
@@ -203,9 +226,9 @@ model Pack {
 model TournamentPack {
   tournamentId  String
   packId        String
-  price         Int         @default(0)
+  price         Int        @default(0)
   purchaseLimit Int?
-  active        Boolean     @default(false)
+  active        Boolean    @default(false)
   tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   pack          Pack       @relation(fields: [packId], references: [id], onDelete: Cascade)
 

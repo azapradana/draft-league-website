@@ -50,7 +50,14 @@ function isPackPull(value: unknown): value is PackPull {
   );
 }
 
-function isPackOpenResult(value: unknown): value is { pulls: PackPull[]; coins: number } {
+function isPackOpenResult(
+  value: unknown,
+): value is {
+  pulls: PackPull[];
+  coins: number;
+  tournamentCoins: number;
+  walletCoins: number;
+} {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -58,7 +65,11 @@ function isPackOpenResult(value: unknown): value is { pulls: PackPull[]; coins: 
     Array.isArray(value.pulls) &&
     value.pulls.every(isPackPull) &&
     "coins" in value &&
-    typeof value.coins === "number"
+    typeof value.coins === "number" &&
+    "tournamentCoins" in value &&
+    typeof value.tournamentCoins === "number" &&
+    "walletCoins" in value &&
+    typeof value.walletCoins === "number"
   );
 }
 
@@ -67,20 +78,30 @@ export default function ShopPacks({
   packs,
   tournamentActive,
   approved,
-  initialCoins,
+  initialTournamentCoins,
+  initialWalletBalance,
 }: {
   tournamentId: string;
   packs: ShopPack[];
   tournamentActive: boolean;
   approved: boolean;
-  initialCoins: number | null;
+  initialTournamentCoins: number | null;
+  initialWalletBalance: number;
 }) {
-  const { balance, setBalance } = useCoinBalance();
+  const {
+    balance,
+    setBalance,
+    walletBalance,
+    setWalletBalance,
+  } = useCoinBalance();
   const [openingPack, setOpeningPack] = useState<string | null>(null);
   const [pulls, setPulls] = useState<PackPull[] | null>(null);
   const [openingResultPack, setOpeningResultPack] = useState<ShopPack | null>(null);
   const [error, setError] = useState("");
-  const coins = balance ?? initialCoins;
+  const tournamentCoins = balance ?? initialTournamentCoins;
+  const walletCoins = walletBalance ?? initialWalletBalance;
+  const coins =
+    tournamentCoins === null ? null : tournamentCoins + walletCoins;
   const canBuy = tournamentActive && approved;
 
   async function buyAndOpen(pack: ShopPack) {
@@ -120,7 +141,8 @@ export default function ShopPacks({
           "The server returned an invalid response while opening this pack. Please try again.",
         );
       }
-      setBalance(result.coins);
+      setBalance(result.tournamentCoins);
+      setWalletBalance(result.walletCoins);
       setOpeningResultPack(pack);
       setPulls(result.pulls);
     } catch (openError) {
@@ -144,7 +166,9 @@ export default function ShopPacks({
         <p className="mt-3 max-w-2xl text-[#9FB0E6]">
           Your balance:{" "}
           <span className="font-bold text-[#F5C542]">
-            {coins === null ? "Not in this tournament" : `${coins.toLocaleString()} coins`}
+            {coins === null
+              ? "Not in this tournament"
+              : `${coins.toLocaleString()} coins · ${tournamentCoins?.toLocaleString()} tournament + ${walletCoins.toLocaleString()} wallet`}
           </span>
         </p>
       </section>

@@ -92,7 +92,12 @@ export async function POST(
             tournamentId,
           },
         },
-        select: { id: true, status: true, coins: true },
+        select: {
+          id: true,
+          status: true,
+          coins: true,
+          user: { select: { coinsBalance: true } },
+        },
       });
       if (!participant || participant.status !== ParticipantStatus.APPROVED) {
         throw new GachaError(
@@ -121,7 +126,7 @@ export async function POST(
         throw new GachaError("That pack is not on sale in this tournament.", 404);
       }
       const pack = attachment.pack;
-      if (participant.coins < attachment.price) {
+      if (participant.coins + participant.user.coinsBalance < attachment.price) {
         throw new GachaError("You do not have enough coins to buy this pack.", 409);
       }
 
@@ -228,22 +233,49 @@ export async function POST(
         })),
       });
 
-      const debit = await tx.participant.updateMany({
-        where: { id: participant.id, coins: { gte: attachment.price } },
-        data: { coins: { decrement: attachment.price } },
-      });
-      if (debit.count !== 1) {
-        throw new GachaError(
-          "Your coin balance changed before the purchase completed. Please try again.",
-          409,
-        );
+      const tournamentSpend = Math.min(participant.coins, attachment.price);
+      const walletSpend = attachment.price - tournamentSpend;
+      if (tournamentSpend > 0) {
+        const debit = await tx.participant.updateMany({
+          where: { id: participant.id, coins: { gte: tournamentSpend } },
+          data: { coins: { decrement: tournamentSpend } },
+        });
+        if (debit.count !== 1) {
+          throw new GachaError(
+            "Your coin balance changed before the purchase completed. Please try again.",
+            409,
+          );
+        }
       }
-      const updatedParticipant = await tx.participant.findUniqueOrThrow({
+      if (walletSpend > 0) {
+        const debit = await tx.user.updateMany({
+          where: { id: userId, coinsBalance: { gte: walletSpend } },
+          data: { coinsBalance: { decrement: walletSpend } },
+        });
+        if (debit.count !== 1) {
+          throw new GachaError(
+            "Your coin balance changed before the purchase completed. Please try again.",
+            409,
+          );
+        }
+      }
+      const [updatedParticipant, updatedUser] = await Promise.all([
+        tx.participant.findUniqueOrThrow({
         where: { id: participant.id },
         select: { coins: true },
-      });
+        }),
+        tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { coinsBalance: true },
+        }),
+      ]);
 
-      return { pulls, coins: updatedParticipant.coins };
+      return {
+        pulls,
+        tournamentCoins: updatedParticipant.coins,
+        walletCoins: updatedUser.coinsBalance,
+        coins: updatedParticipant.coins + updatedUser.coinsBalance,
+      };
     }, {
       maxWait: 10_000,
       timeout: 30_000,
