@@ -114,7 +114,7 @@ export default function TournamentNavigation({
 
   return (
     <>
-      <header className="sticky top-14 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-[#243775] bg-[#0C1638] px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-[#243775] bg-[#0C1638] px-4 py-3 md:hidden">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-[#EEF2FF]">
             {tournamentName}
@@ -141,7 +141,7 @@ export default function TournamentNavigation({
         </button>
       </header>
 
-      <aside className="fixed bottom-0 left-0 top-14 z-20 hidden w-64 flex-col border-r border-[#243775]/60 bg-[#0C1638] px-4 py-6 md:flex">
+      <aside className="fixed bottom-0 left-0 top-0 z-20 hidden w-64 flex-col border-r border-[#243775]/60 bg-[#0C1638] px-4 py-6 md:flex">
         <div className="px-3">
           <Link
             className="mb-5 inline-flex min-h-11 items-center text-sm font-semibold text-[#9FB0E6] transition-colors hover:text-[#EEF2FF]"

@@ -49,6 +49,12 @@ export function AccountMenu({
             Admin dashboard
           </Link>
         )}
+        <Link
+          className="mb-3 block rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#EEF2FF] hover:bg-[#122050] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
+          href="/profile"
+        >
+          Profile & settings
+        </Link>
         <button
           className="w-full rounded-lg px-3 py-2 text-left text-sm font-semibold text-[#EEF2FF] hover:bg-[#122050] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542]"
           onClick={() => signOut({ callbackUrl: "/" })}

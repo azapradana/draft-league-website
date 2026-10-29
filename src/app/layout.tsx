@@ -2,11 +2,9 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { connection } from "next/server";
 import { getServerSession } from "next-auth";
+import ApplicationShell from "@/components/ApplicationShell";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
-import {
-  PersonalWalletHeader,
-  PersonalWalletProvider,
-} from "@/components/wallet/personal-wallet";
+import { PersonalWalletProvider } from "@/components/wallet/personal-wallet";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
@@ -39,14 +37,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   await connection();
-  const [settings, session] = await Promise.all([
+  const [settings, session, shopTournament] = await Promise.all([
     getSiteSettings(),
     getServerSession(authOptions),
+    prisma.tournament.findFirst({
+      where: { completed: false },
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+      select: { id: true },
+    }),
   ]);
   const user = session?.user?.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
-        select: { id: true, coinsBalance: true },
+        select: { id: true, coinsBalance: true, image: true },
       })
     : null;
 
@@ -74,8 +77,27 @@ export default async function RootLayout({
             key={user?.id ?? "anonymous"}
             initialBalance={user?.coinsBalance ?? 0}
           >
-            {user && <PersonalWalletHeader />}
-            {children}
+            <ApplicationShell
+              accentColor={settings.accentColor}
+              siteLogoUrl={settings.siteLogoUrl}
+              siteTitle={settings.siteTitle}
+              shopHref={shopTournament ? `/t/${shopTournament.id}/shop` : null}
+              user={
+                session?.user
+                  ? {
+                      name:
+                        session.user.name ??
+                        session.user.email ??
+                        "Player",
+                      email: session.user.email,
+                      role: session.user.role,
+                      image: user?.image ?? session.user.image,
+                    }
+                  : null
+              }
+            >
+              {children}
+            </ApplicationShell>
           </PersonalWalletProvider>
         </AuthSessionProvider>
       </body>

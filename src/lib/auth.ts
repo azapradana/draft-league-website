@@ -143,4 +143,25 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "google" || !user.id) {
+        return;
+      }
+
+      const email =
+        profile &&
+        "email" in profile &&
+        typeof profile.email === "string"
+          ? profile.email
+          : null;
+
+      if (email) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { googleEmail: email },
+        });
+      }
+    },
+  },
 };

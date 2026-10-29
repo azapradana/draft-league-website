@@ -11,6 +11,7 @@ A web app for organizing Pokémon VGC draft leagues and tournaments. Players use
 - Admins can manage tournament settings, approve players, adjust coin balances, configure packs, and lock rosters.
 - The tournament module adds check-in, randomized elimination brackets, match rooms with chat and roster inspection, result confirmation, and admin dispute resolution.
 - Sign-in uses username and password. Google sign-in can also be enabled with Google OAuth credentials.
+- Players can change their password and manage linked Google sign-in from **Profile & settings**.
 
 See [spec.md](./spec.md) for the core league rules and [tournament_module_specification.md](./tournament_module_specification.md) for the tournament workflow.
 

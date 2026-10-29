@@ -1,22 +1,36 @@
 import { MatchStatus, ParticipantStatus } from "@prisma/client";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { AccountMenu } from "@/components/auth/account-menu";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
+import TournamentStatusTabs from "./tournament-status-tabs";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const { category } = await searchParams;
   const session = await getServerSession(authOptions);
   const [settings, tournaments, activePlayers, matchesPlayed, coinsInCirculation] =
     await Promise.all([
       getSiteSettings(),
       prisma.tournament.findMany({
         orderBy: [{ active: "desc" }, { completed: "asc" }, { name: "asc" }],
-        take: 6,
-        include: {
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          regulation: true,
+          format: true,
+          swissRounds: true,
+          topCut: true,
+          maxParticipants: true,
+          active: true,
+          completed: true,
           participants: session?.user?.id
             ? {
                 where: { userId: session.user.id },
@@ -26,6 +40,7 @@ export default async function Home() {
           _count: {
             select: {
               participants: { where: { status: ParticipantStatus.APPROVED } },
+              matches: true,
             },
           },
         },
@@ -48,6 +63,23 @@ export default async function Home() {
     ]);
 
   const shopTournament = tournaments.find((tournament) => !tournament.completed);
+  const tournamentCards = tournaments.map((tournament) => ({
+    id: tournament.id,
+    name: tournament.name,
+    imageUrl: tournament.imageUrl,
+    regulation: tournament.regulation,
+    format: tournament.format,
+    swissRounds: tournament.swissRounds,
+    topCut: tournament.topCut,
+    maxParticipants: tournament.maxParticipants,
+    active: tournament.active,
+    completed: tournament.completed,
+    matchCount: tournament._count.matches,
+    participantCount: tournament._count.participants,
+    participationStatus: Array.isArray(tournament.participants)
+      ? tournament.participants[0]?.status ?? null
+      : null,
+  }));
   const mobileStats: { label: string; value: number }[] = [
     { label: "Active players", value: activePlayers },
     { label: "Matches played", value: matchesPlayed },
@@ -56,65 +88,6 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#070D24] text-[#EEF2FF]">
-      <header className="relative z-10 border-b border-white/5 bg-[#070D24]/80">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
-            {settings.siteLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={settings.siteLogoUrl}
-                alt=""
-                className="h-10 w-10 rounded-xl object-contain"
-              />
-            ) : (
-              <span
-                className="flex h-10 w-10 items-center justify-center rounded-xl text-lg font-black text-[#070D24]"
-                style={{ backgroundColor: settings.accentColor }}
-                aria-hidden="true"
-              >
-                D
-              </span>
-            )}
-            <span className="truncate text-base font-extrabold tracking-tight sm:text-lg">
-              {settings.siteTitle}
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-2 sm:gap-3" aria-label="Main navigation">
-            <a
-              href="#tournaments"
-              className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-[#9FB0E6] transition hover:text-white sm:inline-flex"
-            >
-              Tournaments
-            </a>
-            {session?.user ? (
-              <div className="flex items-center gap-2">
-                {session.user.role === "ADMIN" && (
-                  <Link
-                    className="hidden rounded-lg border border-[#243775] px-3 py-2 text-sm font-semibold transition hover:border-[#F5C542] sm:inline-flex"
-                    href="/admin"
-                  >
-                    Admin
-                  </Link>
-                )}
-                <AccountMenu
-                  email={session.user.email}
-                  name={session.user.name ?? session.user.email ?? "Player"}
-                  role={session.user.role}
-                />
-              </div>
-            ) : (
-              <Link
-                className="rounded-lg border border-[#243775] px-3 py-2 text-sm font-bold transition hover:border-white/50 sm:px-4"
-                href="/login"
-              >
-                Sign in
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
-
       <section className="relative isolate border-b border-white/5">
         <div
           className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_75%_35%,#243775_0%,#122050_30%,#070D24_78%)] bg-cover bg-center"
@@ -229,111 +202,21 @@ export default async function Home() {
               Featured tournaments
             </h2>
           </div>
-          {tournaments.length > 0 && (
-            <p className="text-sm text-[#9FB0E6]">
-              Showing {tournaments.length} event{tournaments.length === 1 ? "" : "s"}
-            </p>
-          )}
         </div>
-
-        {tournaments.length === 0 ? (
-          <div className="rounded-2xl border border-[#243775] bg-[#0C1638] px-6 py-12 text-center sm:px-10">
-            <p className="display-font text-2xl font-bold">The bracket is waiting.</p>
-            <p className="mt-2 text-sm text-[#9FB0E6]">
-              No tournaments are listed yet. Check back soon for the next event.
-            </p>
-          </div>
-        ) : (
-          <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {tournaments.map((tournament) => {
-              const participation = Array.isArray(tournament.participants)
-                ? tournament.participants[0]
-                : undefined;
-              const status = tournament.completed
-                ? "COMPLETED"
-                : tournament.active
-                  ? "REGISTRATION OPEN"
-                  : "IN PROGRESS";
-              const statusClass = tournament.completed
-                ? "border-slate-400/20 bg-slate-400/10 text-slate-300"
-                : tournament.active
-                  ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
-                  : "border-amber-300/20 bg-amber-300/10 text-amber-200";
-
-              return (
-                <li key={tournament.id}>
-                  <article className="group h-full overflow-hidden rounded-2xl border border-[#243775] bg-[#0C1638] transition duration-200 hover:-translate-y-1 hover:border-[#526bb4] hover:shadow-xl hover:shadow-black/20">
-                    <Link
-                      className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#F5C542]"
-                      href={`/t/${tournament.id}`}
-                      aria-label={`View ${tournament.name}`}
-                    >
-                      <div className="relative h-40 overflow-hidden bg-[radial-gradient(ellipse_at_80%_35%,#243775_0%,#122050_48%,#0C1638_100%)]">
-                        {tournament.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={tournament.imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <span
-                              className="display-font text-6xl font-black tracking-tighter text-white/10"
-                              aria-hidden="true"
-                            >
-                              DRAFT
-                            </span>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#070D24]/90 via-transparent to-[#070D24]/10" />
-                        <span
-                          className={`absolute left-4 top-4 rounded-full border px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] ${statusClass}`}
-                        >
-                          {status}
-                        </span>
-                        <span className="absolute bottom-4 right-4 rounded-md border border-white/15 bg-[#070D24]/70 px-2.5 py-1 text-[10px] font-extrabold tracking-wider text-white backdrop-blur">
-                          REGULATION {tournament.regulation.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="p-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <h3 className="display-font line-clamp-1 text-xl font-bold tracking-tight group-hover:text-white">
-                            {tournament.name}
-                          </h3>
-                          <span className="shrink-0 rounded-md border border-[#243775] bg-[#122050] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#B9C5E8]">
-                            {tournament.format === "SWISS"
-                              ? `Swiss · ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` · Top ${tournament.topCut}` : ""}`
-                              : "Single Elimination"}
-                          </span>
-                        </div>
-                        <div className="mt-5 flex items-center justify-between border-t border-white/5 pt-4 text-sm">
-                          <span className="flex items-center gap-2 text-[#9FB0E6]">
-                            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-                              <path d="M7.5 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 15a5.5 5.5 0 0 1 11 0v1H2v-1ZM14 11c2.21 0 4 1.79 4 4v1h-3v-1a6.47 6.47 0 0 0-1.1-3.63c.03-.12.06-.25.1-.37Z" />
-                            </svg>
-                            {numberFormatter.format(tournament._count.participants)} players
-                          </span>
-                          <span
-                            className="text-sm font-bold transition group-hover:translate-x-0.5"
-                            style={{ color: settings.accentColor }}
-                          >
-                            View event <span aria-hidden="true">→</span>
-                          </span>
-                        </div>
-                        {participation && (
-                          <p className="mt-3 text-xs font-semibold text-[#B9C5E8]">
-                            Your status: {participation.status}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
-                  </article>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <TournamentStatusTabs
+          key={
+            category === "upcoming" || category === "completed"
+              ? category
+              : "ongoing"
+          }
+          tournaments={tournamentCards}
+          accentColor={settings.accentColor}
+          initialCategory={
+            category === "upcoming" || category === "completed"
+              ? category
+              : "ongoing"
+          }
+        />
       </section>
 
       <footer className="border-t border-white/5 py-6">
