@@ -107,6 +107,15 @@ function SidebarContents({
           </p>
           <nav aria-label="Shop navigation" className="space-y-1">
             <Link
+              aria-current={pathname === "/simulator" ? "page" : undefined}
+              className={navClass(pathname === "/simulator")}
+              href="/simulator"
+              onClick={onNavigate}
+            >
+              <span aria-hidden="true" className="w-4 text-center text-xs">✦</span>
+              Practice Tear
+            </Link>
+            <Link
               aria-current={pathname.endsWith("/shop") ? "page" : undefined}
               className={navClass(pathname.endsWith("/shop"))}
               href={shopHref ?? "/"}

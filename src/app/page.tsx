@@ -138,6 +138,15 @@ export default async function Home({
                 Explore Gacha Shop <span className="ml-2" aria-hidden="true">↗</span>
               </Link>
             </div>
+            <Link
+              href="/simulator"
+              className="mt-5 inline-flex max-w-xl flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-[#F5C542]/30 bg-[#F5C542]/10 px-4 py-3 text-sm font-semibold text-[#FFE28A] transition hover:border-[#F5C542]/60 hover:bg-[#F5C542]/15"
+            >
+              <span className="rounded-full bg-[#F5C542] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#070D24]">
+                Free practice
+              </span>
+              <span>Zero Cost. Pure Dopamine. Test your luck before the real tournament.</span>
+            </Link>
           </div>
 
           <div className="hidden justify-self-end lg:block">

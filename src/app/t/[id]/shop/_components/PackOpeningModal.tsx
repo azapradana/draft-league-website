@@ -72,11 +72,15 @@ export default function PackOpeningModal({
   pulls,
   packImage,
   packPrice,
+  practiceMode = false,
+  onRepeat,
   onClose,
 }: {
   pulls: PackPull[];
   packImage: string | null;
   packPrice: number;
+  practiceMode?: boolean;
+  onRepeat?: () => void;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<OpeningPhase>("sealed");
@@ -139,7 +143,13 @@ export default function PackOpeningModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#F5C542]">
-              {phase === "encounter" ? "Wild encounter" : "Pack opening"}
+              {phase === "encounter"
+                ? practiceMode
+                  ? "Practice encounter"
+                  : "Wild encounter"
+                : practiceMode
+                  ? "Practice tear"
+                  : "Pack opening"}
             </p>
             <h2 id="pack-opening-title" className="mt-2 text-2xl font-bold">
               {phase === "encounter" ? "A Pokémon appeared!" : "A surprise awaits"}
@@ -350,15 +360,30 @@ export default function PackOpeningModal({
                           {currentPull.tier.name}
                         </span>
                         <div className="mt-4 flex flex-wrap gap-2 border-t border-[#243775] pt-3">
-                          <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
-                            Copy limits enforced
-                          </span>
-                          <span className="rounded-full border border-[#F5C542]/40 bg-[#F5C542]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F5C542]">
-                            Successful opens are not refunded
-                          </span>
+                          {practiceMode ? (
+                            <>
+                              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                                Simulation only
+                              </span>
+                              <span className="rounded-full border border-[#F5C542]/40 bg-[#F5C542]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F5C542]">
+                                Not saved
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-200">
+                                Copy limits enforced
+                              </span>
+                              <span className="rounded-full border border-[#F5C542]/40 bg-[#F5C542]/10 px-2.5 py-1 text-[11px] font-semibold text-[#F5C542]">
+                                Successful opens are not refunded
+                              </span>
+                            </>
+                          )}
                         </div>
                         <p className="mt-3 text-xs leading-relaxed text-[#9FB0E6]">
-                          Copy limits prevent pulls beyond the tournament&apos;s player and league caps.
+                          {practiceMode
+                            ? "This practice pull does not spend coins or change your collection."
+                            : "Copy limits prevent pulls beyond the tournament's player and league caps."}
                         </p>
                       </aside>
                     </div>
@@ -366,17 +391,33 @@ export default function PackOpeningModal({
 
                   <div className="mt-5 flex flex-col items-center justify-between gap-4 sm:flex-row">
                     <p className="text-sm text-[#9FB0E6]">
-                      Pack cost:{" "}
-                      <span className="font-bold text-[#F5C542]">
-                        {packPrice.toLocaleString()} coins
-                      </span>
+                      {practiceMode ? (
+                        <span className="font-bold text-emerald-200">Practice tear · 0 coins</span>
+                      ) : (
+                        <>
+                          Pack cost:{" "}
+                          <span className="font-bold text-[#F5C542]">
+                            {packPrice.toLocaleString()} coins
+                          </span>
+                        </>
+                      )}
                     </p>
                     <button
                       type="button"
-                      onClick={isLastPull ? onClose : showNextPull}
+                      onClick={
+                        isLastPull
+                          ? practiceMode && onRepeat
+                            ? onRepeat
+                            : onClose
+                          : showNextPull
+                      }
                       className="w-full rounded-xl bg-[#F5C542] px-6 py-3 font-bold text-[#070D24] transition-colors hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] sm:w-auto"
                     >
-                      {isLastPull ? "Finish and view collection" : "Next Pokémon"}
+                      {isLastPull
+                        ? practiceMode
+                          ? "Rip another pack"
+                          : "Finish and view collection"
+                        : "Next Pokémon"}
                     </button>
                   </div>
                 </>
