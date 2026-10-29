@@ -55,6 +55,19 @@ export async function POST(request: NextRequest) {
   if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Admin access is required." }, { status: 403 });
   }
+  const hasReadWriteToken = Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+  const hasOidcCredentials =
+    Boolean(process.env.BLOB_STORE_ID?.trim()) &&
+    Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+  if (!hasReadWriteToken && !hasOidcCredentials) {
+    return NextResponse.json(
+      {
+        error:
+          "Image uploads are not configured. Connect a Vercel Blob store or set BLOB_READ_WRITE_TOKEN.",
+      },
+      { status: 503 },
+    );
+  }
 
   const contentLength = Number(request.headers.get("content-length"));
   if (

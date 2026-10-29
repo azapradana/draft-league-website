@@ -38,6 +38,8 @@ Replace `<repository-url>` with the URL of your Git repository.
 
 Copy `.env.example` to `.env`. The example values work with the local PostgreSQL container; keep `.env` private and do not commit it. Generate a strong `NEXTAUTH_SECRET` (for example, with `openssl rand -base64 32`) and replace the example administrator password before seeding.
 
+Image uploads require a public Vercel Blob store. Connect the store to your Vercel project to use Vercel's OIDC authentication in deployments. For local development, run `vercel env pull` from the linked project to load its Blob credentials, or set `BLOB_READ_WRITE_TOKEN` from the store's read/write token settings in `.env`. Never commit the token.
+
 Google sign-in is optional. To enable it, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`.
 
 ### 3. Start PostgreSQL
@@ -134,7 +136,7 @@ This repository currently has no baseline Prisma migration. Use `prisma db push`
      node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
      ```
 
-   - `BLOB_READ_WRITE_TOKEN`: the read/write token for a public Vercel Blob store linked to this project. Set it in Vercel and in `.env` for local uploads.
+   - Connect a public Vercel Blob store to the project from the store's **Projects** tab. Vercel configures OIDC authentication for deployments. For local uploads, run `vercel env pull` from the linked project, or set `BLOB_READ_WRITE_TOKEN` using the store's read/write token.
    - `NEXTAUTH_URL`: the complete production URL, including `https://`, for example `https://your-project.vercel.app`. Use the Vercel project name/domain you selected.
 5. Add each variable with the exact spelling above. Do not include surrounding quotes in Vercel's value field. Do not add `ADMIN_PASSWORD` or the database URL to a `NEXT_PUBLIC_` variable.
 6. Select **Deploy** and wait for the deployment to finish. A successful build should show `prisma generate` and `next build` completing successfully.
