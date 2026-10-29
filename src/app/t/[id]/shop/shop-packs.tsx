@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import PackOpeningModal, { type PackPull } from "./_components/PackOpeningModal";
 import { useCoinBalance } from "../coin-balance";
 import { RichText } from "@/components/rich-text";
@@ -201,18 +202,21 @@ export default function ShopPacks({
         </div>
       )}
 
-      {pulls && (
-        <PackOpeningModal
-          pulls={pulls}
-          packImage={openingResultPack?.packImage ?? null}
-          cardBackImage={cardBackImage}
-          packPrice={openingResultPack?.price ?? 0}
-          onClose={() => {
-            setPulls(null);
-            setOpeningResultPack(null);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {pulls && (
+          <PackOpeningModal
+            key={openingResultPack?.id ?? "opened-pack"}
+            pulls={pulls}
+            packImage={openingResultPack?.packImage ?? null}
+            cardBackImage={cardBackImage}
+            packPrice={openingResultPack?.price ?? 0}
+            onClose={() => {
+              setPulls(null);
+              setOpeningResultPack(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
