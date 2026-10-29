@@ -838,7 +838,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true });
         }
 
-        return NextResponse.redirect(new URL(`/admin/t/${tournamentId}`, request.url), 303);
+        return NextResponse.redirect(new URL(`/admin/t/${tournamentId}/packs`, request.url), 303);
       }
 
       case "saveTiers": {

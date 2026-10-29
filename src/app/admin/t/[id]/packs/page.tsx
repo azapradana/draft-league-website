@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { AdminDialog } from "@/app/admin/admin-dialog";
+import { DeletePackButton } from "./delete-pack-button";
 
 export default async function AdminTournamentPacksPage({
   params,
@@ -164,12 +165,11 @@ export default async function AdminTournamentPacksPage({
                         </div>
                       </form>
                       {pack._count.purchases === 0 ? (
-                        <form action="/api/admin" method="POST" className="mt-3">
-                          <input type="hidden" name="action" value="deletePack" />
-                          <input type="hidden" name="id" value={pack.id} />
-                          <input type="hidden" name="tournamentId" value={tournament.id} />
-                          <button type="submit" className="rounded-lg border border-red-500/60 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-950">Delete pack</button>
-                        </form>
+                        <DeletePackButton
+                          packId={pack.id}
+                          tournamentId={tournament.id}
+                          packName={pack.name}
+                        />
                       ) : (
                         <p className="mt-3 text-sm text-[#9FB0E6]">Packs with purchases cannot be deleted.</p>
                       )}
