@@ -111,7 +111,7 @@ Do this once, from your own computer, before using the website. These commands c
    npx prisma db seed
    ```
 
-   Wait for both commands to finish successfully. The seed command creates the `ADMIN_USERNAME` account with the `ADMIN` role. Running the seed again with the same username **resets that account's password** to the current `ADMIN_PASSWORD`.
+   Wait for both commands to finish successfully. The seed command creates the `ADMIN_USERNAME` account with the `ADMIN` role. If seeding fails, fix the reported issue and rerun `npx prisma db seed`; the species and admin upserts can be safely repeated, and you do not need to rerun `db push` unless the schema itself has changed. Running the seed again with the same username **resets that account's password** to the current `ADMIN_PASSWORD`.
 4. Keep a safe record of the admin username/password. Do not add `ADMIN_USERNAME` or `ADMIN_PASSWORD` to Vercel; they are only needed for the seed command.
 
 This repository currently has no baseline Prisma migration. Use `prisma db push` to initialize this database; do not use `prisma migrate deploy`. Do not run `db push` against an existing database containing data unless you have reviewed the schema changes and have a backup.

@@ -40,3 +40,4 @@ next-env.d.ts
 spec.md
 tournament_module_specification.md
 .neon
+.env.bak

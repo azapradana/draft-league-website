@@ -14,27 +14,25 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await prisma.$transaction(async (tx) => {
-    await Promise.all(
-      species.map(({ dex, name, types }) =>
-        tx.species.upsert({
-          where: { dex },
-          update: { name, types },
-          create: { dex, name, types },
-        }),
-      ),
-    );
+  await Promise.all(
+    species.map(({ dex, name, types }) =>
+      prisma.species.upsert({
+        where: { dex },
+        update: { name, types },
+        create: { dex, name, types },
+      }),
+    ),
+  );
 
-    await tx.user.upsert({
-      where: { username },
-      update: { passwordHash, role: Role.ADMIN },
-      create: {
-        username,
-        name: username,
-        passwordHash,
-        role: Role.ADMIN,
-      },
-    });
+  await prisma.user.upsert({
+    where: { username },
+    update: { passwordHash, role: Role.ADMIN },
+    create: {
+      username,
+      name: username,
+      passwordHash,
+      role: Role.ADMIN,
+    },
   });
 
   console.log(`Seeded ${species.length} species and ensured the admin account exists.`);
