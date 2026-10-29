@@ -650,23 +650,14 @@ export async function POST(request: NextRequest) {
       }
 
       case "createPack": {
-        const tournamentId = asString(body.tournamentId);
         const name = asString(body.name).trim();
         const description = asString(body.description);
         const packImage = asString(body.packImage).trim();
-        const price = asStrictInt(body.price) ?? -1;
         const pullCount = asStrictInt(body.pullCount) ?? -1;
-        const rawPurchaseLimit = body.purchaseLimit;
-        const purchaseLimit =
-          rawPurchaseLimit === undefined ||
-          rawPurchaseLimit === null ||
-          asString(rawPurchaseLimit).trim() === ""
-            ? null
-            : asStrictInt(rawPurchaseLimit) ?? -1;
 
-        if (!tournamentId || !name || name.length > 80 || price < 0 || price > 2_147_483_647 || pullCount < 1 || pullCount > 2_147_483_647) {
+        if (!name || name.length > 80 || pullCount < 1 || pullCount > 2_147_483_647) {
           return NextResponse.json(
-            { error: "Choose a tournament, enter a pack name of 1–80 characters, a non-negative whole-number price, and at least one pull." },
+            { error: "Enter a pack name of 1–80 characters and a positive whole-number pull count." },
             { status: 400 },
           );
         }
@@ -677,28 +668,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Pack artwork URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
         }
 
-        if (purchaseLimit !== null && (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)) {
-          return NextResponse.json(
-            { error: "Purchase limit must be at least one or left blank for unlimited." },
-            { status: 400 },
-          );
-        }
-
-        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
-        if (!tournament) {
-          return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
-        }
-
         const pack = await prisma.pack.create({
           data: {
-            tournamentId,
             name,
             description,
             packImage: packImage || null,
-            price,
             pullCount,
-            purchaseLimit,
-            active: asBoolean(body.active, false),
           },
         });
 
@@ -706,7 +681,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(pack, { status: 201 });
         }
 
-        return NextResponse.redirect(new URL(`/admin/t/${tournamentId}`, request.url), 303);
+        return NextResponse.redirect(new URL("/admin/packs", request.url), 303);
       }
 
       case "updatePack": {
@@ -723,10 +698,7 @@ export async function POST(request: NextRequest) {
         const updateData: {
           name?: string;
           description?: string;
-          price?: number;
           pullCount?: number;
-          purchaseLimit?: number | null;
-          active?: boolean;
           packImage?: string | null;
         } = {};
 
@@ -754,14 +726,6 @@ export async function POST(request: NextRequest) {
           updateData.packImage = packImage || null;
         }
 
-        if ("price" in body) {
-          const price = asStrictInt(body.price) ?? -1;
-          if (price < 0 || price > 2_147_483_647) {
-            return NextResponse.json({ error: "Pack price must be a non-negative whole number." }, { status: 400 });
-          }
-          updateData.price = price;
-        }
-
         if ("pullCount" in body) {
           const pullCount = asStrictInt(body.pullCount) ?? -1;
           if (pullCount < 1 || pullCount > 2_147_483_647) {
@@ -781,48 +745,26 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        if ("purchaseLimit" in body) {
-          const rawPurchaseLimit = body.purchaseLimit;
-          const purchaseLimit =
-            rawPurchaseLimit === undefined ||
-            rawPurchaseLimit === null ||
-            asString(rawPurchaseLimit).trim() === ""
-              ? null
-              : asStrictInt(rawPurchaseLimit) ?? -1;
-          if (purchaseLimit !== null && (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)) {
-            return NextResponse.json(
-              { error: "Purchase limit must be at least one or left blank for unlimited." },
-              { status: 400 },
-            );
-          }
-          updateData.purchaseLimit = purchaseLimit;
-        }
-
-        if ("active" in body) {
-          updateData.active = asBoolean(body.active, false);
-        }
-
         const updatedPack = await prisma.pack.update({ where: { id }, data: updateData });
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(updatedPack);
         }
 
-        return NextResponse.redirect(new URL(`/admin/t/${pack.tournamentId}`, request.url), 303);
+        return NextResponse.redirect(new URL("/admin/packs", request.url), 303);
       }
 
       case "deletePack": {
         const id = asString(body.id);
-        const tournamentId = asString(body.tournamentId);
-        if (!id || !tournamentId) {
-          return NextResponse.json({ error: "Pack and tournament IDs are required." }, { status: 400 });
+        if (!id) {
+          return NextResponse.json({ error: "Pack ID is required." }, { status: 400 });
         }
 
         const result = await prisma.pack.deleteMany({
-          where: { id, tournamentId, purchases: { none: {} } },
+          where: { id, purchases: { none: {} } },
         });
         if (result.count === 0) {
           const pack = await prisma.pack.findFirst({
-            where: { id, tournamentId },
+            where: { id },
             include: { _count: { select: { purchases: true } } },
           });
           if (!pack) {
@@ -838,6 +780,87 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true });
         }
 
+        return NextResponse.redirect(new URL("/admin/packs", request.url), 303);
+      }
+
+      case "attachTournamentPack": {
+        const tournamentId = asString(body.tournamentId);
+        const packId = asString(body.packId);
+        if (!tournamentId || !packId) {
+          return NextResponse.json({ error: "Tournament and pack IDs are required." }, { status: 400 });
+        }
+        const [tournament, pack] = await Promise.all([
+          prisma.tournament.findUnique({ where: { id: tournamentId }, select: { id: true } }),
+          prisma.pack.findUnique({ where: { id: packId }, select: { id: true } }),
+        ]);
+        if (!tournament || !pack) {
+          return NextResponse.json({ error: "Tournament or global pack not found." }, { status: 404 });
+        }
+        const attachment = await prisma.tournamentPack.create({
+          data: { tournamentId, packId },
+        });
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          return NextResponse.json(attachment, { status: 201 });
+        }
+        return NextResponse.redirect(new URL(`/admin/t/${tournamentId}/packs`, request.url), 303);
+      }
+
+      case "updateTournamentPack": {
+        const tournamentId = asString(body.tournamentId);
+        const packId = asString(body.packId);
+        const price = asStrictInt(body.price) ?? -1;
+        const rawPurchaseLimit = body.purchaseLimit;
+        const purchaseLimit =
+          rawPurchaseLimit === undefined ||
+          rawPurchaseLimit === null ||
+          asString(rawPurchaseLimit).trim() === ""
+            ? null
+            : asStrictInt(rawPurchaseLimit) ?? -1;
+        if (!tournamentId || !packId) {
+          return NextResponse.json({ error: "Tournament and pack IDs are required." }, { status: 400 });
+        }
+        if (price < 0 || price > 2_147_483_647) {
+          return NextResponse.json({ error: "Pack price must be a non-negative whole number." }, { status: 400 });
+        }
+        if (purchaseLimit !== null && (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)) {
+          return NextResponse.json(
+            { error: "Purchase limit must be at least one or left blank for unlimited." },
+            { status: 400 },
+          );
+        }
+        const updateData = {
+          price,
+          purchaseLimit,
+          ...("active" in body ? { active: asBoolean(body.active, false) } : {}),
+        };
+        const result = await prisma.tournamentPack.updateMany({
+          where: { tournamentId, packId },
+          data: updateData,
+        });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "This pack is not attached to the tournament." }, { status: 404 });
+        }
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          return NextResponse.json({ success: true });
+        }
+        return NextResponse.redirect(new URL(`/admin/t/${tournamentId}/packs`, request.url), 303);
+      }
+
+      case "detachTournamentPack": {
+        const tournamentId = asString(body.tournamentId);
+        const packId = asString(body.packId);
+        if (!tournamentId || !packId) {
+          return NextResponse.json({ error: "Tournament and pack IDs are required." }, { status: 400 });
+        }
+        const result = await prisma.tournamentPack.deleteMany({
+          where: { tournamentId, packId },
+        });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "This pack is not attached to the tournament." }, { status: 404 });
+        }
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          return NextResponse.json({ success: true });
+        }
         return NextResponse.redirect(new URL(`/admin/t/${tournamentId}/packs`, request.url), 303);
       }
 

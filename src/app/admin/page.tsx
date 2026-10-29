@@ -42,6 +42,12 @@ export default async function AdminPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Link
+              href="/admin/packs"
+              className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
+            >
+              Global packs
+            </Link>
+            <Link
               href="/admin/settings"
               className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
             >

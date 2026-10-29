@@ -101,30 +101,35 @@ export async function POST(
         );
       }
 
-      const pack = await tx.pack.findFirst({
-        where: { id: packId, tournamentId, active: true },
+      const attachment = await tx.tournamentPack.findUnique({
+        where: { tournamentId_packId: { tournamentId, packId } },
         include: {
-          tiers: {
+          pack: {
             include: {
-              entries: {
-                include: { species: { select: { dex: true, name: true, isMega: true, imageUrl: true } } },
+              tiers: {
+                include: {
+                  entries: {
+                    include: { species: { select: { dex: true, name: true, isMega: true, imageUrl: true } } },
+                  },
+                },
               },
             },
           },
         },
       });
-      if (!pack) {
+      if (!attachment || !attachment.active) {
         throw new GachaError("That pack is not on sale in this tournament.", 404);
       }
-      if (participant.coins < pack.price) {
+      const pack = attachment.pack;
+      if (participant.coins < attachment.price) {
         throw new GachaError("You do not have enough coins to buy this pack.", 409);
       }
 
-      if (pack.purchaseLimit !== null) {
+      if (attachment.purchaseLimit !== null) {
         const purchaseCount = await tx.purchase.count({
           where: { participantId: participant.id, packId: pack.id },
         });
-        if (purchaseCount >= pack.purchaseLimit) {
+        if (purchaseCount >= attachment.purchaseLimit) {
           throw new GachaError("You have reached this pack’s purchase limit.", 409);
         }
       }
@@ -209,7 +214,7 @@ export async function POST(
         data: {
           participantId: participant.id,
           packId: pack.id,
-          cost: pack.price,
+          cost: attachment.price,
         },
         select: { id: true },
       });
@@ -224,8 +229,8 @@ export async function POST(
       });
 
       const debit = await tx.participant.updateMany({
-        where: { id: participant.id, coins: { gte: pack.price } },
-        data: { coins: { decrement: pack.price } },
+        where: { id: participant.id, coins: { gte: attachment.price } },
+        data: { coins: { decrement: attachment.price } },
       });
       if (debit.count !== 1) {
         throw new GachaError(

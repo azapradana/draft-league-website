@@ -28,16 +28,20 @@ export default async function TournamentShopPage({
   });
   if (!tournament) notFound();
 
-  const packs = await prisma.pack.findMany({
+  const packs = await prisma.tournamentPack.findMany({
     where: { tournamentId: id, active: true },
-    orderBy: { name: "asc" },
+    orderBy: { pack: { name: "asc" } },
     include: {
-      tiers: {
-        orderBy: { id: "asc" },
+      pack: {
         include: {
-          entries: {
-            orderBy: { species: { name: "asc" } },
-            select: { species: { select: { dex: true, name: true } } },
+          tiers: {
+            orderBy: { id: "asc" },
+            include: {
+              entries: {
+                orderBy: { species: { name: "asc" } },
+                select: { species: { select: { dex: true, name: true } } },
+              },
+            },
           },
         },
       },
@@ -45,14 +49,14 @@ export default async function TournamentShopPage({
   });
   const participant = tournament.participants[0];
   const shopPacks: ShopPack[] = packs.map((pack) => ({
-    id: pack.id,
-    name: pack.name,
-    description: pack.description,
-    packImage: pack.packImage,
+    id: pack.pack.id,
+    name: pack.pack.name,
+    description: pack.pack.description,
+    packImage: pack.pack.packImage,
     price: pack.price,
-    pullCount: pack.pullCount,
+    pullCount: pack.pack.pullCount,
     purchaseLimit: pack.purchaseLimit,
-    tiers: pack.tiers.map((tier) => ({
+    tiers: pack.pack.tiers.map((tier) => ({
       name: tier.name,
       color: tier.color,
       weight: Number(tier.weight),

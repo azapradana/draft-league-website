@@ -117,7 +117,7 @@ model Tournament {
   rostersPublic      Boolean          @default(false)
   checkInOpen        Boolean          @default(false)
   participants       Participant[]
-  packs              Pack[]
+  packs              TournamentPack[]
   matches            Match[]
 }
 
@@ -189,19 +189,28 @@ model Species {
 }
 
 model Pack {
-  id            String      @id @default(cuid())
+  id          String           @id @default(cuid())
+  name        String
+  description String           @default("")
+  packImage   String?
+  pullCount   Int              @default(1)
+  tiers       PackTier[]
+  entries     PackEntry[]
+  purchases   Purchase[]
+  tournaments TournamentPack[]
+}
+
+model TournamentPack {
   tournamentId  String
-  name          String
-  description   String      @default("")
-  packImage     String?
-  price         Int
-  pullCount     Int         @default(1)
+  packId        String
+  price         Int         @default(0)
   purchaseLimit Int?
-  active        Boolean     @default(true)
-  tournament    Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  tiers         PackTier[]
-  entries       PackEntry[]
-  purchases     Purchase[]
+  active        Boolean     @default(false)
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  pack          Pack       @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@id([tournamentId, packId])
+  @@index([packId])
 }
 
 model PackTier {

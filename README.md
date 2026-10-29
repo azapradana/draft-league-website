@@ -5,7 +5,7 @@ A web app for organizing Pokémon VGC draft leagues and tournaments. Players use
 ## What the website does
 
 - Players can create an account, request to join a tournament, and—once approved—spend tournament coins on packs.
-- Pack contents, rarity tiers, pull odds, and duplicate limits are configured by tournament admins.
+- Global admins manage reusable pack artwork, rarity tiers, pull odds, and Pokémon pools; tournament admins choose packs and configure event-specific prices and purchase limits.
 - Players collect Pokémon and choose up to six distinct species for their battle roster.
 - Tournament pages show player and roster information, pack shops, and results.
 - Admins can manage tournament settings, approve players, adjust coin balances, configure packs, and lock rosters.
@@ -155,7 +155,7 @@ If you change an environment variable after deploying, go to **Deployments**, re
 To make the website usable by players, finish the in-app setup:
 
 1. In **Admin**, create a tournament. Fill in its name, rules/description, starting coins, and copy limits.
-2. Open that tournament's admin page. Add one or more packs. Configure each pack's name, description, price, pull count, and optional purchase limit; then open its pack editor and add tiers and eligible Pokémon species. A pack needs configured tiers and entries to offer useful pulls.
+2. In **Admin → Global packs**, create reusable packs with artwork and pull counts, then configure each pack's rarity tiers and eligible Pokémon species. In a tournament's **Packs / Gacha** section, attach the global packs you want to offer and set each tournament's own price, sale status, and optional per-player purchase limit. A pack needs configured tiers and entries to offer useful pulls.
 3. Open the tournament settings and enable **Open / active** when you are ready for players to join. Keep check-in closed until the event is ready.
 4. In a separate browser or private window, create a normal player account using **Sign up**. Usernames must be 3–20 lowercase letters, numbers, or underscores; passwords must be at least 8 characters.
 5. As that player, open the tournament and request to join. Return to the admin page and approve the participant. Repeat for the real players.
