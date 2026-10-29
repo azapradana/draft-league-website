@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { buildSwissStandings } from "@/lib/tournament-standings";
 import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
@@ -29,6 +30,9 @@ export default async function TournamentOverview({
       imageUrl: true,
       format: true,
       swissRounds: true,
+      topCut: true,
+      currentStage: true,
+      completed: true,
       maxParticipants: true,
       regulation: true,
       startingCoins: true,
@@ -42,7 +46,11 @@ export default async function TournamentOverview({
         select: { id: true, status: true, checkedIn: true },
       },
       matches: {
-        orderBy: [{ roundNumber: "asc" }, { createdAt: "asc" }],
+        orderBy: [
+          { roundNumber: "asc" },
+          { bracketPosition: "asc" },
+          { createdAt: "asc" },
+        ],
         include: {
           player1: {
             include: {
@@ -122,25 +130,49 @@ export default async function TournamentOverview({
     tournament.matches.length > 0
       ? tournament.matches[tournament.matches.length - 1].roundNumber
       : null;
+  const currentStage =
+    tournament.format === "SWISS" &&
+    tournament.currentStage === "SINGLE_ELIMINATION"
+      ? "SWISS"
+      : tournament.currentStage;
   const rounds = Array.from(
     new Set(tournament.matches.map((match) => match.roundNumber)),
+  );
+  const topCutRoundNumbers = Array.from(
+    new Set(
+      tournament.matches
+        .filter((match) => match.stage === "TOP_CUT")
+        .map((match) => match.roundNumber),
+    ),
   );
   const finalRoundMatches = tournament.matches.filter(
     (match) => match.roundNumber === currentRound,
   );
   const finalMatch =
     finalRoundMatches.length === 1 ? finalRoundMatches[0] : null;
-  const tournamentCompleted =
+  const bracketCompleted =
     finalMatch?.status === "COMPLETED" &&
     finalMatch.winnerId !== null &&
     (finalMatch.winnerId === finalMatch.player1Id ||
       finalMatch.winnerId === finalMatch.player2Id) &&
     tournament.matches.every((match) => match.status === "COMPLETED");
+  const tournamentCompleted =
+    tournament.format === "SWISS" && tournament.topCut === 0
+      ? tournament.completed
+      : bracketCompleted;
+  const swissStandings =
+    tournament.format === "SWISS"
+      ? buildSwissStandings(approvedParticipants, tournament.matches)
+      : [];
+  const swissRankById = new Map(
+    swissStandings.map((standing, index) => [standing.id, index]),
+  );
   const eliminatedInRound = new Map<string, number>();
 
   if (tournamentCompleted) {
     for (const match of tournament.matches) {
       if (match.status !== "COMPLETED" || !match.winnerId) continue;
+      if (tournament.format === "SWISS" && match.stage !== "TOP_CUT") continue;
 
       for (const participantId of [match.player1Id, match.player2Id]) {
         if (participantId && participantId !== match.winnerId) {
@@ -152,19 +184,31 @@ export default async function TournamentOverview({
 
   const participantsToDisplay = tournamentCompleted
     ? [...approvedParticipants].sort((a, b) => {
-      const aIsChampion = a.id === finalMatch.winnerId;
-      const bIsChampion = b.id === finalMatch.winnerId;
-      if (aIsChampion !== bIsChampion) return aIsChampion ? -1 : 1;
+        if (tournament.format === "SWISS" && tournament.topCut === 0) {
+          const rankDifference =
+            (swissRankById.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+            (swissRankById.get(b.id) ?? Number.MAX_SAFE_INTEGER);
+          if (rankDifference !== 0) return rankDifference;
+        } else {
+          const aIsChampion = a.id === finalMatch?.winnerId;
+          const bIsChampion = b.id === finalMatch?.winnerId;
+          if (aIsChampion !== bIsChampion) return aIsChampion ? -1 : 1;
 
-      const roundDifference =
-        (eliminatedInRound.get(b.id) ?? 0) -
-        (eliminatedInRound.get(a.id) ?? 0);
-      if (roundDifference !== 0) return roundDifference;
+          const roundDifference =
+            (eliminatedInRound.get(b.id) ?? 0) -
+            (eliminatedInRound.get(a.id) ?? 0);
+          if (roundDifference !== 0) return roundDifference;
 
-      const aName = a.user.name ?? a.user.username ?? "Unnamed player";
-      const bName = b.user.name ?? b.user.username ?? "Unnamed player";
-      return aName.localeCompare(bName) || a.id.localeCompare(b.id);
-    })
+          const swissRankDifference =
+            (swissRankById.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+            (swissRankById.get(b.id) ?? Number.MAX_SAFE_INTEGER);
+          if (swissRankDifference !== 0) return swissRankDifference;
+        }
+
+        const aName = a.user.name ?? a.user.username ?? "Unnamed player";
+        const bName = b.user.name ?? b.user.username ?? "Unnamed player";
+        return aName.localeCompare(bName) || a.id.localeCompare(b.id);
+      })
     : approvedParticipants;
 
   const participantRanks = new Map(
@@ -334,8 +378,16 @@ export default async function TournamentOverview({
           <p className="mt-1 text-sm text-[#9FB0E6]">
             {currentRound === null
               ? "Pairings will appear here when the tournament starts."
-              : `Current round: Round ${currentRound}. Your active pairing is highlighted.`}
+              : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}. Your active pairing is highlighted.`}
           </p>
+          {tournament.format === "SWISS" && (
+            <Link
+              className="mt-3 inline-flex text-sm font-semibold text-[#F5C542] underline underline-offset-2"
+              href={`/t/${tournament.id}/standings`}
+            >
+              View Swiss standings
+            </Link>
+          )}
         </div>
 
         {tournament.matches.length === 0 ? (
@@ -369,7 +421,13 @@ export default async function TournamentOverview({
               return (
                 <section key={roundNumber}>
                   <h4 className="mb-3 text-lg font-semibold">
-                    Round {roundNumber}
+                    {roundMatches[0].stage === "TOP_CUT"
+                      ? `Top Cut · Round ${topCutRoundNumbers.indexOf(roundNumber) + 1}`
+                      : roundMatches[0].stage === "SWISS" ||
+                          (roundMatches[0].stage === null &&
+                            tournament.format === "SWISS")
+                        ? `Swiss · Round ${roundNumber}`
+                        : `Round ${roundNumber}`}
                     {roundNumber === currentRound ? " · Current" : ""}
                   </h4>
                   <ul className="space-y-3">

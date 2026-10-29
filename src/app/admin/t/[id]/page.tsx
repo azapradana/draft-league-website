@@ -89,6 +89,7 @@ export default async function AdminTournamentSettingsPage({
               initialFormat={tournament.format}
               initialMaxParticipants={tournament.maxParticipants ?? ""}
               initialSwissRounds={tournament.swissRounds}
+              initialTopCut={tournament.topCut}
             />
 
             <label className="block">

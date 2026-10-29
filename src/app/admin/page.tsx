@@ -147,7 +147,7 @@ export default async function AdminPage() {
                         </th>
                         <td className="px-5 py-4 text-[#C2CCF2]">
                           {tournament.format === "SWISS"
-                            ? `Swiss · ${tournament.swissRounds} rounds`
+                            ? `Swiss · ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` · Top ${tournament.topCut}` : ""}`
                             : "Single Elimination"}
                         </td>
                         <td className="px-5 py-4">

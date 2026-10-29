@@ -303,7 +303,7 @@ export default async function Home() {
                           </h3>
                           <span className="shrink-0 rounded-md border border-[#243775] bg-[#122050] px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#B9C5E8]">
                             {tournament.format === "SWISS"
-                              ? `Swiss · ${tournament.swissRounds} rounds`
+                              ? `Swiss · ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` · Top ${tournament.topCut}` : ""}`
                               : "Single Elimination"}
                           </span>
                         </div>

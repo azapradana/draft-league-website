@@ -1,6 +1,6 @@
 # Pokémon VGC Gacha Draft League — Tournament Running & Match Module Specification
 
-This document specifies the tournament execution module for the Pokémon VGC Gacha Draft League web application. It builds directly upon the core gacha, shop, and drafting mechanics defined in `SPEC.md`, adding tournament check-ins, randomized single-elimination brackets, match rooms with chat, roster inspection, mutual result confirmation, and admin dispute handling.
+This document specifies the tournament execution module for the Pokémon VGC Gacha Draft League web application. It builds directly upon the core gacha, shop, and drafting mechanics defined in `SPEC.md`, adding tournament check-ins, single-elimination and Swiss-to-Top-Cut formats, match rooms with chat, roster inspection, mutual result confirmation, and admin dispute handling.
 
 ---
 
@@ -15,6 +15,7 @@ Add the following models and fields to `prisma/schema.prisma`:
   - Add `checkInOpen` (Boolean, default `false`)
   - Add `completed` (Boolean, default `false`) so admins can mark a tournament completed; completion also closes the tournament and check-in
   - Add `rostersPublic` (Boolean, default `false`) to control whether participants can view every approved player's roster
+  - Add `topCut` (Int, default `0`) and `currentStage` (`SINGLE_ELIMINATION`, `SWISS`, `TOP_CUT`, or `COMPLETED`) for Swiss-to-playoff tournaments
 - **Participant**:
   - Add `checkedIn` (Boolean, default `false`)
 - **Pack**:
@@ -28,6 +29,7 @@ Add the following models and fields to `prisma/schema.prisma`:
   - `id`: String (UUID or cuid)
   - `tournamentId`: String (Foreign Key to Tournament)
   - `roundNumber`: Int (1, 2, 3, etc.)
+  - Add nullable `stage` (`SINGLE_ELIMINATION`, `SWISS`, or `TOP_CUT`) and `bracketPosition` to preserve playoff progression order
   - `player1Id`: String (Foreign Key to Participant, nullable for byes)
   - `player2Id`: String (Foreign Key to Participant, nullable for byes)
   - `winnerId`: String (Foreign Key to Participant, nullable)
@@ -56,13 +58,11 @@ Add the following models and fields to `prisma/schema.prisma`:
 2. **Player Action**: Approved participants visit `/t/[id]` and click a prominent **"Check In"** button while check-in is open.
 3. **Validation**: Only participants with `status = APPROVED` and `checkedIn = true` are eligible for Round 1 entry.
 
-### Phase 2: Round 1 Bracket Generation
-1. **Admin Action**: Once check-ins close, the admin clicks **"Generate Round 1 Pairings"**.
-2. **Backend Logic**:
-   - Gathers all participants where `checkedIn = true`.
-   - Randomly shuffles the array securely.
-   - If the count of checked-in players is odd, one random player receives a **Bye** (automatically advances to Round 2, with a dummy match or pre-resolved match record).
-   - Pairs remaining players sequentially into `Match` records for `roundNumber = 1`.
+### Phase 2: Round Generation
+1. **Admin Action**: Once check-ins close, the admin starts Round 1 at `/admin/t/[id]/matches`.
+2. **Single Elimination**: Checked-in approved participants are shuffled and paired; a bye is automatically resolved for an odd field.
+3. **Swiss**: All checked-in approved participants play every configured Swiss round. Pairings follow current standings where possible, avoid rematches, and award byes to the lowest-ranked player without a previous bye.
+4. Swiss matches award 3 match points for a win and 0 for a loss. Standings rank by match points, opponent match-win percentage (minimum 33.3%), match wins, then player name. Game-win tie-breakers are not used because match records do not capture game scores.
 
 ### Phase 3: Match Room & Interaction (`/t/[id]/matches/[matchId]`)
 1. **Match Room Access**: Paired players and admins can access the match room.
@@ -75,17 +75,16 @@ Add the following models and fields to `prisma/schema.prisma`:
    - Each player selects the winner from a dropdown/button group and clicks "Submit Result".
    - Stored in `player1Vote` or `player2Vote`.
 2. **State Evaluation**:
-   - **Match**: If both votes match (`player1Vote === player2Vote`), the match automatically transitions to `COMPLETED`, `winnerId` is set, and the loser is eliminated.
+   - **Match**: If both votes match (`player1Vote === player2Vote`), the match automatically transitions to `COMPLETED` and `winnerId` is set. A Swiss loss does not eliminate a player.
    - **Dispute**: If Player 1 votes themselves and Player 2 votes themselves (conflicting votes), the match status immediately updates to `DISPUTED`, locking further automated changes and alerting admins.
 3. **Admin Resolution**:
    - Admins see a **Dispute Panel** on `/admin/t/[id]/matches`.
    - The admin can override votes, manually select the winner, and force-complete the match.
 
 ### Phase 5: Subsequent Rounds
-1. Once all matches in the current round have a `COMPLETED` status, the admin can click **"Start Next Round"**.
-2. Winners from the current round are paired randomly into the next round (`roundNumber + 1`) until a Grand Final determines the champion.
-3. When the final round's sole match is completed and every match has a valid winner, the tournament closes automatically (`active = false`) and check-in is closed. This also applies when a one-player tournament finishes immediately via a bye.
-4. Admins can manually toggle completion in tournament settings. Marking a tournament completed closes it and check-in; marking it not completed does not reopen either. Completed tournaments do not accept match results or generate further rounds.
+1. For Swiss, the admin generates the next standings-based round after every match in the current round is completed. After all configured rounds, the admin can generate the configured Top 4 or Top 8 bracket; the cut must fit the checked-in field.
+2. Playoff seeds come from Swiss standings. Top 4 and Top 8 proceed as single-elimination brackets until one champion remains. The tournament closes automatically after the final match.
+3. A Swiss-only tournament closes after its final Swiss round. Admins can manually toggle completion in tournament settings. Completed tournaments do not accept match results or generate further rounds.
 
 ---
 
@@ -93,6 +92,7 @@ Add the following models and fields to `prisma/schema.prisma`:
 
 - `POST /api/tournaments/[id]/checkin`: Toggle or submit participant check-in.
 - `POST /api/admin/tournaments/[id]/rounds/generate` and `/rounds/start`: Generate Round 1 or subsequent rounds (Admin only).
+- `POST /api/admin/tournaments/[id]/top-cut/generate`: Seed and generate the Swiss Top Cut bracket (Admin only).
 - `GET /api/tournaments/[id]/matches/[matchId]`: Fetch match details, rosters, chat messages, and vote status.
 - `POST /api/tournaments/[id]/matches/[matchId]/chat`: Post a message to match chat.
 - `POST /api/tournaments/[id]/matches/[matchId]/result`: Submit a match winner vote.
@@ -107,7 +107,7 @@ Add the following models and fields to `prisma/schema.prisma`:
    - Participant table with check-in status and saved rosters. Admins can always view approved rosters; participants can view all approved rosters when `rostersPublic` is enabled, otherwise only their own.
    - After the final match is completed, show every approved participant in a unique finishing order from 1 to the participant count. Display gold, silver, and bronze medals beside the first-, second-, and third-place names; rank earlier-round eliminations below later-round eliminations.
    - Check-in status banner and check-in button.
-   - Live bracket tree view showing current rounds, pairings, and match statuses.
+   - Live Swiss round / Top Cut bracket view showing pairings and match statuses; Swiss standings are available at `/t/[id]/standings`.
 2. **Match Room (`/t/[id]/matches/[matchId]/page.tsx`)**:
    - Header with Round info and opponent details.
    - Side-by-side Roster Inspector (up to 6 Pokémon cards with sprites, names, types, and collection tiers per player).
@@ -117,7 +117,8 @@ Add the following models and fields to `prisma/schema.prisma`:
    - Provide rich-text description editors for the tournament and its packs; render the pack description in the shop.
    - Check-in toggle switch.
    - Roster editing lock and roster visibility toggle.
-   - Round generation buttons and bracket management at `/admin/t/[id]/matches`.
+   - Swiss round count and optional Top 4 / Top 8 settings; Top Cut cannot exceed the configured field or the checked-in player count.
+   - Round generation buttons, Swiss standings, and Top Cut bracket management at `/admin/t/[id]/matches`.
    - Disputed matches alert queue with manual override controls.
 
 ## 5. Final Polish, Loading, and Error Handling

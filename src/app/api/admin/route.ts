@@ -1,4 +1,9 @@
-import { ParticipantStatus, Prisma, TournamentFormat } from "@prisma/client";
+import {
+  ParticipantStatus,
+  Prisma,
+  TournamentFormat,
+  TournamentStage,
+} from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -179,6 +184,12 @@ export async function POST(request: NextRequest) {
           : asStrictInt(rawMaxParticipants);
         const swissRounds =
           format === "SWISS" ? asStrictInt(body.swissRounds) ?? 0 : 4;
+        const topCut =
+          format === "SWISS"
+            ? body.topCut === undefined
+              ? 0
+              : asStrictInt(body.topCut)
+            : 0;
 
         if (!name) {
           return NextResponse.json({ error: "Tournament name is required." }, { status: 400 });
@@ -210,6 +221,26 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           );
         }
+        if (
+          topCut === undefined ||
+          (topCut !== 0 && topCut !== 4 && topCut !== 8)
+        ) {
+          return NextResponse.json(
+            { error: "Choose no Top Cut, Top 4, or Top 8." },
+            { status: 400 },
+          );
+        }
+        if (
+          topCut > 0 &&
+          maxParticipants !== null &&
+          maxParticipants !== undefined &&
+          topCut > maxParticipants
+        ) {
+          return NextResponse.json(
+            { error: `Top Cut cannot exceed the maximum of ${maxParticipants} participants.` },
+            { status: 400 },
+          );
+        }
         if (description.length > MAX_DESCRIPTION_LENGTH) {
           return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
         }
@@ -230,6 +261,11 @@ export async function POST(request: NextRequest) {
             name,
             description,
             format: format as TournamentFormat,
+            topCut,
+            currentStage:
+              format === "SWISS"
+                ? TournamentStage.SWISS
+                : TournamentStage.SINGLE_ELIMINATION,
             maxParticipants,
             swissRounds,
             imageUrl: imageUrl || null,
@@ -273,6 +309,8 @@ export async function POST(request: NextRequest) {
           maxCopiesPerPlayer?: number;
           maxCopiesLeague?: number | null;
           format?: TournamentFormat;
+          topCut?: number;
+          currentStage?: TournamentStage;
           maxParticipants?: number | null;
           swissRounds?: number;
           imageUrl?: string | null;
@@ -363,6 +401,82 @@ export async function POST(request: NextRequest) {
           updateData.swissRounds = swissRounds;
         }
 
+        const updatedTopCut =
+          "topCut" in body
+            ? asStrictInt(body.topCut)
+            : tournament.topCut;
+        if (
+          updatedTopCut === undefined ||
+          (updatedTopCut !== 0 && updatedTopCut !== 4 && updatedTopCut !== 8)
+        ) {
+          return NextResponse.json(
+            { error: "Choose no Top Cut, Top 4, or Top 8." },
+            { status: 400 },
+          );
+        }
+        if (updatedFormat !== TournamentFormat.SWISS && updatedTopCut !== 0) {
+          return NextResponse.json(
+            { error: "Top Cut playoffs are only available for Swiss tournaments." },
+            { status: 400 },
+          );
+        }
+
+        const configuredTopCut =
+          updatedFormat === TournamentFormat.SWISS ? updatedTopCut : 0;
+        const configuredMaxParticipants =
+          updateData.maxParticipants ?? tournament.maxParticipants;
+        if (
+          configuredTopCut > 0 &&
+          configuredMaxParticipants !== null &&
+          configuredTopCut > configuredMaxParticipants
+        ) {
+          return NextResponse.json(
+            {
+              error: `Top Cut cannot exceed the maximum of ${configuredMaxParticipants} participants.`,
+            },
+            { status: 400 },
+          );
+        }
+        if (configuredTopCut > 0) updateData.topCut = configuredTopCut;
+        else if (updatedFormat !== tournament.format || "topCut" in body) {
+          updateData.topCut = 0;
+        }
+
+        const matchCount = await prisma.match.count({ where: { tournamentId: id } });
+        if (
+          matchCount > 0 &&
+          (updatedFormat !== tournament.format ||
+            configuredTopCut !== tournament.topCut ||
+            (updateData.swissRounds !== undefined &&
+              updateData.swissRounds !== tournament.swissRounds))
+        ) {
+          return NextResponse.json(
+            { error: "Tournament format, Top Cut, and Swiss rounds cannot change after matches begin." },
+            { status: 409 },
+          );
+        }
+
+        if (configuredTopCut > 0) {
+          const currentPlayers = await prisma.participant.count({
+            where: {
+              tournamentId: id,
+              status: { in: [ParticipantStatus.PENDING, ParticipantStatus.APPROVED] },
+            },
+          });
+          if (configuredTopCut > currentPlayers && currentPlayers > 0) {
+            return NextResponse.json(
+              { error: `Top Cut cannot exceed the ${currentPlayers} registered players.` },
+              { status: 400 },
+            );
+          }
+        }
+        if (matchCount === 0 && updatedFormat !== tournament.format) {
+          updateData.currentStage =
+            updatedFormat === TournamentFormat.SWISS
+              ? TournamentStage.SWISS
+              : TournamentStage.SINGLE_ELIMINATION;
+        }
+
         if ("imageUrl" in body) {
           const imageUrl = asString(body.imageUrl).trim();
           if (imageUrl && !isValidImageUrl(imageUrl)) {
@@ -418,6 +532,7 @@ export async function POST(request: NextRequest) {
         if (updateData.completed ?? tournament.completed) {
           updateData.active = false;
           updateData.checkInOpen = false;
+          updateData.currentStage = TournamentStage.COMPLETED;
         }
 
         const updatedTournament = await prisma.tournament.update({

@@ -158,7 +158,7 @@ To make the website usable by players, finish the in-app setup:
 4. In a separate browser or private window, create a normal player account using **Sign up**. Usernames must be 3–20 lowercase letters, numbers, or underscores; passwords must be at least 8 characters.
 5. As that player, open the tournament and request to join. Return to the admin page and approve the participant. Repeat for the real players.
 6. As an approved player, confirm the shop shows the configured pack, open a pack, and set a roster from the collection page. Test this with a test account before inviting the whole group.
-7. When ready for the event, open check-in in the tournament admin settings. Players check in on the tournament page. Close check-in, then use the admin matches page to generate round one. Participants submit match results in their match rooms; admins can resolve disputes and start subsequent rounds.
+7. When ready for the event, open check-in in the tournament admin settings. Players check in on the tournament page. Close check-in, then use the admin matches page to generate round one. In Swiss tournaments, the admin generates each standings-based Swiss round; after all configured rounds, generate the optional Top 4 / Top 8 playoff. Players can view public Swiss standings at `/t/[id]/standings`. Participants submit match results in their match rooms; admins can resolve disputes and advance the bracket.
 8. Test sign-out and sign-in again, and verify tournament, shop, roster, and match pages still load after a page refresh. This confirms the data persists in Neon rather than only in a browser session.
 
 ### 7. Optional custom domain and Google sign-in

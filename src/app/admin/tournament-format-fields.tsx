@@ -19,19 +19,23 @@ export function TournamentFormatFields({
   initialFormat = "SINGLE_ELIMINATION",
   initialMaxParticipants = "",
   initialSwissRounds = 4,
+  initialTopCut = 0,
 }: {
   initialFormat?: TournamentFormat;
   initialMaxParticipants?: number | "";
   initialSwissRounds?: number;
+  initialTopCut?: number;
 }) {
   const [format, setFormat] = useState(initialFormat);
   const [maxParticipants, setMaxParticipants] = useState(
     initialMaxParticipants === "" ? "" : String(initialMaxParticipants),
   );
   const [swissRounds, setSwissRounds] = useState(String(initialSwissRounds));
+  const [topCut, setTopCut] = useState(String(initialTopCut));
   const participantCount = Number(maxParticipants);
   const recommendation =
     maxParticipants === "" ? null : recommendSwissRounds(participantCount);
+  const selectedTopCut = Number(topCut);
 
   return (
     <>
@@ -46,6 +50,7 @@ export function TournamentFormatFields({
               event.target.value === "SWISS"
             ) {
               setFormat(event.target.value);
+              if (event.target.value !== "SWISS") setTopCut("0");
             }
           }}
           className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
@@ -109,8 +114,31 @@ export function TournamentFormatFields({
             Recommendation: 4 rounds for 8-16 players, 5 for 17-32, 6 for 33-64;
             otherwise rounded up from log2 of the participant count.
           </p>
+          <label className="mt-5 block max-w-xs">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Top Cut playoffs</span>
+            <select
+              name="topCut"
+              value={topCut}
+              onChange={(event) => setTopCut(event.target.value)}
+              className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+            >
+              <option value="0">None (Swiss Only)</option>
+              <option value="4" disabled={maxParticipants !== "" && participantCount < 4}>
+                Top 4
+              </option>
+              <option value="8" disabled={maxParticipants !== "" && participantCount < 8}>
+                Top 8
+              </option>
+            </select>
+            <span className="mt-1 block text-xs text-[#9FB0E6]">
+              {selectedTopCut > 0
+                ? `The top ${selectedTopCut} players enter a seeded single-elimination bracket.`
+                : "The Swiss standings determine the final tournament ranking."}
+            </span>
+          </label>
         </div>
       )}
+      {format !== "SWISS" && <input type="hidden" name="topCut" value="0" />}
     </>
   );
 }

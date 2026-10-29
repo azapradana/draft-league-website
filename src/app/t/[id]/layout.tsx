@@ -40,6 +40,7 @@ export default async function TournamentLayout({
         <TournamentNavigation
           tournamentId={id}
           tournamentName={tournament.name}
+          swissFormat={tournament.format === "SWISS"}
           active={tournament.active}
           completed={tournament.completed}
           email={session.user.email}

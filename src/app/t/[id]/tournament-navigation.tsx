@@ -9,6 +9,7 @@ import { CoinBalanceDisplay } from "./coin-balance";
 type TournamentNavigationProps = {
   tournamentId: string;
   tournamentName: string;
+  swissFormat: boolean;
   active: boolean;
   completed: boolean;
   email?: string | null;
@@ -40,10 +41,12 @@ function TournamentStatus({
 
 function NavigationLinks({
   tournamentId,
+  swissFormat,
   pathname,
   onNavigate,
 }: {
   tournamentId: string;
+  swissFormat: boolean;
   pathname: string;
   onNavigate?: () => void;
 }) {
@@ -52,6 +55,9 @@ function NavigationLinks({
     { label: "Overview", href: basePath },
     { label: "Shop", href: `${basePath}/shop` },
     { label: "My Roster", href: `${basePath}/roster` },
+    ...(swissFormat
+      ? [{ label: "Swiss Standings", href: `${basePath}/standings` }]
+      : []),
     { label: "Results", href: `${basePath}/results` },
     { label: "Matches / Bracket", href: `${basePath}#bracket` },
   ];
@@ -62,8 +68,10 @@ function NavigationLinks({
         const isCurrent =
           item.label === "Matches / Bracket"
             ? pathname.startsWith(`${basePath}/matches`)
-            : pathname === item.href ||
-              (item.label === "Overview" && pathname === `${item.href}/`);
+            : item.label === "Swiss Standings"
+              ? pathname.startsWith(`${basePath}/standings`)
+              : pathname === item.href ||
+                (item.label === "Overview" && pathname === `${item.href}/`);
 
         return (
           <Link
@@ -94,6 +102,7 @@ function NavigationLinks({
 export default function TournamentNavigation({
   tournamentId,
   tournamentName,
+  swissFormat,
   active,
   completed,
   email,
@@ -160,6 +169,7 @@ export default function TournamentNavigation({
 
         <NavigationLinks
           tournamentId={tournamentId}
+          swissFormat={swissFormat}
           pathname={pathname}
         />
 
@@ -224,6 +234,7 @@ export default function TournamentNavigation({
 
           <NavigationLinks
             tournamentId={tournamentId}
+            swissFormat={swissFormat}
             pathname={pathname}
             onNavigate={() => setMenuOpen(false)}
           />
