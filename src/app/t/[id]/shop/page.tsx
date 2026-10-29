@@ -15,25 +15,18 @@ export default async function TournamentShopPage({
     redirect(`/login?callbackUrl=${encodeURIComponent(`/t/${id}/shop`)}`);
   }
 
-  const [tournament, user] = await Promise.all([
-    prisma.tournament.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        active: true,
-        participants: {
-          where: { userId: session.user.id },
-          select: { status: true, coins: true },
-        },
+  const tournament = await prisma.tournament.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      active: true,
+      participants: {
+        where: { userId: session.user.id },
+        select: { status: true, coins: true },
       },
-    }),
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { coinsBalance: true },
-    }),
-  ]);
+    },
+  });
   if (!tournament) notFound();
-  if (!user) notFound();
 
   const packs = await prisma.tournamentPack.findMany({
     where: { tournamentId: id, active: true },
@@ -78,7 +71,6 @@ export default async function TournamentShopPage({
       tournamentActive={tournament.active}
       approved={participant?.status === "APPROVED"}
       initialTournamentCoins={participant?.coins ?? null}
-      initialWalletBalance={user.coinsBalance}
     />
   );
 }

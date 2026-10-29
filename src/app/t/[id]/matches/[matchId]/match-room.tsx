@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import PokemonArtwork, { type PokemonArtworkSpecies } from "../../pokemon-artwork";
-import { useCoinBalance } from "../../coin-balance";
+import { usePersonalWallet } from "@/components/wallet/personal-wallet";
 
 type MatchPlayer = {
   id: string;
@@ -127,7 +127,7 @@ export default function MatchRoom({
   initialMessages: MatchMessage[];
   isAdmin: boolean;
 }) {
-  const { setWalletBalance } = useCoinBalance();
+  const { setBalance: setWalletBalance } = usePersonalWallet();
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);

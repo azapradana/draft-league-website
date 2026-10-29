@@ -179,7 +179,7 @@ export default async function AdminTournamentSettingsPage({
         <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
           <h2 className="text-xl font-semibold">Tournament coin prizes</h2>
           <p className="mt-2 text-sm text-[#9FB0E6]">
-            Prize coins are credited to each winner&apos;s persistent wallet when
+            Prize coins are credited to each winner&apos;s personal wallet when
             the tournament is completed. A payout is recorded once and is not
             repeated if completion is reopened.
           </p>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PackOpeningModal, { type PackPull } from "./_components/PackOpeningModal";
 import { useCoinBalance } from "../coin-balance";
+import { usePersonalWallet } from "@/components/wallet/personal-wallet";
 import { RichText } from "@/components/rich-text";
 
 type ShopTier = {
@@ -79,27 +80,20 @@ export default function ShopPacks({
   tournamentActive,
   approved,
   initialTournamentCoins,
-  initialWalletBalance,
 }: {
   tournamentId: string;
   packs: ShopPack[];
   tournamentActive: boolean;
   approved: boolean;
   initialTournamentCoins: number | null;
-  initialWalletBalance: number;
 }) {
-  const {
-    balance,
-    setBalance,
-    walletBalance,
-    setWalletBalance,
-  } = useCoinBalance();
+  const { balance, setBalance } = useCoinBalance();
+  const { balance: walletCoins, setBalance: setWalletBalance } = usePersonalWallet();
   const [openingPack, setOpeningPack] = useState<string | null>(null);
   const [pulls, setPulls] = useState<PackPull[] | null>(null);
   const [openingResultPack, setOpeningResultPack] = useState<ShopPack | null>(null);
   const [error, setError] = useState("");
   const tournamentCoins = balance ?? initialTournamentCoins;
-  const walletCoins = walletBalance ?? initialWalletBalance;
   const coins =
     tournamentCoins === null ? null : tournamentCoins + walletCoins;
   const canBuy = tournamentActive && approved;
@@ -168,7 +162,7 @@ export default function ShopPacks({
           <span className="font-bold text-[#F5C542]">
             {coins === null
               ? "Not in this tournament"
-              : `${coins.toLocaleString()} coins · ${tournamentCoins?.toLocaleString()} tournament + ${walletCoins.toLocaleString()} wallet`}
+              : `${coins.toLocaleString()} coins · ${tournamentCoins?.toLocaleString()} tournament + ${walletCoins.toLocaleString()} personal wallet`}
           </span>
         </p>
       </section>

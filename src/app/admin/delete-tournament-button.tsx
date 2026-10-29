@@ -16,7 +16,7 @@ export function DeleteTournamentButton({
 
   async function deleteTournament() {
     const confirmed = window.confirm(
-      `Permanently delete "${tournamentName}" and its participants, matches, and tournament records? Existing player wallet balances will not be changed.`,
+      `Permanently delete "${tournamentName}" and its participants, matches, and tournament records? Existing player personal wallet balances will not be changed.`,
     );
     if (!confirmed) return;
 

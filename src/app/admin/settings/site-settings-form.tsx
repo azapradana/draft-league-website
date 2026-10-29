@@ -146,16 +146,16 @@ export function SiteSettingsForm({ settings }: { settings: SettingsValues }) {
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#F5C542]">
             Player economy
           </p>
-          <h2 className="mt-1 text-xl font-bold">New account wallet</h2>
+          <h2 className="mt-1 text-xl font-bold">Personal wallet starting balance</h2>
           <p className="mt-2 text-sm leading-6 text-[#9FB0E6]">
-            This amount is credited to a player&apos;s persistent wallet when they create an
+            This amount is credited to a player&apos;s personal wallet when they create an
             account. It does not change existing balances or tournament starting coins.
           </p>
         </div>
 
         <label className="block max-w-sm">
           <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">
-            Initial wallet coins
+            Initial personal wallet coins
           </span>
           <input
             name="initialPlayerCoins"

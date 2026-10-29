@@ -5,24 +5,19 @@ import { createContext, useContext, useState } from "react";
 const CoinBalanceContext = createContext<{
   balance: number | null;
   setBalance: (balance: number) => void;
-  walletBalance: number | null;
-  setWalletBalance: (balance: number) => void;
 } | null>(null);
 
 export function CoinBalanceProvider({
   initialBalance,
-  initialWalletBalance,
   children,
 }: {
   initialBalance: number | null;
-  initialWalletBalance: number | null;
   children: React.ReactNode;
 }) {
   const [balance, setBalance] = useState(initialBalance);
-  const [walletBalance, setWalletBalance] = useState(initialWalletBalance);
   return (
     <CoinBalanceContext.Provider
-      value={{ balance, setBalance, walletBalance, setWalletBalance }}
+      value={{ balance, setBalance }}
     >
       {children}
     </CoinBalanceContext.Provider>
@@ -45,20 +40,6 @@ export function CoinBalanceDisplay() {
       className="text-sm font-bold text-[#F5C542] sm:text-base"
     >
       {balance === null ? "—" : `${balance.toLocaleString()} coins`}
-    </p>
-  );
-}
-
-export function WalletBalanceDisplay() {
-  const { walletBalance } = useCoinBalance();
-  return (
-    <p
-      aria-live="polite"
-      className="text-sm font-bold text-[#F5C542] sm:text-base"
-    >
-      {walletBalance === null
-        ? "—"
-        : `${walletBalance.toLocaleString()} coins`}
     </p>
   );
 }

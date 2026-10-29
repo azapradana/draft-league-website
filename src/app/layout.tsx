@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { connection } from "next/server";
+import { getServerSession } from "next-auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
+import {
+  PersonalWalletHeader,
+  PersonalWalletProvider,
+} from "@/components/wallet/personal-wallet";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 import "./globals.css";
 
@@ -32,7 +39,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   await connection();
-  const settings = await getSiteSettings();
+  const [settings, session] = await Promise.all([
+    getSiteSettings(),
+    getServerSession(authOptions),
+  ]);
+  const user = session?.user?.id
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { id: true, coinsBalance: true },
+      })
+    : null;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -53,7 +69,15 @@ export default async function RootLayout({
             : "none",
         } as React.CSSProperties}
       >
-        <AuthSessionProvider>{children}</AuthSessionProvider>
+        <AuthSessionProvider>
+          <PersonalWalletProvider
+            key={user?.id ?? "anonymous"}
+            initialBalance={user?.coinsBalance ?? 0}
+          >
+            {user && <PersonalWalletHeader />}
+            {children}
+          </PersonalWalletProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );

@@ -20,7 +20,8 @@ export default async function SignupPage() {
             Choose a username and password to join Draft League.
           </p>
           <p className="mt-2 text-sm text-slate-300">
-            New accounts start with {settings.initialPlayerCoins.toLocaleString()} wallet coins.
+            New accounts start with {settings.initialPlayerCoins.toLocaleString()} coins in their
+            personal wallet.
           </p>
         </div>
         <SignupForm />
