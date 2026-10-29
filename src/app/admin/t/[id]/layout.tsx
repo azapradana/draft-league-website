@@ -10,11 +10,11 @@ export default async function AdminTournamentLayout({
   const { id } = await params;
   const basePath = `/admin/t/${id}`;
   const links = [
-    { href: `${basePath}#general`, label: "General settings" },
-    { href: `${basePath}#participants`, label: "Participants" },
-    { href: `${basePath}#packs`, label: "Packs / Gacha" },
-    { href: `${basePath}/matches#brackets`, label: "Brackets" },
-    { href: `${basePath}/matches#disputes`, label: "Disputes" },
+    { href: `${basePath}`, label: "General settings" },
+    { href: `${basePath}/participants`, label: "Participants" },
+    { href: `${basePath}/packs`, label: "Packs / Gacha" },
+    { href: `${basePath}/matches`, label: "Brackets" },
+    { href: `${basePath}/disputes`, label: "Disputes" },
   ];
 
   return (
