@@ -73,10 +73,23 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model SiteSettings {
+  id                  String  @id @default("global")
+  siteTitle           String  @default("Draft League")
+  heroHeadline        String  @default("Your next great draft starts here.")
+  heroSubheading      String  @default("Build your roster, challenge the field, and make your run count.")
+  heroBackgroundImage String?
+  faviconUrl          String?
+  siteLogoUrl         String?
+  accentColor         String  @default("#F5C542")
+}
+
 model Tournament {
   id                 String        @id @default(cuid())
   name               String
   description        String        @default("")
+  imageUrl           String?
+  cardBackImage      String?
   active             Boolean       @default(false)
   completed          Boolean       @default(false)
   regulation         String        @default("m-c")
@@ -161,6 +174,7 @@ model Pack {
   tournamentId  String
   name          String
   description   String      @default("")
+  packImage     String?
   price         Int
   pullCount     Int         @default(1)
   purchaseLimit Int?

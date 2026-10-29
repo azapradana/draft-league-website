@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { connection } from "next/server";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
+import { getSiteSettings } from "@/lib/site-settings";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -14,20 +16,42 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata: Metadata = {
-  title: "Draft League",
-  description: "Pokémon VGC draft league",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
 
-export default function RootLayout({
+  return {
+    title: settings.siteTitle,
+    description: settings.heroSubheading,
+    icons: { icon: settings.faviconUrl ?? "/favicon.ico" },
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
+  const settings = await getSiteSettings();
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{
+          "--accent-color": settings.accentColor,
+          "--hero-background-image": settings.heroBackgroundImage
+            ? `url(${JSON.stringify(new URL(settings.heroBackgroundImage).href)})`
+            : "none",
+        } as React.CSSProperties}
       >
         <AuthSessionProvider>{children}</AuthSessionProvider>
       </body>

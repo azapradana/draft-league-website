@@ -134,6 +134,7 @@ This repository currently has no baseline Prisma migration. Use `prisma db push`
      node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
      ```
 
+   - `BLOB_READ_WRITE_TOKEN`: the read/write token for a public Vercel Blob store linked to this project. Set it in Vercel and in `.env` for local uploads.
    - `NEXTAUTH_URL`: the complete production URL, including `https://`, for example `https://your-project.vercel.app`. Use the Vercel project name/domain you selected.
 5. Add each variable with the exact spelling above. Do not include surrounding quotes in Vercel's value field. Do not add `ADMIN_PASSWORD` or the database URL to a `NEXT_PUBLIC_` variable.
 6. Select **Deploy** and wait for the deployment to finish. A successful build should show `prisma generate` and `next build` completing successfully.

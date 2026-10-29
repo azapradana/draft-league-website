@@ -26,6 +26,7 @@ export default async function TournamentOverview({
       id: true,
       name: true,
       description: true,
+      imageUrl: true,
       regulation: true,
       startingCoins: true,
       maxCopiesPerPlayer: true,
@@ -169,6 +170,16 @@ export default async function TournamentOverview({
   return (
     <div className="space-y-8">
       <section>
+        {tournament.imageUrl && (
+          <div className="mb-5 overflow-hidden rounded-2xl border border-[#243775]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={tournament.imageUrl}
+              alt=""
+              className="max-h-80 w-full object-cover"
+            />
+          </div>
+        )}
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#F5C542]">
           Tournament overview
         </p>

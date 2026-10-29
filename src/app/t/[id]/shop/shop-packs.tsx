@@ -16,6 +16,7 @@ export type ShopPack = {
   id: string;
   name: string;
   description: string;
+  packImage: string | null;
   price: number;
   pullCount: number;
   purchaseLimit: number | null;
@@ -25,12 +26,14 @@ export type ShopPack = {
 export default function ShopPacks({
   tournamentId,
   packs,
+  cardBackImage,
   tournamentActive,
   approved,
   initialCoins,
 }: {
   tournamentId: string;
   packs: ShopPack[];
+  cardBackImage: string | null;
   tournamentActive: boolean;
   approved: boolean;
   initialCoins: number | null;
@@ -38,6 +41,7 @@ export default function ShopPacks({
   const { balance, setBalance } = useCoinBalance();
   const [openingPack, setOpeningPack] = useState<string | null>(null);
   const [pulls, setPulls] = useState<PackPull[] | null>(null);
+  const [openingResultPack, setOpeningResultPack] = useState<ShopPack | null>(null);
   const [error, setError] = useState("");
   const coins = balance ?? initialCoins;
   const canBuy = tournamentActive && approved;
@@ -61,6 +65,7 @@ export default function ShopPacks({
         throw new Error("error" in result ? result.error : "The pack could not be opened.");
       }
       setBalance(result.coins);
+      setOpeningResultPack(pack);
       setPulls(result.pulls);
     } catch (openError) {
       setError(
@@ -142,7 +147,12 @@ export default function ShopPacks({
       {pulls && (
         <PackOpeningModal
           pulls={pulls}
-          onClose={() => setPulls(null)}
+          packImage={openingResultPack?.packImage ?? null}
+          cardBackImage={cardBackImage}
+          onClose={() => {
+            setPulls(null);
+            setOpeningResultPack(null);
+          }}
         />
       )}
     </div>
@@ -162,6 +172,7 @@ function PackCard({
   opening: boolean;
   onBuy: () => void;
 }) {
+  const [packImageFailed, setPackImageFailed] = useState(false);
   const totalWeight = useMemo(
     () =>
       pack.tiers.reduce(
@@ -173,6 +184,17 @@ function PackCard({
 
   return (
     <article className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+      {pack.packImage && !packImageFailed && (
+        <div className="mb-5 h-40 overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pack.packImage}
+            alt={`${pack.name} artwork`}
+            onError={() => setPackImageFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="text-xl font-bold">{pack.name}</h3>

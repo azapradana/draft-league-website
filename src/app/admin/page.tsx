@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default async function AdminPage() {
@@ -38,6 +39,19 @@ export default async function AdminPage() {
           </Link>
         </div>
 
+        <Link
+          href="/admin/settings"
+          className="mb-8 flex items-center justify-between gap-4 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 transition hover:border-[#F5C542]"
+        >
+          <span>
+            <span className="block font-semibold">Website branding</span>
+            <span className="mt-1 block text-sm text-[#9FB0E6]">
+              Customize your platform title, hero, logo, favicon, and accent color.
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-bold text-[#F5C542]">Customize →</span>
+        </Link>
+
         <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
           <h2 className="text-xl font-semibold">Create tournament</h2>
 
@@ -60,6 +74,14 @@ export default async function AdminPage() {
                 label="Tournament description"
                 placeholder="Share the format, schedule, rules, and anything players should know."
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUpload name="imageUrl" label="Tournament banner" />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUpload name="cardBackImage" label="Card back image" />
             </div>
 
             <label className="block">

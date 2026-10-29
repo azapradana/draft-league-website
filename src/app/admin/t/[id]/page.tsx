@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 
 export default async function AdminTournamentDetailPage({
@@ -104,6 +105,22 @@ export default async function AdminTournamentDetailPage({
                 label="Tournament description"
                 defaultValue={tournament.description}
                 placeholder="Share the format, schedule, rules, and anything players should know."
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUpload
+                name="imageUrl"
+                label="Tournament banner"
+                initialUrl={tournament.imageUrl}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <ImageUpload
+                name="cardBackImage"
+                label="Card back image"
+                initialUrl={tournament.cardBackImage}
               />
             </div>
 
@@ -355,6 +372,10 @@ export default async function AdminTournamentDetailPage({
               />
             </div>
 
+            <div className="md:col-span-2">
+              <ImageUpload name="packImage" label="Pack artwork" />
+            </div>
+
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Price (coins)</span>
               <input
@@ -457,6 +478,14 @@ export default async function AdminTournamentDetailPage({
                         label="Pack description"
                         defaultValue={pack.description}
                         placeholder="Describe the pack contents, theme, or what makes it special."
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <ImageUpload
+                        name="packImage"
+                        label="Pack artwork"
+                        initialUrl={pack.packImage}
                       />
                     </div>
 

@@ -63,14 +63,23 @@ function PullArtwork({ pull }: { pull: PackPull }) {
 
 export default function PackOpeningModal({
   pulls,
+  packImage,
+  cardBackImage,
   onClose,
 }: {
   pulls: PackPull[];
+  packImage: string | null;
+  cardBackImage: string | null;
   onClose: () => void;
 }) {
   const [torn, setTorn] = useState(false);
   const [revealed, setRevealed] = useState<number[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [packImageFailed, setPackImageFailed] = useState(false);
+  const [cardBackImageFailed, setCardBackImageFailed] = useState(false);
+
+  useEffect(() => setPackImageFailed(false), [packImage]);
+  useEffect(() => setCardBackImageFailed(false), [cardBackImage]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -136,8 +145,22 @@ export default function PackOpeningModal({
             <button
               type="button"
               onClick={() => setTorn(true)}
-              className="group relative flex h-64 w-48 -rotate-3 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-[#F5C542] bg-[linear-gradient(135deg,#F5C542,#D9A21B_38%,#fff0a8_48%,#D9A21B_58%,#9c6800)] p-5 text-center text-[#070D24] shadow-xl shadow-[#F5C542]/30 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#EEF2FF] motion-reduce:transition-none"
+              className={`group relative flex h-64 w-48 -rotate-3 flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-[#F5C542] bg-[linear-gradient(135deg,#F5C542,#D9A21B_38%,#fff0a8_48%,#D9A21B_58%,#9c6800)] p-5 text-center shadow-xl shadow-[#F5C542]/30 transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#EEF2FF] motion-reduce:transition-none ${
+                packImage && !packImageFailed ? "text-[#EEF2FF]" : "text-[#070D24]"
+              }`}
             >
+              {packImage && !packImageFailed && (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={packImage}
+                    alt=""
+                    onError={() => setPackImageFailed(true)}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  <span aria-hidden="true" className="absolute inset-0 bg-[#070D24]/55" />
+                </>
+              )}
               <span className="absolute inset-2 rounded-xl border border-[#fff0a8]/80" />
               <span className="relative text-xs font-black uppercase tracking-[0.28em]">
                 Draft League
@@ -203,8 +226,20 @@ export default function PackOpeningModal({
                         transform: "rotateY(180deg)",
                       }}
                     >
-                      <span className="text-5xl font-black text-[#F5C542]">?</span>
-                      <span className="mt-3 text-sm font-semibold text-[#9FB0E6]">
+                      {cardBackImage && !cardBackImageFailed && (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={cardBackImage}
+                            alt=""
+                            onError={() => setCardBackImageFailed(true)}
+                            className="absolute inset-0 h-full w-full rounded-xl object-cover"
+                          />
+                          <span aria-hidden="true" className="absolute inset-0 rounded-xl bg-[#070D24]/35" />
+                        </>
+                      )}
+                      <span className="relative z-10 text-5xl font-black text-[#F5C542]">?</span>
+                      <span className="relative z-10 mt-3 text-sm font-semibold text-[#9FB0E6]">
                         Card {index + 1}
                       </span>
                     </div>

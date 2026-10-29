@@ -12,7 +12,7 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 | Backend | Next.js route handlers (Node.js) |
 | Database | PostgreSQL + Prisma, Postgres run with Docker |
 | Auth | NextAuth v4, username/password and Google OAuth, JWT sessions |
-| Images | PokéAPI sprites by National Dex number |
+| Images | PokéAPI sprites by National Dex number; admin-uploaded images use Vercel Blob |
 | Pool | Pokémon legal in Pokémon Champions **Regulation M-C** (227 base species) |
 | Mega forms | Admin chooses per Pokémon whether it can drop |
 | Duplicates | Allowed, with admin-set limits **per player** and **league-wide** (defaults: 3 per player, league-wide no limit) |
@@ -27,7 +27,7 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 | Cap hit during a pull | Roll each Pokémon independently; if capped, re-roll from the remaining pool |
 | Theme | Dark mode only, deep blue with gold accents |
 | First admin | Created by a seed script from env variables; admins can promote others |
-| Missing images | Show a placeholder; admin can set an image URL or upload an image |
+| Missing images | Show a placeholder; admin can set an image URL or upload an image up to 2 MB |
 | Hosting | Local development first |
 
 ## 2. Roles
@@ -38,10 +38,10 @@ A web app for running a draft-league tournament. Players spend coins on packs, p
 ## 3. Data model (Prisma)
 
 - **User:** id, username (unique, optional for Google users), name, email, image, passwordHash, role (PLAYER | ADMIN). Plus the standard NextAuth tables: Account, Session, VerificationToken.
-- **Tournament:** name, active, regulation ("m-c"), startingCoins, maxCopiesPerPlayer, maxCopiesLeague (null = no limit), rostersLocked.
+- **Tournament:** name, active, regulation ("m-c"), startingCoins, maxCopiesPerPlayer, maxCopiesLeague (null = no limit), rostersLocked, imageUrl (optional banner), cardBackImage (optional card back).
 - **Participant:** user + tournament (unique pair), status (PENDING | APPROVED | REJECTED), coins.
 - **Species:** dex number, name (unique), types, isMega, imageUrl (optional override). Seeded with the 227 M-C species and their battle types.
-- **Pack:** tournament, name, price, pullCount, purchaseLimit (null = unlimited), active.
+- **Pack:** tournament, name, price, pullCount, purchaseLimit (null = unlimited), active, packImage (optional artwork).
 - **PackTier:** pack, name, weight (decimal), color (hex), minimumOne (guarantee at least one pull from this tier).
 - **PackEntry:** pack + species (unique pair), tier. This is the pack's pool.
 - **Purchase:** participant, pack, cost, timestamp.
@@ -100,7 +100,7 @@ The tournament layout shows the tournament name, active state, a sub-navigation 
 - `POST /api/tournaments/[id]/open`: body `{ packId }`, runs the gacha transaction.
 - `PUT /api/tournaments/[id]/roster`: body `{ speciesIds }`; must be owned, distinct, at most 6, rosters not locked.
 - `POST /api/admin`: one admin endpoint taking `{ action, ... }` with actions: createTournament, updateTournament, setParticipant, setRole, createPack, updatePack, deletePack, saveTiers, savePool, createSpecies, setSpeciesImage. Admin only.
-- `POST /api/admin/upload`: image upload (PNG, JPG, WebP, GIF, up to 2 MB) saved to `public/uploads`. Admin only.
+- `POST /api/admin/upload`: admin-only image upload (PNG, JPG, WebP, GIF; maximum 2 MB) to public Vercel Blob storage. The server validates file size, type, and image signature.
 
 Every admin route checks the role on the server. The JWT callback re-reads the role from the database so promotions apply without signing out.
 
@@ -108,6 +108,7 @@ Every admin route checks the role on the server. The JWT callback re-reads the r
 
 - Official artwork URL pattern:
   `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{dex}.png`
+- Tournament banners, card backs, and pack artwork are public Vercel Blob URLs. Uploads are limited to 2 MiB (2,097,152 bytes).
 - Image shown = admin override if set, otherwise the artwork for non-Mega species, otherwise a placeholder ("No image yet").
 - Each sprite shows a shimmer while loading and falls back to the placeholder on error. Handle the case where a cached image finishes loading before hydration.
 
@@ -160,7 +161,7 @@ Common errors: "Could not find Prisma Schema" means there is no `prisma/schema.p
 
 ## 12. Known limits and open items
 
-- Image uploads write to `public/uploads`, which won't work on serverless hosting. Use image URLs or add object storage before deploying.
+- Image uploads require the `BLOB_READ_WRITE_TOKEN` environment variable and use public Vercel Blob storage.
 - Pool data lists base species only. Mega forms are added by hand by an admin.
 - The odds model is tier weight first, then uniform within the tier. A per-Pokémon weight is a possible change.
 - Google sign-in creates accounts without a username; they show their Google name.

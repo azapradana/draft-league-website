@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { SITE_SETTINGS_ID } from "@/lib/site-settings";
 
 const MAX_DESCRIPTION_LENGTH = 5000;
 
@@ -39,6 +40,15 @@ function asBoolean(value: unknown, fallback = false): boolean {
     if (["0", "false", "no", "off", ""].includes(normalized)) return false;
   }
   return fallback;
+}
+
+function isValidImageUrl(value: string): boolean {
+  if (value.length > 2048) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 async function readBody(request: NextRequest): Promise<Record<string, unknown>> {
@@ -89,14 +99,77 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (action) {
+      case "updateSiteSettings": {
+        const siteTitle = asString(body.siteTitle).trim();
+        const heroHeadline = asString(body.heroHeadline).trim();
+        const heroSubheading = asString(body.heroSubheading).trim();
+        const heroBackgroundImage = asString(body.heroBackgroundImage).trim();
+        const faviconUrl = asString(body.faviconUrl).trim();
+        const siteLogoUrl = asString(body.siteLogoUrl).trim();
+        const accentColor = asString(body.accentColor).trim();
+
+        if (!siteTitle || siteTitle.length > 80) {
+          return NextResponse.json({ error: "Platform title is required and must be 80 characters or fewer." }, { status: 400 });
+        }
+        if (!heroHeadline || heroHeadline.length > 160) {
+          return NextResponse.json({ error: "Hero headline is required and must be 160 characters or fewer." }, { status: 400 });
+        }
+        if (!heroSubheading || heroSubheading.length > 300) {
+          return NextResponse.json({ error: "Hero subheading is required and must be 300 characters or fewer." }, { status: 400 });
+        }
+        if (
+          [heroBackgroundImage, faviconUrl, siteLogoUrl].some(
+            (imageUrl) => imageUrl && !isValidImageUrl(imageUrl),
+          )
+        ) {
+          return NextResponse.json(
+            { error: "Branding image URLs must be valid HTTPS URLs no longer than 2,048 characters." },
+            { status: 400 },
+          );
+        }
+        if (!/^#[0-9a-fA-F]{6}$/.test(accentColor)) {
+          return NextResponse.json({ error: "Accent color must be a six-digit hex color." }, { status: 400 });
+        }
+
+        const settings = await prisma.siteSettings.upsert({
+          where: { id: SITE_SETTINGS_ID },
+          create: {
+            id: SITE_SETTINGS_ID,
+            siteTitle,
+            heroHeadline,
+            heroSubheading,
+            heroBackgroundImage: heroBackgroundImage || null,
+            faviconUrl: faviconUrl || null,
+            siteLogoUrl: siteLogoUrl || null,
+            accentColor,
+          },
+          update: {
+            siteTitle,
+            heroHeadline,
+            heroSubheading,
+            heroBackgroundImage: heroBackgroundImage || null,
+            faviconUrl: faviconUrl || null,
+            siteLogoUrl: siteLogoUrl || null,
+            accentColor,
+          },
+        });
+
+        return NextResponse.json({ success: true, settings });
+      }
+
       case "createTournament": {
         const name = asString(body.name).trim();
         const description = asString(body.description);
+        const imageUrl = asString(body.imageUrl).trim();
+        const cardBackImage = asString(body.cardBackImage).trim();
         if (!name) {
           return NextResponse.json({ error: "Tournament name is required." }, { status: 400 });
         }
         if (description.length > MAX_DESCRIPTION_LENGTH) {
           return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
+        }
+        if ((imageUrl && !isValidImageUrl(imageUrl)) || (cardBackImage && !isValidImageUrl(cardBackImage))) {
+          return NextResponse.json({ error: "Tournament image URLs must be valid HTTPS URLs no longer than 2,048 characters." }, { status: 400 });
         }
 
         const startingCoins = asInt(body.startingCoins, 0);
@@ -111,6 +184,8 @@ export async function POST(request: NextRequest) {
           data: {
             name,
             description,
+            imageUrl: imageUrl || null,
+            cardBackImage: cardBackImage || null,
             regulation: "m-c",
             startingCoins,
             maxCopiesPerPlayer,
@@ -149,6 +224,8 @@ export async function POST(request: NextRequest) {
           startingCoins?: number;
           maxCopiesPerPlayer?: number;
           maxCopiesLeague?: number | null;
+          imageUrl?: string | null;
+          cardBackImage?: string | null;
         } = {};
 
         if ("name" in body) {
@@ -165,6 +242,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Tournament description cannot exceed 5,000 characters." }, { status: 400 });
           }
           updateData.description = description;
+        }
+
+        if ("imageUrl" in body) {
+          const imageUrl = asString(body.imageUrl).trim();
+          if (imageUrl && !isValidImageUrl(imageUrl)) {
+            return NextResponse.json({ error: "Tournament banner URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
+          }
+          updateData.imageUrl = imageUrl || null;
+        }
+
+        if ("cardBackImage" in body) {
+          const cardBackImage = asString(body.cardBackImage).trim();
+          if (cardBackImage && !isValidImageUrl(cardBackImage)) {
+            return NextResponse.json({ error: "Card back image URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
+          }
+          updateData.cardBackImage = cardBackImage || null;
         }
 
         if ("active" in body) {
@@ -282,6 +375,7 @@ export async function POST(request: NextRequest) {
         const tournamentId = asString(body.tournamentId);
         const name = asString(body.name).trim();
         const description = asString(body.description);
+        const packImage = asString(body.packImage).trim();
         const price = asStrictInt(body.price) ?? -1;
         const pullCount = asStrictInt(body.pullCount) ?? -1;
         const rawPurchaseLimit = body.purchaseLimit;
@@ -301,6 +395,9 @@ export async function POST(request: NextRequest) {
         if (description.length > MAX_DESCRIPTION_LENGTH) {
           return NextResponse.json({ error: "Pack description cannot exceed 5,000 characters." }, { status: 400 });
         }
+        if (packImage && !isValidImageUrl(packImage)) {
+          return NextResponse.json({ error: "Pack artwork URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
+        }
 
         if (purchaseLimit !== null && (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)) {
           return NextResponse.json(
@@ -319,6 +416,7 @@ export async function POST(request: NextRequest) {
             tournamentId,
             name,
             description,
+            packImage: packImage || null,
             price,
             pullCount,
             purchaseLimit,
@@ -351,6 +449,7 @@ export async function POST(request: NextRequest) {
           pullCount?: number;
           purchaseLimit?: number | null;
           active?: boolean;
+          packImage?: string | null;
         } = {};
 
         if ("name" in body) {
@@ -367,6 +466,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Pack description cannot exceed 5,000 characters." }, { status: 400 });
           }
           updateData.description = description;
+        }
+
+        if ("packImage" in body) {
+          const packImage = asString(body.packImage).trim();
+          if (packImage && !isValidImageUrl(packImage)) {
+            return NextResponse.json({ error: "Pack artwork URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
+          }
+          updateData.packImage = packImage || null;
         }
 
         if ("price" in body) {
