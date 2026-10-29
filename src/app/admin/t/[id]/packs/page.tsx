@@ -65,7 +65,11 @@ export default async function AdminTournamentPacksPage({
                 />
               </div>
               <div className="md:col-span-2">
-                <ImageUpload name="packImage" label="Pack artwork" />
+                <ImageUpload
+                  name="packImage"
+                  label="Pack artwork"
+                  recommendedDimensions="600 x 900 px (portrait, 2:3)"
+                />
               </div>
               <label className="block">
                 <span className="mb-2 block text-sm text-[#9FB0E6]">Price (coins)</span>
@@ -141,7 +145,12 @@ export default async function AdminTournamentPacksPage({
                           <RichTextEditor name="description" label="Pack description" defaultValue={pack.description} placeholder="Describe the pack contents, theme, or what makes it special." />
                         </div>
                         <div className="md:col-span-2">
-                          <ImageUpload name="packImage" label="Pack artwork" initialUrl={pack.packImage} />
+                          <ImageUpload
+                            name="packImage"
+                            label="Pack artwork"
+                            initialUrl={pack.packImage}
+                            recommendedDimensions="600 x 900 px (portrait, 2:3)"
+                          />
                         </div>
                         <label className="block">
                           <span className="mb-2 block text-sm text-[#9FB0E6]">Price (coins)</span>

@@ -243,13 +243,13 @@ function PackCard({
   return (
     <article className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
       {pack.packImage && !packImageFailed && (
-        <div className="mb-5 h-40 overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
+        <div className="mx-auto mb-5 aspect-[2/3] w-full max-w-[280px] overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={pack.packImage}
             alt={`${pack.name} artwork`}
             onError={() => setPackImageFailed(true)}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         </div>
       )}

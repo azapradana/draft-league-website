@@ -16,6 +16,7 @@ type ImageUploadProps = {
   name: string;
   label: string;
   initialUrl?: string | null;
+  recommendedDimensions?: string;
   onUploadingChange?: (uploading: boolean) => void;
 };
 
@@ -28,6 +29,7 @@ export function ImageUpload({
   name,
   label,
   initialUrl = null,
+  recommendedDimensions,
   onUploadingChange,
 }: ImageUploadProps) {
   const [imageUrl, setImageUrl] = useState(initialUrl ?? "");
@@ -142,6 +144,11 @@ export function ImageUpload({
         />
       </label>
       <p className="mt-2 text-xs text-[#9FB0E6]">PNG, JPG, WebP, GIF, or ICO · maximum 2 MB</p>
+      {recommendedDimensions && (
+        <p className="mt-1 text-xs text-[#9FB0E6]">
+          Recommended size: {recommendedDimensions}
+        </p>
+      )}
 
       {previewUrl && (
         <div className="mt-4 flex items-start gap-4">
