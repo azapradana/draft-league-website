@@ -7,10 +7,12 @@ export function AccountMenu({
   name,
   email,
   role,
+  placement = "bottom",
 }: {
   name: string;
   email?: string | null;
   role?: string;
+  placement?: "top" | "bottom";
 }) {
   return (
     <details className="relative">
@@ -23,7 +25,11 @@ export function AccountMenu({
           ▾
         </span>
       </summary>
-      <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-[#243775] bg-[#0C1638] p-4 shadow-xl">
+      <div
+        className={`absolute right-0 z-20 w-64 rounded-xl border border-[#243775] bg-[#0C1638] p-4 shadow-xl ${
+          placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
+        }`}
+      >
         <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
           Profile
         </p>

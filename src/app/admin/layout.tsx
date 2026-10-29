@@ -22,12 +22,20 @@ export default async function AdminLayout({
     <>
       <header className="border-b border-[#243775] bg-[#0C1638] text-[#EEF2FF]">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
-          <Link
-            href="/admin"
-            className="text-sm font-bold uppercase tracking-[0.18em] text-[#F5C542]"
-          >
-            Admin workspace
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/admin"
+              className="text-sm font-bold uppercase tracking-[0.18em] text-[#F5C542]"
+            >
+              Admin workspace
+            </Link>
+            <Link
+              href="/"
+              className="text-sm font-semibold text-[#9FB0E6] transition-colors hover:text-[#EEF2FF]"
+            >
+              Home
+            </Link>
+          </div>
           <AccountMenu
             email={session.user.email}
             name={session.user.name ?? session.user.email ?? "Admin"}

@@ -180,7 +180,7 @@ export default function TournamentNavigation({
         />
 
         <div className="mt-auto border-t border-[#243775] pt-4">
-          <AccountMenu email={email} name={name} role={role} />
+          <AccountMenu email={email} name={name} role={role} placement="top" />
         </div>
       </aside>
 
@@ -259,7 +259,7 @@ export default function TournamentNavigation({
             >
               ← Back to all tournaments
             </Link>
-            <AccountMenu email={email} name={name} role={role} />
+            <AccountMenu email={email} name={name} role={role} placement="top" />
           </div>
         </aside>
       </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
@@ -16,7 +17,15 @@ export default async function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 text-white">
-      <LoginForm googleEnabled={googleEnabled} />
+      <div className="w-full max-w-md">
+        <Link
+          className="mb-6 inline-flex min-h-11 items-center text-sm font-semibold text-amber-300 hover:underline"
+          href="/"
+        >
+          ← Home
+        </Link>
+        <LoginForm googleEnabled={googleEnabled} />
+      </div>
     </main>
   );
 }

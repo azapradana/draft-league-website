@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export default function GlobalError({
   reset,
 }: {
@@ -26,6 +28,14 @@ export default function GlobalError({
         >
           Try again
         </button>
+        <div>
+          <Link
+            className="mt-4 inline-flex min-h-11 items-center font-semibold text-[#F5C542] hover:underline"
+            href="/"
+          >
+            Go home
+          </Link>
+        </div>
       </section>
     </main>
   );
