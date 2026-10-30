@@ -1,13 +1,28 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useState } from "react";
-import { AnimatePresence } from "framer-motion";
-import PackOpeningModal, { type PackPull } from "./_components/PackOpeningModal";
+import type { PackPull } from "./_components/PackOpeningModal";
 import { useCoinBalance } from "../coin-balance";
 import { usePersonalWallet } from "@/components/wallet/personal-wallet";
-import PackInfoModal, { type PackInfoTier } from "@/components/PackInfoModal";
+import type { PackInfoTier } from "@/components/PackInfoModal";
+import { isOptimizableImageUrl } from "@/lib/image-optimization";
 
-/* eslint-disable @next/next/no-img-element */
+const PackInfoModal = dynamic(() => import("@/components/PackInfoModal"));
+const PackOpeningLayer = dynamic(
+  () => import("./_components/PackOpeningLayer"),
+  {
+    loading: () => (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[#070D24]/95 text-sm font-semibold text-[#F5C542]"
+        role="status"
+      >
+        Preparing pack opening…
+      </div>
+    ),
+  },
+);
 
 type ShopTier = PackInfoTier;
 
@@ -86,6 +101,8 @@ export default function ShopPacks({
   const [openingPack, setOpeningPack] = useState<string | null>(null);
   const [pulls, setPulls] = useState<PackPull[] | null>(null);
   const [openingResultPack, setOpeningResultPack] = useState<ShopPack | null>(null);
+  const [openingSequence, setOpeningSequence] = useState(0);
+  const [hasOpenedPack, setHasOpenedPack] = useState(false);
   const [infoPack, setInfoPack] = useState<ShopPack | null>(null);
   const [error, setError] = useState("");
   const tournamentCoins = balance ?? initialTournamentCoins;
@@ -132,6 +149,8 @@ export default function ShopPacks({
       }
       setBalance(result.tournamentCoins);
       setWalletBalance(result.walletCoins);
+      setHasOpenedPack(true);
+      setOpeningSequence((sequence) => sequence + 1);
       setOpeningResultPack(pack);
       setPulls(result.pulls);
     } catch (openError) {
@@ -198,10 +217,11 @@ export default function ShopPacks({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-          {packs.map((pack) => (
+          {packs.map((pack, index) => (
             <PackCard
               key={pack.id}
               pack={pack}
+              preload={index === 0}
               disabled={!canBuy || coins === null || coins < pack.price || openingPack !== null}
               coinsShortfall={
                 canBuy && coins !== null && coins < pack.price
@@ -224,26 +244,25 @@ export default function ShopPacks({
         />
       )}
 
-      <AnimatePresence>
-        {pulls && (
-          <PackOpeningModal
-            key={openingResultPack?.id ?? "opened-pack"}
-            pulls={pulls}
-            packImage={openingResultPack?.packImage ?? null}
-            packPrice={openingResultPack?.price ?? 0}
-            onClose={() => {
-              setPulls(null);
-              setOpeningResultPack(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {hasOpenedPack && (
+        <PackOpeningLayer
+          sequenceKey={`${openingResultPack?.id ?? "opened-pack"}:${openingSequence}`}
+          pulls={pulls}
+          packImage={openingResultPack?.packImage ?? null}
+          packPrice={openingResultPack?.price ?? 0}
+          onClose={() => {
+            setPulls(null);
+            setOpeningResultPack(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
 function PackCard({
   pack,
+  preload,
   disabled,
   coinsShortfall,
   opening,
@@ -251,6 +270,7 @@ function PackCard({
   onInfo,
 }: {
   pack: ShopPack;
+  preload: boolean;
   disabled: boolean;
   coinsShortfall: number | null;
   opening: boolean;
@@ -261,14 +281,16 @@ function PackCard({
 
   return (
     <article className="flex min-w-0 flex-col">
-      <div className="mb-3 aspect-[4/5] sm:mb-4">
+      <div className="relative mb-3 aspect-[4/5] sm:mb-4">
         {pack.packImage && !packImageFailed ? (
-          <img
+          <Image
             src={pack.packImage}
             alt={`${pack.name} artwork`}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            preload={preload}
+            unoptimized={!isOptimizableImageUrl(pack.packImage)}
             onError={() => setPackImageFailed(true)}
-            loading="lazy"
-            decoding="async"
             className="h-full w-full object-contain"
           />
         ) : (

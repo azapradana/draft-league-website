@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { ParticipantStatus, TournamentFormat } from "@prisma/client";
 import Link from "next/link";
+import { isOptimizableImageUrl } from "@/lib/image-optimization";
 
 type TournamentCard = {
   id: string;
@@ -125,7 +127,7 @@ export default function TournamentStatusTabs({
           </div>
         ) : (
           <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {visibleTournaments.map((tournament) => {
+            {visibleTournaments.map((tournament, index) => {
               const status = tournament.completed
                 ? "COMPLETED"
                 : tournament.matchCount > 0
@@ -159,11 +161,14 @@ export default function TournamentStatusTabs({
                     >
                       <div className="relative h-40 overflow-hidden bg-[radial-gradient(ellipse_at_80%_35%,#243775_0%,#122050_48%,#0C1638_100%)]">
                         {tournament.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <Image
                             src={tournament.imageUrl}
                             alt=""
-                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                            preload={index === 0}
+                            unoptimized={!isOptimizableImageUrl(tournament.imageUrl)}
+                            className="object-cover transition duration-500 group-hover:scale-105"
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center">

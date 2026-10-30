@@ -1,11 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   PACK_OPENING_ANIMATION,
   PACK_OPENING_SPRING,
 } from "@/constants/animation";
+import { isOptimizableImageUrl } from "@/lib/image-optimization";
 import styles from "./PackOpeningModal.module.css";
 
 export type PackPull = {
@@ -59,10 +61,12 @@ function PullArtwork({
           className="absolute inset-5 animate-pulse rounded-full bg-[#243775] motion-reduce:animate-none"
         />
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={source}
         alt=""
+        fill
+        sizes={large ? "(max-width: 640px) 13rem, 15rem" : "7rem"}
+        unoptimized={!isOptimizableImageUrl(source)}
         onLoad={() => setLoaded(true)}
         onError={() => setFailed(true)}
         className={`relative h-full w-full object-contain transition-opacity duration-300 ${
@@ -101,8 +105,15 @@ export default function PackOpeningModal({
   const canReveal = phase === "encounter";
   const packArtwork =
     packImage && !packImageFailed ? (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={packImage} alt="" onError={() => setPackImageFailed(true)} />
+      <Image
+        src={packImage}
+        alt=""
+        fill
+        sizes="210px"
+        unoptimized={!isOptimizableImageUrl(packImage)}
+        onError={() => setPackImageFailed(true)}
+        className="object-cover"
+      />
     ) : (
       <span className="pack-copy">
         <strong>Draft League</strong>
@@ -534,6 +545,7 @@ export default function PackOpeningModal({
           transform-style: preserve-3d;
           touch-action: none;
           transition: box-shadow 220ms ease;
+          will-change: transform;
         }
 
         .pack-wrapper:not(:disabled):hover {
@@ -620,6 +632,7 @@ export default function PackOpeningModal({
 
         .battle-field {
           animation: shutter-open 500ms steps(10, end) both;
+          will-change: clip-path, opacity;
         }
 
         .battle-scanlines {

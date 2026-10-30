@@ -1,12 +1,10 @@
-import { MatchStatus, ParticipantStatus } from "@prisma/client";
+import { ParticipantStatus } from "@prisma/client";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 import TournamentStatusTabs from "./tournament-status-tabs";
-
-const numberFormatter = new Intl.NumberFormat("en-US");
 
 export default async function Home({
   searchParams,
@@ -15,52 +13,36 @@ export default async function Home({
 }) {
   const { category } = await searchParams;
   const session = await getServerSession(authOptions);
-  const [settings, tournaments, activePlayers, matchesPlayed, coinsInCirculation] =
-    await Promise.all([
-      getSiteSettings(),
-      prisma.tournament.findMany({
-        orderBy: [{ active: "desc" }, { completed: "asc" }, { name: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          regulation: true,
-          format: true,
-          swissRounds: true,
-          topCut: true,
-          maxParticipants: true,
-          active: true,
-          completed: true,
-          participants: session?.user?.id
-            ? {
-                where: { userId: session.user.id },
-                select: { status: true },
-              }
-            : false,
-          _count: {
-            select: {
-              participants: { where: { status: ParticipantStatus.APPROVED } },
-              matches: true,
-            },
+  const [settings, tournaments] = await Promise.all([
+    getSiteSettings(),
+    prisma.tournament.findMany({
+      orderBy: [{ active: "desc" }, { completed: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        imageUrl: true,
+        regulation: true,
+        format: true,
+        swissRounds: true,
+        topCut: true,
+        maxParticipants: true,
+        active: true,
+        completed: true,
+        participants: session?.user?.id
+          ? {
+              where: { userId: session.user.id },
+              select: { status: true },
+            }
+          : false,
+        _count: {
+          select: {
+            participants: { where: { status: ParticipantStatus.APPROVED } },
+            matches: true,
           },
         },
-      }),
-      prisma.user.count({
-        where: {
-          participants: {
-            some: {
-              status: ParticipantStatus.APPROVED,
-              tournament: { active: true, completed: false },
-            },
-          },
-        },
-      }),
-      prisma.match.count({ where: { status: MatchStatus.COMPLETED } }),
-      prisma.participant.aggregate({
-        where: { status: ParticipantStatus.APPROVED },
-        _sum: { coins: true },
-      }),
-    ]);
+      },
+    }),
+  ]);
 
   const shopTournament = tournaments.find((tournament) => !tournament.completed);
   const tournamentCards = tournaments.map((tournament) => ({
@@ -80,12 +62,6 @@ export default async function Home({
       ? tournament.participants[0]?.status ?? null
       : null,
   }));
-  const mobileStats: { label: string; value: number }[] = [
-    { label: "Active players", value: activePlayers },
-    { label: "Matches played", value: matchesPlayed },
-    { label: "Coins in play", value: coinsInCirculation._sum.coins ?? 0 },
-  ];
-
   return (
     <main className="min-h-screen overflow-hidden bg-[#070D24] text-[#EEF2FF]">
       <section className="relative isolate border-b border-white/5">
@@ -102,15 +78,8 @@ export default async function Home({
           className="absolute inset-0 -z-10 bg-gradient-to-t from-[#070D24] via-transparent to-[#070D24]/25"
           aria-hidden="true"
         />
-        <div className="mx-auto grid min-h-[480px] max-w-7xl items-center gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[1.2fr_0.8fr] lg:py-28">
+        <div className="mx-auto grid min-h-[480px] max-w-7xl items-center px-5 py-16 sm:px-8 sm:py-24 lg:py-28">
           <div className="max-w-3xl">
-            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-200">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-300 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-300" />
-              </span>
-              The league is live
-            </div>
             <p
               className="mb-4 text-xs font-extrabold uppercase tracking-[0.24em]"
               style={{ color: settings.accentColor }}
@@ -148,50 +117,6 @@ export default async function Home({
               <span>Zero Cost. Pure Dopamine. Test your luck before the real tournament.</span>
             </Link>
           </div>
-
-          <div className="hidden justify-self-end lg:block">
-            <div className="w-72 rounded-2xl border border-white/10 bg-[#0C1638]/80 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#9FB0E6]">
-                  Live league
-                </span>
-                <span className="flex items-center gap-2 text-xs font-bold text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-300" />
-                  ONLINE
-                </span>
-              </div>
-              <p className="display-font mt-8 text-5xl font-black tracking-tight">
-                {numberFormatter.format(activePlayers)}
-              </p>
-              <p className="mt-1 text-sm text-[#9FB0E6]">active competitors</p>
-              <div className="mt-6 h-px bg-white/10" />
-              <div className="mt-5 flex items-center justify-between text-sm">
-                <span className="text-[#9FB0E6]">Matches decided</span>
-                <span className="font-bold">{numberFormatter.format(matchesPlayed)}</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-[#9FB0E6]">League economy</span>
-                <span className="font-bold" style={{ color: settings.accentColor }}>
-                  {numberFormatter.format(coinsInCirculation._sum.coins ?? 0)} coins
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:hidden">
-        <div className="grid grid-cols-3 divide-x divide-white/10 rounded-2xl border border-[#243775] bg-[#0C1638] py-4">
-          {mobileStats.map(({ label, value }) => (
-            <div className="px-3 text-center" key={label}>
-              <p className="display-font text-xl font-black sm:text-2xl">
-                {numberFormatter.format(value)}
-              </p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#9FB0E6] sm:text-xs">
-                {label}
-              </p>
-            </div>
-          ))}
         </div>
       </section>
 

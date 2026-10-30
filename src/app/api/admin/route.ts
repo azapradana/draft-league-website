@@ -8,6 +8,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePackDataCache } from "@/lib/pack-data";
 import { SITE_SETTINGS_ID } from "@/lib/site-settings";
 import { awardTournamentPrizes } from "@/lib/tournament-prizes";
 import {
@@ -696,6 +697,7 @@ export async function POST(request: NextRequest) {
           }
           return updated;
         });
+        revalidatePackDataCache();
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(updatedTournament);
@@ -839,6 +841,7 @@ export async function POST(request: NextRequest) {
             showInPractice,
           },
         });
+        revalidatePackDataCache();
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(pack, { status: 201 });
@@ -918,6 +921,7 @@ export async function POST(request: NextRequest) {
         }
 
         const updatedPack = await prisma.pack.update({ where: { id }, data: updateData });
+        revalidatePackDataCache();
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(updatedPack);
         }
@@ -947,6 +951,7 @@ export async function POST(request: NextRequest) {
             { status: 409 },
           );
         }
+        revalidatePackDataCache();
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json({ success: true });
@@ -965,6 +970,7 @@ export async function POST(request: NextRequest) {
         if (result.count === 0) {
           return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
         }
+        revalidatePackDataCache();
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json({ success: true });
@@ -1116,6 +1122,7 @@ export async function POST(request: NextRequest) {
             });
           }
         });
+        revalidatePackDataCache();
 
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json({ success: true });
@@ -1142,6 +1149,7 @@ export async function POST(request: NextRequest) {
         const attachment = await prisma.tournamentPack.create({
           data: { tournamentId, packId },
         });
+        revalidatePackDataCache();
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json(attachment, { status: 201 });
         }
@@ -1183,6 +1191,7 @@ export async function POST(request: NextRequest) {
         if (result.count === 0) {
           return NextResponse.json({ error: "This pack is not attached to the tournament." }, { status: 404 });
         }
+        revalidatePackDataCache();
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json({ success: true });
         }
@@ -1201,6 +1210,7 @@ export async function POST(request: NextRequest) {
         if (result.count === 0) {
           return NextResponse.json({ error: "This pack is not attached to the tournament." }, { status: 404 });
         }
+        revalidatePackDataCache();
         if (request.headers.get("content-type")?.includes("application/json")) {
           return NextResponse.json({ success: true });
         }
@@ -1323,6 +1333,7 @@ export async function POST(request: NextRequest) {
         if ("error" in updatedTiers) {
           return NextResponse.json({ error: updatedTiers.error }, { status: updatedTiers.status });
         }
+        revalidatePackDataCache();
         return NextResponse.json(updatedTiers);
       }
 
@@ -1383,6 +1394,7 @@ export async function POST(request: NextRequest) {
         if ("error" in result) {
           return NextResponse.json({ error: result.error }, { status: result.status });
         }
+        revalidatePackDataCache();
         return NextResponse.json(result);
       }
 

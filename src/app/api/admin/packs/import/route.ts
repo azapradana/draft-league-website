@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePackDataCache } from "@/lib/pack-data";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const MAX_PACK_ROWS = 5000;
@@ -384,6 +385,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "The packs could not be saved. No changes were committed; please try again." }, { status: 500 });
   }
 
+  revalidatePackDataCache();
   return NextResponse.json({
     success: true,
     imported: { packCount: resolvedPacks.length, dropItemCount: totalItems, megaFormCount },

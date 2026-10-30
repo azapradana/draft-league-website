@@ -1,11 +1,26 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
-import PackOpeningModal, { type PackPull } from "@/app/t/[id]/shop/_components/PackOpeningModal";
-import PackInfoModal, { type PackInfoTier } from "@/components/PackInfoModal";
+import type { PackPull } from "@/app/t/[id]/shop/_components/PackOpeningModal";
+import type { PackInfoTier } from "@/components/PackInfoModal";
+import { isOptimizableImageUrl } from "@/lib/image-optimization";
 
-/* eslint-disable @next/next/no-img-element */
+const PackInfoModal = dynamic(() => import("@/components/PackInfoModal"));
+const PackOpeningLayer = dynamic(
+  () => import("@/app/t/[id]/shop/_components/PackOpeningLayer"),
+  {
+    loading: () => (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-[#070D24]/95 text-sm font-semibold text-[#F5C542]"
+        role="status"
+      >
+        Preparing pack opening…
+      </div>
+    ),
+  },
+);
 
 type SimulatorSpecies = PackPull["species"];
 
@@ -75,12 +90,14 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
     pulls: PackPull[];
     sequence: number;
   } | null>(null);
+  const [hasOpenedPack, setHasOpenedPack] = useState(false);
   const [infoPack, setInfoPack] = useState<SimulatorPack | null>(null);
 
   function openPack(pack: SimulatorPack) {
     const pulls = simulatePack(pack);
     if (pulls) {
       openingSequence.current += 1;
+      setHasOpenedPack(true);
       setOpening({ pack, pulls, sequence: openingSequence.current });
     }
   }
@@ -118,12 +135,13 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
-              {packs.map((pack) => {
+              {packs.map((pack, index) => {
                 const disabled = simulatePackIsUnavailable(pack);
                 return (
                   <PackCard
                     key={pack.id}
                     pack={pack}
+                    preload={index === 0}
                     disabled={disabled}
                     onOpen={() => openPack(pack)}
                     onInfo={() => setInfoPack(pack)}
@@ -143,19 +161,23 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
         />
       )}
 
-      <AnimatePresence>
-        {opening && (
-          <PackOpeningModal
-            key={`${opening.pack.id}:${opening.sequence}`}
-            pulls={opening.pulls}
-            packImage={opening.pack.packImage}
-            packPrice={0}
-            practiceMode
-            onRepeat={() => openPack(opening.pack)}
-            onClose={() => setOpening(null)}
-          />
-        )}
-      </AnimatePresence>
+      {hasOpenedPack && (
+        <PackOpeningLayer
+          sequenceKey={
+            opening
+              ? `${opening.pack.id}:${opening.sequence}`
+              : "closed-pack-opening"
+          }
+          pulls={opening?.pulls ?? null}
+          packImage={opening?.pack.packImage ?? null}
+          packPrice={0}
+          practiceMode
+          onRepeat={() => {
+            if (opening) openPack(opening.pack);
+          }}
+          onClose={() => setOpening(null)}
+        />
+      )}
     </main>
   );
 }
@@ -177,11 +199,13 @@ function simulatePackIsUnavailable(pack: SimulatorPack): boolean {
 
 function PackCard({
   pack,
+  preload,
   disabled,
   onOpen,
   onInfo,
 }: {
   pack: SimulatorPack;
+  preload: boolean;
   disabled: boolean;
   onOpen: () => void;
   onInfo: () => void;
@@ -190,14 +214,16 @@ function PackCard({
 
   return (
     <article className="flex min-w-0 flex-col">
-      <div className="mb-3 aspect-[4/5] sm:mb-4">
+      <div className="relative mb-3 aspect-[4/5] sm:mb-4">
         {pack.packImage && !packImageFailed ? (
-          <img
+          <Image
             src={pack.packImage}
             alt={`${pack.name} artwork`}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            preload={preload}
+            unoptimized={!isOptimizableImageUrl(pack.packImage)}
             onError={() => setPackImageFailed(true)}
-            loading="lazy"
-            decoding="async"
             className="h-full w-full object-contain"
           />
         ) : (

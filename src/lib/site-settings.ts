@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 
 export const SITE_SETTINGS_ID = "global";
@@ -14,10 +15,10 @@ export const DEFAULT_SITE_SETTINGS = {
   initialPlayerCoins: 500,
 };
 
-export async function getSiteSettings() {
+export const getSiteSettings = cache(async function getSiteSettings() {
   const settings = await prisma.siteSettings.findUnique({
     where: { id: SITE_SETTINGS_ID },
   });
 
   return settings ?? DEFAULT_SITE_SETTINGS;
-}
+});

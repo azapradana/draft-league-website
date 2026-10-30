@@ -2,7 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import ShopPacks, { type ShopPack } from "./shop-packs";
+import { getTournamentShopPacks } from "@/lib/pack-data";
+import ShopPacks from "./shop-packs";
 
 export default async function TournamentShopPage({
   params,
@@ -15,57 +16,28 @@ export default async function TournamentShopPage({
     redirect(`/login?callbackUrl=${encodeURIComponent(`/t/${id}/shop`)}`);
   }
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      active: true,
-      participants: {
-        where: { userId: session.user.id },
-        select: { status: true, coins: true },
-      },
-    },
-  });
-  if (!tournament) notFound();
-
-  const packs = await prisma.tournamentPack.findMany({
-    where: { tournamentId: id, active: true },
-    orderBy: { pack: { name: "asc" } },
-    include: {
-      pack: {
-        include: {
-          tiers: {
-            orderBy: { id: "asc" },
-            include: {
-              entries: {
-                orderBy: { species: { name: "asc" } },
-                select: { species: { select: { dex: true, name: true } } },
-              },
-            },
-          },
+  const [tournament, packs] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        active: true,
+        participants: {
+          where: { userId: session.user.id },
+          select: { status: true, coins: true },
         },
       },
-    },
-  });
+    }),
+    getTournamentShopPacks(id),
+  ]);
+  if (!tournament) notFound();
+
   const participant = tournament.participants[0];
-  const shopPacks: ShopPack[] = packs.map((pack) => ({
-    id: pack.pack.id,
-    name: pack.pack.name,
-    packImage: pack.pack.packImage,
-    price: pack.price,
-    tiers: pack.pack.tiers.map((tier) => ({
-      name: tier.name,
-      color: tier.color,
-      weight: Number(tier.weight),
-      minimumOne: tier.minimumOne,
-      species: tier.entries.map((entry) => entry.species),
-    })),
-  }));
 
   return (
     <ShopPacks
       tournamentId={id}
-      packs={shopPacks}
+      packs={packs}
       tournamentActive={tournament.active}
       approved={participant?.status === "APPROVED"}
       initialTournamentCoins={participant?.coins ?? null}

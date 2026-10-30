@@ -108,13 +108,32 @@ export async function POST(
 
       const attachment = await tx.tournamentPack.findUnique({
         where: { tournamentId_packId: { tournamentId, packId } },
-        include: {
+        select: {
+          active: true,
+          price: true,
+          purchaseLimit: true,
           pack: {
-            include: {
+            select: {
+              id: true,
+              pullCount: true,
               tiers: {
-                include: {
+                select: {
+                  name: true,
+                  color: true,
+                  weight: true,
+                  minimumOne: true,
                   entries: {
-                    include: { species: { select: { dex: true, name: true, isMega: true, imageUrl: true } } },
+                    select: {
+                      speciesDex: true,
+                      species: {
+                        select: {
+                          dex: true,
+                          name: true,
+                          isMega: true,
+                          imageUrl: true,
+                        },
+                      },
+                    },
                   },
                 },
               },

@@ -70,6 +70,7 @@ model Account {
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -78,6 +79,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model VerificationToken {
@@ -150,6 +153,7 @@ model Participant {
   prizePayouts   TournamentPrizePayout[]
 
   @@unique([userId, tournamentId])
+  @@index([tournamentId])
 }
 
 model TournamentPrizePayout {
@@ -202,6 +206,9 @@ model MatchMessage {
   timestamp  DateTime @default(now())
   match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
   sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, timestamp])
+  @@index([senderId])
 }
 
 model Species {
@@ -249,6 +256,8 @@ model PackTier {
   minimumOne Boolean     @default(false)
   pack       Pack        @relation(fields: [packId], references: [id], onDelete: Cascade)
   entries    PackEntry[]
+
+  @@index([packId])
 }
 
 model PackEntry {
@@ -261,6 +270,7 @@ model PackEntry {
   tier       PackTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
 
   @@unique([packId, speciesDex])
+  @@index([tierId])
 }
 
 model Purchase {
@@ -272,6 +282,9 @@ model Purchase {
   participant   Participant    @relation(fields: [participantId], references: [id], onDelete: Cascade)
   pack          Pack           @relation(fields: [packId], references: [id], onDelete: Cascade)
   ownedPokemon  OwnedPokemon[]
+
+  @@index([participantId, packId])
+  @@index([packId])
 }
 
 model OwnedPokemon {
@@ -284,6 +297,9 @@ model OwnedPokemon {
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   species       Species     @relation(fields: [speciesDex], references: [dex], onDelete: Cascade)
   purchase      Purchase    @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([participantId, speciesDex])
+  @@index([purchaseId])
 }
 
 model Roster {
