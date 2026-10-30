@@ -157,6 +157,14 @@
     ]
   },
   {
+    "dex": 122,
+    "name": "Mr. Mime",
+    "types": [
+      "Psychic",
+      "Fairy"
+    ]
+  },
+  {
     "dex": 127,
     "name": "Pinsir",
     "types": [
@@ -1420,6 +1428,21 @@
     "name": "Perrserker",
     "types": [
       "Steel"
+    ]
+  },
+  {
+    "dex": 865,
+    "name": "Sirfetch'd",
+    "types": [
+      "Fighting"
+    ]
+  },
+  {
+    "dex": 866,
+    "name": "Mr. Rime",
+    "types": [
+      "Ice",
+      "Psychic"
     ]
   },
   {
