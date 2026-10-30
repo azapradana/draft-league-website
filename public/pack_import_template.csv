@@ -1,0 +1,2 @@
+name,description,price,isGlobal,pokemonName,rarity,dropWeight,spriteUrl
+Example Pack,Sample pack description,100,true,Pikachu,Rare,10,

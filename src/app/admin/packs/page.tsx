@@ -7,12 +7,18 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminDialog } from "../admin-dialog";
 import { DeleteGlobalPackButton } from "./delete-pack-button";
+import { PackCsvImporter } from "./pack-csv-importer";
 
-export default async function GlobalPacksAdminPage() {
+export default async function GlobalPacksAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ imported?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "ADMIN") redirect("/");
 
+  const { imported } = await searchParams;
   const packs = await prisma.pack.findMany({
     orderBy: { name: "asc" },
     include: {
@@ -30,6 +36,17 @@ export default async function GlobalPacksAdminPage() {
   return (
     <main className="min-h-screen bg-[#070D24] px-4 py-8 text-[#EEF2FF] sm:px-8 sm:py-10">
       <div className="mx-auto max-w-6xl">
+        {imported === "1" && (
+          <div
+            role="status"
+            className="fixed right-4 top-4 z-50 rounded-xl border border-emerald-400/50 bg-emerald-950 px-5 py-3 text-sm font-semibold text-emerald-100 shadow-xl"
+          >
+            Pack imported successfully.{" "}
+            <a href="/admin/packs" className="ml-2 underline" aria-label="Dismiss import notification">
+              Dismiss
+            </a>
+          </div>
+        )}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#F5C542]">
@@ -88,6 +105,8 @@ export default async function GlobalPacksAdminPage() {
             </form>
           </AdminDialog>
         </header>
+
+        <PackCsvImporter />
 
         {packs.length === 0 ? (
           <section className="rounded-2xl border border-[#243775] bg-[#0C1638] px-5 py-12 text-center">
