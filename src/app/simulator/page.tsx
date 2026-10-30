@@ -36,7 +36,6 @@ export default async function SimulatorPage() {
     id: `${tournament.id}:${pack.id}`,
     tournamentName: tournament.name,
     name: pack.name,
-    description: pack.description,
     packImage: pack.packImage,
     pullCount: pack.pullCount,
     tiers: pack.tiers.map((tier) => ({

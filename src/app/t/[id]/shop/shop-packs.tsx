@@ -1,27 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PackOpeningModal, { type PackPull } from "./_components/PackOpeningModal";
 import { useCoinBalance } from "../coin-balance";
 import { usePersonalWallet } from "@/components/wallet/personal-wallet";
-import { RichText } from "@/components/rich-text";
+import PackInfoModal, { type PackInfoTier } from "@/components/PackInfoModal";
 
-type ShopTier = {
-  name: string;
-  color: string;
-  weight: number;
-  species: Array<{ dex: number; name: string }>;
-};
+/* eslint-disable @next/next/no-img-element */
+
+type ShopTier = PackInfoTier;
 
 export type ShopPack = {
   id: string;
   name: string;
-  description: string;
   packImage: string | null;
   price: number;
-  pullCount: number;
-  purchaseLimit: number | null;
   tiers: ShopTier[];
 };
 
@@ -92,6 +86,7 @@ export default function ShopPacks({
   const [openingPack, setOpeningPack] = useState<string | null>(null);
   const [pulls, setPulls] = useState<PackPull[] | null>(null);
   const [openingResultPack, setOpeningResultPack] = useState<ShopPack | null>(null);
+  const [infoPack, setInfoPack] = useState<ShopPack | null>(null);
   const [error, setError] = useState("");
   const tournamentCoins = balance ?? initialTournamentCoins;
   const coins =
@@ -202,20 +197,31 @@ export default function ShopPacks({
           <p>No packs currently available in the store.</p>
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
           {packs.map((pack) => (
             <PackCard
               key={pack.id}
               pack={pack}
               disabled={!canBuy || coins === null || coins < pack.price || openingPack !== null}
               coinsShortfall={
-                canBuy && coins !== null && coins < pack.price ? pack.price - coins : null
+                canBuy && coins !== null && coins < pack.price
+                  ? pack.price - coins
+                  : null
               }
               opening={openingPack === pack.id}
               onBuy={() => void buyAndOpen(pack)}
+              onInfo={() => setInfoPack(pack)}
             />
           ))}
         </div>
+      )}
+
+      {infoPack && (
+        <PackInfoModal
+          packName={infoPack.name}
+          tiers={infoPack.tiers}
+          onClose={() => setInfoPack(null)}
+        />
       )}
 
       <AnimatePresence>
@@ -242,118 +248,65 @@ function PackCard({
   coinsShortfall,
   opening,
   onBuy,
+  onInfo,
 }: {
   pack: ShopPack;
   disabled: boolean;
   coinsShortfall: number | null;
   opening: boolean;
   onBuy: () => void;
+  onInfo: () => void;
 }) {
   const [packImageFailed, setPackImageFailed] = useState(false);
-  const totalWeight = useMemo(
-    () =>
-      pack.tiers.reduce(
-        (total, tier) => total + (tier.species.length > 0 ? tier.weight : 0),
-        0,
-      ),
-    [pack.tiers],
-  );
 
   return (
-    <article className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
-      {pack.packImage && !packImageFailed && (
-        <div className="mx-auto mb-5 aspect-[2/3] w-full max-w-[280px] overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+    <article className="flex min-w-0 flex-col rounded-2xl border border-[#243775] bg-[#0C1638] p-3 transition-colors hover:border-[#52618C] sm:p-4">
+      <div className="mb-3 aspect-[4/5] overflow-hidden rounded-xl bg-[#070D24] sm:mb-4">
+        {pack.packImage && !packImageFailed ? (
           <img
             src={pack.packImage}
             alt={`${pack.name} artwork`}
             onError={() => setPackImageFailed(true)}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-contain"
           />
-        </div>
-      )}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h3 className="text-xl font-bold">{pack.name}</h3>
-          <p className="mt-2 text-sm text-[#9FB0E6]">
-            {pack.pullCount} pull{pack.pullCount === 1 ? "" : "s"} per pack
-            {" · "}
-            {pack.purchaseLimit === null
-              ? "No purchase limit"
-              : `Limit ${pack.purchaseLimit} per player`}
-          </p>
-        </div>
-        <p className="rounded-lg bg-[#070D24] px-3 py-2 font-bold text-[#F5C542]">
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-[#7181B3]">
+            Artwork unavailable
+          </div>
+        )}
+      </div>
+
+      <div className="mb-3 flex min-h-14 flex-col items-start gap-1 sm:mb-4 sm:flex-row sm:justify-between sm:gap-2">
+        <h3 className="line-clamp-2 min-w-0 text-sm font-bold leading-5 text-[#EEF2FF] sm:text-base">
+          {pack.name}
+        </h3>
+        <p className="w-fit shrink-0 rounded-full bg-[#070D24] px-2.5 py-1 text-xs font-bold text-[#F5C542] sm:px-3 sm:text-sm">
           {pack.price.toLocaleString()} coins
         </p>
       </div>
-
-      {pack.description && (
-        <div className="mt-4">
-          <RichText value={pack.description} />
-        </div>
-      )}
-
-      <section className="mt-5">
-        <h4 className="text-sm font-semibold text-[#EEF2FF]">Tier odds</h4>
-        <p className="mt-1 text-xs text-[#9FB0E6]">
-          Odds use the weight of non-empty tiers and ignore copy caps.
-        </p>
-        {pack.tiers.filter((tier) => tier.species.length > 0).length === 0 ? (
-          <p className="mt-3 text-sm text-[#9FB0E6]">No Pokémon have been added to this pack yet.</p>
-        ) : (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {pack.tiers
-              .filter((tier) => tier.species.length > 0)
-              .map((tier) => {
-                const odds = totalWeight > 0 ? (tier.weight / totalWeight) * 100 : 0;
-                return (
-                  <li
-                    key={tier.name}
-                    className="rounded-full border px-3 py-1 text-sm"
-                    style={{ borderColor: tier.color, color: tier.color }}
-                  >
-                    {tier.name}: {odds.toFixed(2)}%
-                  </li>
-                );
-              })}
-          </ul>
-        )}
-      </section>
-
-      <details className="mt-5 rounded-xl border border-[#243775] bg-[#070D24] p-4">
-        <summary className="cursor-pointer font-semibold text-[#EEF2FF]">
-          What can drop?
-        </summary>
-        <div className="mt-4 space-y-3">
-          {pack.tiers
-            .filter((tier) => tier.species.length > 0)
-            .map((tier) => (
-              <div key={tier.name}>
-                <h5 className="text-sm font-semibold" style={{ color: tier.color }}>
-                  {tier.name}
-                </h5>
-                <p className="mt-1 text-sm text-[#9FB0E6]">
-                  {tier.species.map((species) => species.name).join(", ")}
-                </p>
-              </div>
-            ))}
-        </div>
-      </details>
 
       <button
         type="button"
         disabled={disabled}
         onClick={onBuy}
-        className="mt-5 w-full rounded-xl bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-11 w-full rounded-xl bg-[#F5C542] px-2 py-2.5 text-sm font-bold text-[#070D24] transition-colors hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
       >
-        {opening ? "Opening pack…" : "Buy & open"}
+        {opening ? "Opening…" : "Open Pack"}
       </button>
       {coinsShortfall !== null && (
-        <p className="mt-2 text-sm text-amber-200" role="status">
-          You need {coinsShortfall.toLocaleString()} more coins to open this pack.
+        <p className="mt-2 text-center text-xs text-amber-200" role="status">
+          Need {coinsShortfall.toLocaleString()} more coins
         </p>
       )}
+      <button
+        type="button"
+        onClick={onInfo}
+        className="mt-1 min-h-11 w-full rounded-lg px-2 text-xs font-medium text-[#9FB0E6] underline decoration-[#52618C] underline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542] sm:text-sm"
+      >
+        Pack Information
+      </button>
     </article>
   );
 }

@@ -3,23 +3,18 @@
 import { useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PackOpeningModal, { type PackPull } from "@/app/t/[id]/shop/_components/PackOpeningModal";
-import { RichText } from "@/components/rich-text";
+import PackInfoModal, { type PackInfoTier } from "@/components/PackInfoModal";
+
+/* eslint-disable @next/next/no-img-element */
 
 type SimulatorSpecies = PackPull["species"];
 
-type SimulatorTier = {
-  name: string;
-  color: string;
-  weight: number;
-  minimumOne: boolean;
-  species: SimulatorSpecies[];
-};
+type SimulatorTier = PackInfoTier & { species: SimulatorSpecies[] };
 
 export type SimulatorPack = {
   id: string;
   tournamentName: string;
   name: string;
-  description: string;
   packImage: string | null;
   pullCount: number;
   tiers: SimulatorTier[];
@@ -80,6 +75,7 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
     pulls: PackPull[];
     sequence: number;
   } | null>(null);
+  const [infoPack, setInfoPack] = useState<SimulatorPack | null>(null);
 
   function openPack(pack: SimulatorPack) {
     const pulls = simulatePack(pack);
@@ -93,37 +89,15 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
     <main className="min-h-screen bg-[#070D24] px-5 py-10 text-[#EEF2FF] sm:px-8 sm:py-14">
       <div className="mx-auto max-w-7xl">
         <header className="max-w-3xl">
-          <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#F5C542]">
-            Practice Tear
-          </p>
-          <h1 className="display-font mt-3 text-4xl font-black tracking-tight sm:text-5xl">
-            The RNG Sandbox
+          <h1 className="display-font text-3xl font-black tracking-tight sm:text-4xl">
+            The Pull Lab
           </h1>
-          <p className="mt-4 text-base leading-7 text-[#B9C5E8]">
-            Test your luck with tournament packs enabled for practice. The pulls
-            are just for fun: no coins spent, no cards added to your collection.
+          <p className="mt-2 text-sm text-[#9FB0E6]">
+            Practice packs · no coins spent
           </p>
         </header>
 
-        <div className="mt-8 rounded-2xl border border-[#F5C542]/40 bg-[#F5C542]/10 px-5 py-4 text-sm font-bold text-[#FFE28A]">
-          Zero Cost. Pure Dopamine. Test your luck before the real tournament.
-        </div>
-
-        <section className="mt-10">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#7181B3]">
-                Currently available
-              </p>
-              <h2 className="display-font mt-2 text-2xl font-extrabold">
-                Practice-ready tournament packs
-              </h2>
-            </div>
-            <span className="rounded-full border border-[#243775] bg-[#0C1638] px-3 py-1.5 text-xs font-bold text-[#9FB0E6]">
-              {packs.length} {packs.length === 1 ? "pack" : "packs"}
-            </span>
-          </div>
-
+        <section className="mt-7">
           {packs.length === 0 ? (
             <div className="flex items-start gap-4 rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
               <svg
@@ -143,7 +117,7 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
               <p>No practice packs are currently available.</p>
             </div>
           ) : (
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
               {packs.map((pack) => {
                 const disabled = simulatePackIsUnavailable(pack);
                 return (
@@ -152,6 +126,7 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
                     pack={pack}
                     disabled={disabled}
                     onOpen={() => openPack(pack)}
+                    onInfo={() => setInfoPack(pack)}
                   />
                 );
               })}
@@ -159,6 +134,14 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
           )}
         </section>
       </div>
+
+      {infoPack && (
+        <PackInfoModal
+          packName={infoPack.name}
+          tiers={infoPack.tiers}
+          onClose={() => setInfoPack(null)}
+        />
+      )}
 
       <AnimatePresence>
         {opening && (
@@ -196,105 +179,65 @@ function PackCard({
   pack,
   disabled,
   onOpen,
+  onInfo,
 }: {
   pack: SimulatorPack;
   disabled: boolean;
   onOpen: () => void;
+  onInfo: () => void;
 }) {
   const [packImageFailed, setPackImageFailed] = useState(false);
 
   return (
-    <article className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
-      {pack.packImage && !packImageFailed && (
-        <div className="mx-auto mb-5 aspect-[2/3] w-full max-w-[280px] overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+    <article className="flex min-w-0 flex-col rounded-2xl border border-[#243775] bg-[#0C1638] p-3 transition-colors hover:border-[#52618C] sm:p-4">
+      <div className="mb-3 aspect-[4/5] overflow-hidden rounded-xl bg-[#070D24] sm:mb-4">
+        {pack.packImage && !packImageFailed ? (
           <img
             src={pack.packImage}
             alt={`${pack.name} artwork`}
             onError={() => setPackImageFailed(true)}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-contain"
           />
-        </div>
-      )}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9FB0E6]">
-            {pack.tournamentName}
-          </p>
-          <h3 className="mt-1 text-xl font-bold">{pack.name}</h3>
-          <p className="mt-2 text-sm text-[#9FB0E6]">
-            {pack.pullCount} pull{pack.pullCount === 1 ? "" : "s"} per pack
-          </p>
-        </div>
-        <p className="rounded-lg bg-[#070D24] px-3 py-2 font-bold text-[#F5C542]">
-          Always free
-        </p>
+        ) : (
+          <div className="flex h-full items-center justify-center text-xs text-[#7181B3]">
+            Artwork unavailable
+          </div>
+        )}
       </div>
 
-      {pack.description && (
-        <div className="mt-4">
-          <RichText value={pack.description} />
-        </div>
-      )}
-
-      <section className="mt-5">
-        <h4 className="text-sm font-semibold text-[#EEF2FF]">Pull tiers</h4>
-        <p className="mt-1 text-xs text-[#9FB0E6]">
-          Guaranteed tiers are selected first; remaining pulls use tier weights.
-        </p>
-        {pack.tiers.filter((tier) => tier.species.length > 0).length === 0 ? (
-          <p className="mt-3 text-sm text-[#9FB0E6]">
-            No Pokémon have been added to this pack yet.
+      <div className="mb-3 flex min-h-14 items-start justify-between gap-2 sm:mb-4">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-[#9FB0E6] sm:text-xs">
+            {pack.tournamentName}
           </p>
-        ) : (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {pack.tiers
-              .filter((tier) => tier.species.length > 0)
-              .map((tier) => (
-                <li
-                  key={tier.name}
-                  className="rounded-full border px-3 py-1 text-sm"
-                  style={{ borderColor: tier.color, color: tier.color }}
-                >
-                  {tier.name}
-                  {tier.minimumOne ? " · guaranteed" : ""}
-                </li>
-              ))}
-          </ul>
-        )}
-      </section>
-
-      <details className="mt-5 rounded-xl border border-[#243775] bg-[#070D24] p-4">
-        <summary className="cursor-pointer font-semibold text-[#EEF2FF]">
-          What can drop?
-        </summary>
-        <div className="mt-4 space-y-3">
-          {pack.tiers
-            .filter((tier) => tier.species.length > 0)
-            .map((tier) => (
-              <div key={tier.name}>
-                <h5 className="text-sm font-semibold" style={{ color: tier.color }}>
-                  {tier.name}
-                  {tier.minimumOne ? " · guaranteed" : ""}
-                </h5>
-                <p className="mt-1 text-sm text-[#9FB0E6]">
-                  {tier.species.map((species) => species.name).join(", ")}
-                </p>
-              </div>
-            ))}
+          <h3 className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-[#EEF2FF] sm:text-base">
+            {pack.name}
+          </h3>
         </div>
-      </details>
+        <p className="shrink-0 rounded-full bg-[#070D24] px-2.5 py-1 text-xs font-bold text-[#F5C542]">
+          Free
+        </p>
+      </div>
 
       <button
         type="button"
         disabled={disabled}
         onClick={onOpen}
-        className="mt-5 w-full rounded-xl bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-11 w-full rounded-xl bg-[#F5C542] px-2 py-2.5 text-sm font-bold text-[#070D24] transition-colors hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
       >
-        Practice tear
+        Open Pack
+      </button>
+      <button
+        type="button"
+        onClick={onInfo}
+        className="mt-1 min-h-11 w-full rounded-lg px-2 text-xs font-medium text-[#9FB0E6] underline decoration-[#52618C] underline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542] sm:text-sm"
+      >
+        Pack Information
       </button>
       {disabled && (
-        <p className="mt-2 text-sm text-amber-200" role="status">
+        <p className="mt-2 text-center text-xs text-amber-200" role="status">
           This pack has no valid pulls configured.
         </p>
       )}

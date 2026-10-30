@@ -51,15 +51,13 @@ export default async function TournamentShopPage({
   const shopPacks: ShopPack[] = packs.map((pack) => ({
     id: pack.pack.id,
     name: pack.pack.name,
-    description: pack.pack.description,
     packImage: pack.pack.packImage,
     price: pack.price,
-    pullCount: pack.pack.pullCount,
-    purchaseLimit: pack.purchaseLimit,
     tiers: pack.pack.tiers.map((tier) => ({
       name: tier.name,
       color: tier.color,
       weight: Number(tier.weight),
+      minimumOne: tier.minimumOne,
       species: tier.entries.map((entry) => entry.species),
     })),
   }));
