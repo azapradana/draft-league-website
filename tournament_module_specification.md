@@ -35,6 +35,8 @@ Add the following models and fields to `prisma/schema.prisma`:
   - `winnerId`: String (Foreign Key to Participant, nullable)
   - `player1Vote`: String (Foreign Key to Participant, nullable - stores who player 1 voted as winner)
   - `player2Vote`: String (Foreign Key to Participant, nullable - stores who player 2 voted as winner)
+  - `player1Score` and `player2Score`: nullable game-win scores recorded for admin-declared results
+  - `adminOverrideById` and `adminOverrideAt`: nullable admin and timestamp audit fields for manually overridden results
   - `status`: Enum (`PENDING`, `COMPLETED`, `DISPUTED`), default `PENDING`
   - `createdAt`: DateTime (default now)
   - `updatedAt`: DateTime (updated on vote/status change)
@@ -62,7 +64,7 @@ Add the following models and fields to `prisma/schema.prisma`:
 1. **Admin Action**: Once check-ins close, the admin starts Round 1 at `/admin/t/[id]/matches`.
 2. **Single Elimination**: Checked-in approved participants are shuffled and paired; a bye is automatically resolved for an odd field.
 3. **Swiss**: All checked-in approved participants play every configured Swiss round. Pairings follow current standings where possible, avoid rematches, and award byes to the lowest-ranked player without a previous bye.
-4. Swiss matches award 3 match points for a win and 0 for a loss. Standings rank by match points, opponent match-win percentage (minimum 33.3%), match wins, then player name. Game-win tie-breakers are not used because match records do not capture game scores.
+4. Swiss matches award 3 match points for a win and 0 for a loss. Standings rank by match points, opponent match-win percentage (minimum 33.3%), match wins, then player name. Admin-declared results may retain game scores for auditing; game-win tie-breakers are not used.
 
 ### Phase 3: Match Room & Interaction (`/t/[id]/matches/[matchId]`)
 1. **Match Room Access**: Paired players and admins can access the match room.
@@ -78,8 +80,8 @@ Add the following models and fields to `prisma/schema.prisma`:
    - **Match**: If both votes match (`player1Vote === player2Vote`), the match automatically transitions to `COMPLETED` and `winnerId` is set. A Swiss loss does not eliminate a player.
    - **Dispute**: If Player 1 votes themselves and Player 2 votes themselves (conflicting votes), the match status immediately updates to `DISPUTED`, locking further automated changes and alerting admins.
 3. **Admin Resolution**:
-   - Admins see a **Dispute Panel** on `/admin/t/[id]/matches`.
-   - The admin can override votes, manually select the winner, and force-complete the match.
+   - Admins see every generated match, its table number, result, score, and room link on `/admin/t/[id]/matches`; the roster refreshes periodically.
+   - Admins can confirm a winner and final game score for a match in the latest round. The override records the administering user and timestamp; later rounds and completed tournaments are read-only to protect bracket integrity.
 
 ### Phase 5: Subsequent Rounds
 1. For Swiss, the admin generates the next standings-based round after every match in the current round is completed. After all configured rounds, the admin can generate the configured Top 4 or Top 8 bracket; the cut must fit the checked-in field.
@@ -96,7 +98,8 @@ Add the following models and fields to `prisma/schema.prisma`:
 - `GET /api/tournaments/[id]/matches/[matchId]`: Fetch match details, rosters, chat messages, and vote status.
 - `POST /api/tournaments/[id]/matches/[matchId]/chat`: Post a message to match chat.
 - `POST /api/tournaments/[id]/matches/[matchId]/result`: Submit a match winner vote.
-- `POST /api/admin/tournaments/[id]/matches/[matchId]/resolve`: Admin override for disputed or stuck matches.
+- `POST /api/admin/tournaments/[id]/matches/[matchId]/resolve`: Admin override for disputed matches.
+- Server action at `/admin/t/[id]/matches`: Admin winner and final-score override for the latest round.
 
 ---
 

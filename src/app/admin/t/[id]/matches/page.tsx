@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { ParticipantStatus } from "@prisma/client";
+import MatchesRoster from "./matches-roster";
 import RoundControls from "./round-controls";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -28,17 +29,6 @@ function playerName(
   );
 }
 
-function statusClass(status: string) {
-  switch (status) {
-    case "COMPLETED":
-      return "bg-emerald-950 text-emerald-300";
-    case "DISPUTED":
-      return "bg-red-950 text-red-300";
-    default:
-      return "bg-[#243775] text-[#9FB0E6]";
-  }
-}
-
 export default async function AdminTournamentMatchesPage({
   params,
 }: {
@@ -58,6 +48,7 @@ export default async function AdminTournamentMatchesPage({
     select: {
       id: true,
       name: true,
+      completed: true,
       checkInOpen: true,
       format: true,
       swissRounds: true,
@@ -94,6 +85,9 @@ export default async function AdminTournamentMatchesPage({
             include: {
               user: { select: { name: true, username: true, email: true } },
             },
+          },
+          adminOverrideBy: {
+            select: { name: true, username: true, email: true },
           },
         },
       },
@@ -183,6 +177,57 @@ export default async function AdminTournamentMatchesPage({
           })),
         )
       : [];
+  const tableNumbers = new Map<number, number>();
+  const rosterMatches = matchesToDisplay.map((match) => {
+    const tableNumber = match.player2
+      ? (tableNumbers.get(match.roundNumber) ?? 0) + 1
+      : null;
+    if (tableNumber !== null) {
+      tableNumbers.set(match.roundNumber, tableNumber);
+    }
+    const isSwiss =
+      match.stage === "SWISS" ||
+      (match.stage === null &&
+        tournament.format === "SWISS" &&
+        match.roundNumber <= tournament.swissRounds);
+    const isTopCut = match.stage === "TOP_CUT";
+    const roundLabel = isTopCut
+      ? `Top Cut · Round ${topCutRoundNumbers.indexOf(match.roundNumber) + 1}`
+      : isSwiss
+        ? `Swiss · Round ${match.roundNumber}`
+        : `Single Elimination · Round ${match.roundNumber}`;
+    const hasLaterRound = tournament.matches.some(
+      (laterMatch) => laterMatch.roundNumber > match.roundNumber,
+    );
+
+    return {
+      id: match.id,
+      roundNumber: match.roundNumber,
+      roundLabel,
+      tableNumber,
+      status: match.status,
+      player1: match.player1
+        ? { id: match.player1.id, name: playerName(match.player1) }
+        : null,
+      player2: match.player2
+        ? { id: match.player2.id, name: playerName(match.player2) }
+        : null,
+      winner: match.winner
+        ? { id: match.winner.id, name: playerName(match.winner) }
+        : null,
+      player1Score: match.player1Score,
+      player2Score: match.player2Score,
+      adminOverrideBy: match.adminOverrideBy
+        ? playerName({ user: match.adminOverrideBy })
+        : null,
+      adminOverrideAt: match.adminOverrideAt?.toISOString() ?? null,
+      disabledReason: tournament.completed
+        ? "This tournament is complete; match results are read-only."
+        : hasLaterRound
+          ? "This match has already fed into a later round and is read-only."
+          : null,
+    };
+  });
 
   return (
     <main className="min-h-screen bg-[#070D24] px-6 py-10 text-[#EEF2FF] sm:px-10">
@@ -263,70 +308,12 @@ export default async function AdminTournamentMatchesPage({
           className="mt-8 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
         >
           <h2 className="text-xl font-semibold">Matches</h2>
-          {matchesToDisplay.length === 0 ? (
+          {matchesToDisplay.length === 0 && (
             <p className="mt-4 text-[#9FB0E6]">
-              No matches have been generated yet. Approved participants who have
-              checked in: {tournament.participants.length}.
+              Approved participants who have checked in: {tournament.participants.length}.
             </p>
-          ) : (
-            <div className="mt-5 space-y-8">
-              {Array.from(
-                new Set(matchesToDisplay.map((match) => match.roundNumber)),
-              ).map((roundNumber) => {
-                const roundMatches = matchesToDisplay.filter(
-                  (match) => match.roundNumber === roundNumber,
-                );
-
-                return (
-                  <section key={roundNumber}>
-                    <h3 className="mb-3 text-lg font-semibold">
-                      {roundMatches[0].stage === "TOP_CUT"
-                        ? `Top Cut · Round ${topCutRoundNumbers.indexOf(roundNumber) + 1}`
-                        : roundMatches[0].stage === "SWISS" ||
-                            (roundMatches[0].stage === null &&
-                              tournament.format === "SWISS")
-                          ? `Swiss · Round ${roundNumber}`
-                          : `Round ${roundNumber}`}
-                      {roundNumber === currentRound ? " · Current" : ""}
-                    </h3>
-                    <ul className="space-y-3">
-                      {roundMatches.map((match, index) => (
-                        <li
-                          key={match.id}
-                          className="rounded-xl border border-[#243775] bg-[#070D24] p-4"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <span className="text-sm text-[#9FB0E6]">
-                              Match {index + 1}
-                            </span>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${statusClass(match.status)}`}
-                            >
-                              {match.status}
-                            </span>
-                          </div>
-                          <div className="mt-3 flex flex-wrap items-center gap-2 font-semibold">
-                            <span>{playerName(match.player1)}</span>
-                            <span className="text-[#9FB0E6]">vs.</span>
-                            <span>{playerName(match.player2)}</span>
-                          </div>
-                          {match.player2 === null ? (
-                            <p className="mt-2 text-sm text-emerald-300">
-                              Bye — {playerName(match.winner)} advanced automatically.
-                            </p>
-                          ) : match.winner ? (
-                            <p className="mt-2 text-sm text-[#9FB0E6]">
-                              Winner: {playerName(match.winner)}
-                            </p>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                );
-              })}
-            </div>
           )}
+          <MatchesRoster matches={rosterMatches} tournamentId={tournament.id} />
         </section>
       </div>
     </main>

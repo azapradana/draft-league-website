@@ -38,21 +38,22 @@ enum TournamentStage {
 }
 
 model User {
-  id            String                  @id @default(cuid())
-  username      String?                 @unique
-  name          String?
-  email         String?                 @unique
-  emailVerified DateTime?
-  image         String?
-  passwordHash  String?
-  googleEmail   String?
-  role          Role                    @default(PLAYER)
-  coinsBalance  Int                     @default(0)
-  accounts      Account[]
-  sessions      Session[]
-  participants  Participant[]
-  matchMessages MatchMessage[]
-  prizePayouts  TournamentPrizePayout[]
+  id                     String                  @id @default(cuid())
+  username               String?                 @unique
+  name                   String?
+  email                  String?                 @unique
+  emailVerified          DateTime?
+  image                  String?
+  passwordHash           String?
+  googleEmail            String?
+  role                   Role                    @default(PLAYER)
+  coinsBalance           Int                     @default(0)
+  accounts               Account[]
+  sessions               Session[]
+  participants           Participant[]
+  matchMessages          MatchMessage[]
+  adminOverriddenMatches Match[]                 @relation("MatchAdminOverride")
+  prizePayouts           TournamentPrizePayout[]
 }
 
 model Account {
@@ -173,26 +174,31 @@ model TournamentPrizePayout {
 }
 
 model Match {
-  id              String           @id @default(cuid())
-  tournamentId    String
-  roundNumber     Int
-  stage           TournamentStage?
-  bracketPosition Int?
-  player1Id       String?
-  player2Id       String?
-  winnerId        String?
-  player1Vote     String?
-  player2Vote     String?
-  status          MatchStatus      @default(PENDING)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  tournament      Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  player1         Participant?     @relation("MatchPlayer1", fields: [player1Id], references: [id], onDelete: SetNull)
-  player2         Participant?     @relation("MatchPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
-  winner          Participant?     @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
-  player1Voted    Participant?     @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
-  player2Voted    Participant?     @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
-  messages        MatchMessage[]
+  id                String           @id @default(cuid())
+  tournamentId      String
+  roundNumber       Int
+  stage             TournamentStage?
+  bracketPosition   Int?
+  player1Id         String?
+  player2Id         String?
+  winnerId          String?
+  player1Vote       String?
+  player2Vote       String?
+  player1Score      Int?
+  player2Score      Int?
+  adminOverrideById String?
+  adminOverrideAt   DateTime?
+  status            MatchStatus      @default(PENDING)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  tournament        Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player1           Participant?     @relation("MatchPlayer1", fields: [player1Id], references: [id], onDelete: SetNull)
+  player2           Participant?     @relation("MatchPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
+  winner            Participant?     @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  player1Voted      Participant?     @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
+  player2Voted      Participant?     @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
+  adminOverrideBy   User?            @relation("MatchAdminOverride", fields: [adminOverrideById], references: [id], onDelete: SetNull)
+  messages          MatchMessage[]
 
   @@index([tournamentId, roundNumber])
 }

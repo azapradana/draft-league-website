@@ -87,7 +87,12 @@ export async function POST(
 
     await tx.match.update({
       where: { id: matchId },
-      data: { winnerId, status: MatchStatus.COMPLETED },
+      data: {
+        winnerId,
+        status: MatchStatus.COMPLETED,
+        adminOverrideById: session.user.id,
+        adminOverrideAt: new Date(),
+      },
     });
     await closeTournamentIfComplete(tx, tournamentId);
     return { ok: true, winnerId };

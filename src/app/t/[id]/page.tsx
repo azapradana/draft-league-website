@@ -583,8 +583,15 @@ export default async function TournamentOverview({
                     ? (rosterByParticipant.get(participant.id) ?? [])
                     : null;
                   const rank = participantRanks.get(participant.id);
-                  const medal =
-                    rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+                  const medal = tournamentCompleted
+                    ? rank === 1
+                      ? "🥇"
+                      : rank === 2
+                        ? "🥈"
+                        : rank === 3
+                          ? "🥉"
+                          : null
+                    : null;
 
                   return (
                     <tr key={participant.id} className="border-b border-[#243775]/70 align-top last:border-0">
