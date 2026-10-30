@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import {
+  PACK_OPENING_ANIMATION,
+  PACK_OPENING_SPRING,
+} from "@/constants/animation";
+import styles from "./PackOpeningModal.module.css";
 
 export type PackPull = {
   species: {
@@ -91,18 +96,9 @@ export default function PackOpeningModal({
 
   useEffect(() => setPackImageFailed(false), [packImage]);
 
-  useEffect(() => {
-    if (phase !== "tearing" && phase !== "flash") return;
-    const timer = window.setTimeout(
-      () => setPhase(phase === "tearing" ? "flash" : "encounter"),
-      reduceMotion ? 1 : phase === "tearing" ? 400 : 500,
-    );
-    return () => window.clearTimeout(timer);
-  }, [phase, reduceMotion]);
-
   const currentPull = pulls[currentIndex];
   const isLastPull = currentIndex >= pulls.length - 1;
-  const canReveal = phase === "flash" || phase === "encounter";
+  const canReveal = phase === "encounter";
   const packArtwork =
     packImage && !packImageFailed ? (
       // eslint-disable-next-line @next/next/no-img-element
@@ -175,7 +171,7 @@ export default function PackOpeningModal({
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: reduceMotion ? 0.01 : 0.22 }}
             >
-              <div className="pack-stage relative flex h-[330px] w-[270px] items-center justify-center">
+              <div className="pack-stage relative flex h-[min(330px,calc(100vw+10px))] w-[min(270px,calc(100vw-3.5rem))] items-center justify-center">
                 <span
                   aria-hidden="true"
                   className={`pack-inner-glow absolute h-56 w-56 rounded-full ${
@@ -190,11 +186,16 @@ export default function PackOpeningModal({
                   }}
                   drag={phase === "sealed" ? "y" : false}
                   dragConstraints={{ top: -110, bottom: 60 }}
+                  dragTransition={{
+                    bounceStiffness: PACK_OPENING_SPRING.stiffness,
+                    bounceDamping: PACK_OPENING_SPRING.damping,
+                  }}
                   dragElastic={0.28}
                   whileTap={phase === "sealed" ? { scale: 0.97 } : undefined}
+                  transition={{ type: "spring", ...PACK_OPENING_SPRING }}
                   disabled={phase !== "sealed"}
                   aria-label="Click or drag upward to tear open the pack"
-                  className="pack-wrapper relative h-[300px] w-[210px] rounded-2xl border-2 border-[#F5C542] bg-[linear-gradient(135deg,#F5C542,#D9A21B_38%,#fff0a8_48%,#D9A21B_58%,#9c6800)] shadow-xl shadow-[#F5C542]/30 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#EEF2FF]"
+                  className="pack-wrapper relative h-[min(300px,calc(100vw-1.5rem))] w-[min(210px,calc(100vw-5.5rem))] rounded-2xl border-2 border-[#F5C542] bg-[linear-gradient(135deg,#F5C542,#D9A21B_38%,#fff0a8_48%,#D9A21B_58%,#9c6800)] shadow-xl shadow-[#F5C542]/30 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[#EEF2FF]"
                   style={{ touchAction: "none", rotate: -3 }}
                   whileHover={phase === "sealed" ? { rotate: 0, scale: 1.035 } : undefined}
                 >
@@ -217,8 +218,11 @@ export default function PackOpeningModal({
                     transition={
                       reduceMotion
                         ? { duration: 0.01 }
-                        : { type: "spring", stiffness: 150, damping: 18, mass: 0.8 }
+                        : { type: "spring", ...PACK_OPENING_SPRING, mass: 0.8 }
                     }
+                    onAnimationComplete={() => {
+                      if (phase === "tearing") setPhase("flash");
+                    }}
                     style={{ visibility: phase === "tearing" ? "visible" : "hidden" }}
                     aria-hidden="true"
                   >
@@ -236,7 +240,7 @@ export default function PackOpeningModal({
                     transition={
                       reduceMotion
                         ? { duration: 0.01 }
-                        : { type: "spring", stiffness: 130, damping: 19, mass: 0.9 }
+                        : { type: "spring", ...PACK_OPENING_SPRING, mass: 0.9 }
                     }
                     style={{ visibility: phase === "tearing" ? "visible" : "hidden" }}
                     aria-hidden="true"
@@ -304,8 +308,33 @@ export default function PackOpeningModal({
                       </span>
                     </div>
 
-                    <div className="relative z-10 grid min-h-[330px] items-center gap-2 p-4 sm:grid-cols-[1fr_210px] sm:p-6">
-                      <div className="relative flex min-h-[265px] flex-col items-center justify-center">
+                    <motion.div
+                      className="relative z-10 grid min-h-[330px] items-center gap-2 p-4 sm:grid-cols-[1fr_210px] sm:p-6"
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        hidden: {},
+                        visible: {
+                          transition: {
+                            staggerChildren: reduceMotion
+                              ? 0
+                              : PACK_OPENING_ANIMATION.cardStaggerMs / 1000,
+                          },
+                        },
+                      }}
+                    >
+                      <motion.div
+                        className="relative flex min-h-[265px] flex-col items-center justify-center"
+                        style={{ perspective: 1000 }}
+                        variants={{
+                          hidden: { opacity: 0, y: 12 },
+                          visible: {
+                            opacity: 1,
+                            y: 0,
+                            transition: { duration: reduceMotion ? 0.01 : 0.28 },
+                          },
+                        }}
+                      >
                         <span
                           aria-hidden="true"
                           className="battle-platform absolute bottom-5 h-12 w-56 rounded-[50%]"
@@ -315,30 +344,66 @@ export default function PackOpeningModal({
                         />
                         <motion.div
                           key={`pokemon-${currentIndex}`}
-                          className="encounter-reveal relative z-10 flex flex-col items-center text-center"
-                          initial={{ opacity: 0, x: 90, scale: 0 }}
-                          animate={{ opacity: 1, x: 0, scale: 1 }}
+                          className={`encounter-reveal ${styles.card} relative z-10 flex flex-col items-center gap-2 px-4 py-5 text-center sm:px-5`}
+                          initial={{
+                            opacity: 0,
+                            rotateY: reduceMotion ? 0 : -90,
+                            rotateX: reduceMotion ? 0 : 8,
+                            scale: reduceMotion ? 1 : 0.88,
+                          }}
+                          animate={{ opacity: 1, rotateY: 0, rotateX: 0, scale: 1 }}
                           transition={
                             reduceMotion
                               ? { duration: 0.01 }
-                              : { type: "spring", stiffness: 170, damping: 13, mass: 0.85 }
+                              : {
+                                  duration:
+                                    PACK_OPENING_ANIMATION.cardFlipDurationMs / 1000,
+                                  delay:
+                                    PACK_OPENING_ANIMATION.cardStaggerMs / 1000,
+                                  ease: "easeOut",
+                                }
                           }
+                          style={{
+                            borderColor: currentPull.tier.color,
+                            boxShadow: `0 0 28px ${currentPull.tier.color}40, inset 0 0 24px ${currentPull.tier.color}12`,
+                          }}
                         >
                           <span
                             aria-hidden="true"
-                            className="rarity-aura absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl sm:h-52 sm:w-52"
+                            className="rarity-aura absolute left-1/2 top-[42%] h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl sm:h-52 sm:w-52"
                             style={{ backgroundColor: `${currentPull.tier.color}45` }}
                           />
-                          <span className="relative z-10 drop-shadow-[0_8px_24px_rgba(7,13,36,0.8)]">
-                            <PullArtwork pull={currentPull} large />
-                          </span>
-                          <span className="relative z-10 -mt-2 text-2xl font-black text-[#EEF2FF] drop-shadow-lg sm:text-3xl">
-                            {currentPull.species.name}
-                          </span>
+                          <motion.div
+                            className="relative z-10 flex flex-col items-center text-center"
+                            animate={{ y: reduceMotion ? 0 : [0, -5, 0] }}
+                            transition={{
+                              duration:
+                                PACK_OPENING_ANIMATION.cardFloatDurationMs / 1000,
+                              repeat: reduceMotion ? 0 : Infinity,
+                              ease: "easeInOut",
+                            }}
+                          >
+                            <span className="drop-shadow-[0_8px_24px_rgba(7,13,36,0.8)]">
+                              <PullArtwork pull={currentPull} large />
+                            </span>
+                            <span className="mt-1 text-2xl font-black text-[#EEF2FF] drop-shadow-lg sm:text-3xl">
+                              {currentPull.species.name}
+                            </span>
+                          </motion.div>
                         </motion.div>
-                      </div>
+                      </motion.div>
 
-                      <aside className="relative z-10 rounded-xl border border-[#243775] bg-[#070D24]/85 p-4">
+                      <motion.aside
+                        className="relative z-10 rounded-xl border border-[#243775] bg-[#070D24]/85 p-4"
+                        variants={{
+                          hidden: { opacity: 0, y: 12 },
+                          visible: {
+                            opacity: 1,
+                            y: 0,
+                            transition: { duration: reduceMotion ? 0.01 : 0.28 },
+                          },
+                        }}
+                      >
                         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#9FB0E6]">
                           Encounter data
                         </p>
@@ -385,8 +450,8 @@ export default function PackOpeningModal({
                             ? "This practice pull does not spend coins or change your collection."
                             : "Copy limits prevent pulls beyond the tournament's player and league caps."}
                         </p>
-                      </aside>
-                    </div>
+                      </motion.aside>
+                    </motion.div>
                   </motion.div>
 
                   <div className="mt-5 flex flex-col items-center justify-between gap-4 sm:flex-row">
@@ -435,34 +500,32 @@ export default function PackOpeningModal({
                   </button>
                 </div>
               )}
-              {phase === "flash" && (
-                <p className="sr-only">Encounter transition in progress...</p>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
       </motion.section>
 
       <AnimatePresence>
-        {phase === "tearing" && (
+        {phase === "flash" && (
           <motion.div
             key="pack-flash"
             aria-hidden="true"
-            className="pack-flash fixed inset-0 z-[60]"
+            className={`${styles.flash} pack-flash fixed inset-0 z-[70]`}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0.01 : 0.4 }}
+            animate={{
+              opacity: reduceMotion ? [0, 0.9, 0] : [0, 1, 0],
+              scale: reduceMotion ? 1 : [0.82, 1.04, 1.16],
+            }}
+            transition={{
+              duration: PACK_OPENING_ANIMATION.flashDurationMs / 1000,
+              ease: "easeInOut",
+            }}
+            onAnimationComplete={() => {
+              if (phase === "flash") setPhase("encounter");
+            }}
           />
         )}
       </AnimatePresence>
-      {phase === "flash" && (
-        <div
-          key={`shutter-${currentIndex}`}
-          aria-hidden="true"
-          className="battle-shutter pointer-events-none fixed inset-0 z-[60]"
-        />
-      )}
 
       <style jsx>{`
         .pack-wrapper {
@@ -555,27 +618,8 @@ export default function PackOpeningModal({
           animation: tear-spark 400ms ease-out forwards;
         }
 
-        .pack-flash {
-          pointer-events: none;
-          background: radial-gradient(ellipse at center, #ffffff 0%, #fff8df 32%, #f5c542 68%, #d9a21b 100%);
-          animation: flash-flood 400ms ease-out forwards;
-          will-change: opacity;
-        }
-
         .battle-field {
           animation: shutter-open 500ms steps(10, end) both;
-        }
-
-        .battle-shutter {
-          background: repeating-linear-gradient(
-            to bottom,
-            #ffffff 0,
-            #ffffff 3px,
-            #070d24 3px,
-            #070d24 6px
-          );
-          animation: shutter-scan 500ms steps(10, end) both;
-          will-change: transform, opacity;
         }
 
         .battle-scanlines {
@@ -615,22 +659,9 @@ export default function PackOpeningModal({
           100% { opacity: 0; stroke-dashoffset: 0; }
         }
 
-        @keyframes flash-flood {
-          0% { opacity: 0; }
-          16% { opacity: 1; }
-          38% { opacity: 0.88; }
-          100% { opacity: 0; }
-        }
-
         @keyframes shutter-open {
           0% { clip-path: inset(50% 0); opacity: 0.3; }
           100% { clip-path: inset(0); opacity: 1; }
-        }
-
-        @keyframes shutter-scan {
-          0% { opacity: 1; transform: scaleY(1); }
-          35% { opacity: 1; transform: scaleY(1); }
-          100% { opacity: 0; transform: scaleY(0); }
         }
 
         @keyframes aura-pulse {
@@ -641,9 +672,7 @@ export default function PackOpeningModal({
         @media (prefers-reduced-motion: reduce) {
           .pack-inner-glow-open,
           .pack-tear-line-active,
-          .pack-flash,
           .battle-field,
-          .battle-shutter,
           .rarity-aura {
             animation-duration: 0.01ms !important;
             animation-iteration-count: 1 !important;
