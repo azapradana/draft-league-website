@@ -93,7 +93,7 @@ export default function RoundControls({
               : "Start Next Round"}
         </button>
       ) : null}
-      {topCut > 0 && (
+      {topCut > 0 && canGenerateTopCut && (
         <button
           className="rounded-lg border border-[#F5C542] px-5 py-3 font-bold text-[#F5C542] hover:bg-[#F5C542]/10 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={!canGenerateTopCut || pending}

@@ -33,12 +33,15 @@ export async function POST(
     return NextResponse.json({ error: "Send a valid JSON request." }, { status: 400 });
   }
 
-  const winnerId =
-    typeof body === "object" && body !== null && "winnerId" in body
-      ? body.winnerId
+  const outcome =
+    typeof body === "object" && body !== null && "outcome" in body
+      ? body.outcome
       : undefined;
-  if (typeof winnerId !== "string" || winnerId.length === 0) {
-    return NextResponse.json({ error: "Choose the match winner." }, { status: 400 });
+  if (outcome !== "WIN" && outcome !== "LOSS") {
+    return NextResponse.json(
+      { error: "Choose whether you won or lost the match." },
+      { status: 400 },
+    );
   }
 
   const result = await prisma.$transaction(async (tx): Promise<SubmissionResult> => {
@@ -89,12 +92,8 @@ export async function POST(
       return { ok: false, statusCode: 403, error: "Only players in this match can vote." };
     }
 
-    if (
-      !match.player1Id ||
-      !match.player2Id ||
-      (winnerId !== match.player1Id && winnerId !== match.player2Id)
-    ) {
-      return { ok: false, statusCode: 400, error: "Choose one of this match's players as winner." };
+    if (!match.player1Id || !match.player2Id) {
+      return { ok: false, statusCode: 400, error: "This match has no opposing player." };
     }
     if (match.status !== MatchStatus.PENDING) {
       return {
@@ -110,6 +109,15 @@ export async function POST(
     if (isPlayer2 && match.player2Vote !== null) {
       return { ok: false, statusCode: 409, error: "You have already submitted your vote." };
     }
+
+    const winnerId =
+      outcome === "WIN"
+        ? isPlayer1
+          ? match.player1Id
+          : match.player2Id
+        : isPlayer1
+          ? match.player2Id
+          : match.player1Id;
 
     if (isPlayer1) {
       await tx.match.update({

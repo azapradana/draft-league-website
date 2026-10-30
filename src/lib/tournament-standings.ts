@@ -15,6 +15,10 @@ export type SwissMatch = {
   stage?: string | null;
 };
 
+export type SwissRoundMatch = SwissMatch & {
+  roundNumber: number;
+};
+
 export type SwissStanding = SwissParticipant & {
   matchWins: number;
   matchLosses: number;
@@ -22,6 +26,26 @@ export type SwissStanding = SwissParticipant & {
   opponentMatchWinPercentage: number;
   byes: number;
 };
+
+export function hasCompletedSwissRounds(
+  matches: SwissRoundMatch[],
+  swissRounds: number,
+): boolean {
+  const roundNumbers = [...new Set(matches.map((match) => match.roundNumber))];
+
+  return (
+    swissRounds > 0 &&
+    roundNumbers.length === swissRounds &&
+    roundNumbers.every((roundNumber, index) => roundNumber === index + 1) &&
+    matches.every(
+      (match) =>
+        match.status === "COMPLETED" &&
+        match.winnerId !== null &&
+        (match.winnerId === match.player1Id ||
+          match.winnerId === match.player2Id),
+    )
+  );
+}
 
 export function buildSwissStandings(
   participants: SwissParticipant[],

@@ -224,7 +224,7 @@ export default function MatchRoom({
     };
   }, [matchEndpoint]);
 
-  async function submitResult(winnerParticipantId: string) {
+  async function submitResult(outcome: "WIN" | "LOSS") {
     if (voting) {
       return;
     }
@@ -235,7 +235,7 @@ export default function MatchRoom({
       const response = await fetch(resultEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ winnerId: winnerParticipantId }),
+        body: JSON.stringify({ outcome }),
       });
       const result = (await response.json()) as
         | {
@@ -425,7 +425,7 @@ export default function MatchRoom({
                 <button
                   type="button"
                   disabled={voting}
-                  onClick={() => void submitResult(ownPlayer.id)}
+                  onClick={() => void submitResult("WIN")}
                   className="rounded-xl bg-[#F5C542] px-5 py-2.5 font-bold text-[#070D24] hover:bg-[#D9A21B] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {voting ? "Submitting…" : "Report Win"}
@@ -433,7 +433,7 @@ export default function MatchRoom({
                 <button
                   type="button"
                   disabled={voting}
-                  onClick={() => void submitResult(opponent.id)}
+                  onClick={() => void submitResult("LOSS")}
                   className="rounded-xl border border-[#9FB0E6] px-5 py-2.5 font-bold text-[#EEF2FF] hover:border-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Report Loss

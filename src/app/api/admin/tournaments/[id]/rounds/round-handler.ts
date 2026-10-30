@@ -65,7 +65,7 @@ function createMatchInputs(
 function createSwissMatchInputs(
   tournamentId: string,
   roundNumber: number,
-  orderedParticipantIds: string[],
+  orderedStandings: Array<{ id: string; matchWins: number }>,
   previousMatches: Array<{
     player1Id: string | null;
     player2Id: string | null;
@@ -83,47 +83,71 @@ function createSwissMatchInputs(
       .filter((match) => match.player1Id && match.player2Id === null)
       .map((match) => match.player1Id!),
   );
-  const participants = [...orderedParticipantIds];
+  const participants = [...orderedStandings];
   const matches: Prisma.MatchCreateManyInput[] = [];
 
   if (participants.length % 2 === 1) {
     let byeIndex = -1;
     for (let index = participants.length - 1; index >= 0; index -= 1) {
-      if (!hadBye.has(participants[index])) {
+      if (!hadBye.has(participants[index].id)) {
         byeIndex = index;
         break;
       }
     }
     if (byeIndex === -1) byeIndex = participants.length - 1;
     const [byePlayer] = participants.splice(byeIndex, 1);
+    const byePlayerId = byePlayer.id;
     matches.push({
       tournamentId,
       roundNumber,
       stage: TournamentStage.SWISS,
-      player1Id: byePlayer,
+      player1Id: byePlayerId,
       player2Id: null,
-      winnerId: byePlayer,
+      winnerId: byePlayerId,
       status: MatchStatus.COMPLETED,
     });
   }
 
-  while (participants.length > 0) {
-    const player1Id = participants.shift()!;
-    let opponentIndex = participants.findIndex(
-      (candidate) =>
-        !alreadyPaired.has([player1Id, candidate].sort().join(":")),
-    );
-    if (opponentIndex === -1) opponentIndex = 0;
-    const [player2Id] = participants.splice(opponentIndex, 1);
-    matches.push({
-      tournamentId,
-      roundNumber,
-      stage: TournamentStage.SWISS,
-      player1Id,
-      player2Id,
-      winnerId: null,
-      status: MatchStatus.PENDING,
-    });
+  const scoreGroups = new Map<number, typeof participants>();
+  for (const participant of participants) {
+    const group = scoreGroups.get(participant.matchWins) ?? [];
+    group.push(participant);
+    scoreGroups.set(participant.matchWins, group);
+  }
+
+  let floater: (typeof participants)[number] | undefined;
+  for (const group of scoreGroups.values()) {
+    const pairingPool = floater ? [floater, ...group] : [...group];
+    floater = undefined;
+
+    if (pairingPool.length % 2 === 1) {
+      floater = pairingPool.pop();
+    }
+
+    while (pairingPool.length > 0) {
+      const player1 = pairingPool.shift()!;
+      let opponentIndex = pairingPool.findIndex(
+        (candidate) =>
+          !alreadyPaired.has(
+            [player1.id, candidate.id].sort().join(":"),
+          ),
+      );
+      if (opponentIndex === -1) opponentIndex = 0;
+      const [player2] = pairingPool.splice(opponentIndex, 1);
+      matches.push({
+        tournamentId,
+        roundNumber,
+        stage: TournamentStage.SWISS,
+        player1Id: player1.id,
+        player2Id: player2.id,
+        winnerId: null,
+        status: MatchStatus.PENDING,
+      });
+    }
+  }
+
+  if (floater) {
+    throw new Error("Swiss pairing left an unpaired participant.");
   }
 
   return matches;
@@ -282,13 +306,12 @@ export async function generateRound(
         roundNumber =
           lastSwissRound === undefined ? 1 : roundNumber;
         const standings = buildSwissStandings(participants, swissMatches);
-        const orderedIds = standings.map(({ id }) => id);
-        if (lastSwissRound === undefined) shuffle(orderedIds);
-        participantIds = orderedIds;
+        if (lastSwissRound === undefined) shuffle(standings);
+        participantIds = standings.map(({ id }) => id);
         matches = createSwissMatchInputs(
           tournamentId,
           roundNumber,
-          participantIds,
+          standings,
           swissMatches,
         );
       } else if (currentStage === TournamentStage.TOP_CUT) {

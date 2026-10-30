@@ -1,9 +1,17 @@
-import { MatchStatus, ParticipantStatus, Prisma, TournamentStage } from "@prisma/client";
+import {
+  MatchStatus,
+  ParticipantStatus,
+  Prisma,
+  TournamentStage,
+} from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildSwissStandings } from "@/lib/tournament-standings";
+import {
+  buildSwissStandings,
+  hasCompletedSwissRounds,
+} from "@/lib/tournament-standings";
 
 class TopCutGenerationError extends Error {
   constructor(
@@ -97,22 +105,7 @@ export async function POST(
           status: true,
         },
       });
-      const swissRoundNumbers = [
-        ...new Set(swissMatches.map((match) => match.roundNumber)),
-      ];
-      if (
-        swissRoundNumbers.length !== tournament.swissRounds ||
-        swissRoundNumbers.some(
-          (roundNumber, index) => roundNumber !== index + 1,
-        ) ||
-        swissMatches.some(
-          (match) =>
-            match.status !== MatchStatus.COMPLETED ||
-            !match.winnerId ||
-            (match.winnerId !== match.player1Id &&
-              match.winnerId !== match.player2Id),
-        )
-      ) {
+      if (!hasCompletedSwissRounds(swissMatches, tournament.swissRounds)) {
         throw new TopCutGenerationError(
           "Complete all configured Swiss rounds before generating the Top Cut.",
           409,

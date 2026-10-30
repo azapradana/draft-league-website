@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildSwissStandings } from "@/lib/tournament-standings";
+import {
+  buildSwissStandings,
+  hasCompletedSwissRounds,
+} from "@/lib/tournament-standings";
 import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
@@ -126,31 +129,50 @@ export default async function TournamentOverview({
   const participation = Array.isArray(tournament.participants)
     ? tournament.participants[0]
     : undefined;
+  const swissMatches = tournament.matches.filter(
+    (match) =>
+      match.stage === "SWISS" ||
+      (match.stage === null &&
+        tournament.format === "SWISS" &&
+        match.roundNumber <= tournament.swissRounds),
+  );
+  const swissStageComplete =
+    tournament.format === "SWISS" &&
+    hasCompletedSwissRounds(swissMatches, tournament.swissRounds);
+  const matchesToDisplay =
+    tournament.format === "SWISS" && !swissStageComplete
+      ? tournament.matches.filter((match) => match.stage !== "TOP_CUT")
+      : tournament.matches;
   const currentRound =
-    tournament.matches.length > 0
-      ? tournament.matches[tournament.matches.length - 1].roundNumber
+    matchesToDisplay.length > 0
+      ? matchesToDisplay[matchesToDisplay.length - 1].roundNumber
       : null;
   const currentStage =
     tournament.format === "SWISS" &&
-    tournament.currentStage === "SINGLE_ELIMINATION"
+    (!swissStageComplete ||
+      tournament.currentStage === "SINGLE_ELIMINATION")
       ? "SWISS"
       : tournament.currentStage;
   const rounds = Array.from(
-    new Set(tournament.matches.map((match) => match.roundNumber)),
+    new Set(matchesToDisplay.map((match) => match.roundNumber)),
   );
   const topCutRoundNumbers = Array.from(
     new Set(
-      tournament.matches
+      matchesToDisplay
         .filter((match) => match.stage === "TOP_CUT")
         .map((match) => match.roundNumber),
     ),
   );
-  const finalRoundMatches = tournament.matches.filter(
+  const finalRoundMatches = matchesToDisplay.filter(
     (match) => match.roundNumber === currentRound,
   );
   const finalMatch =
     finalRoundMatches.length === 1 ? finalRoundMatches[0] : null;
   const bracketCompleted =
+    (tournament.format !== "SWISS" || swissStageComplete) &&
+    (tournament.format !== "SWISS" ||
+      tournament.topCut === 0 ||
+      matchesToDisplay.some((match) => match.stage === "TOP_CUT")) &&
     finalMatch?.status === "COMPLETED" &&
     finalMatch.winnerId !== null &&
     (finalMatch.winnerId === finalMatch.player1Id ||
@@ -390,7 +412,7 @@ export default async function TournamentOverview({
           )}
         </div>
 
-        {tournament.matches.length === 0 ? (
+        {matchesToDisplay.length === 0 ? (
           <div className="mt-6 flex items-start gap-4 rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
             <svg
               aria-hidden="true"
@@ -414,7 +436,7 @@ export default async function TournamentOverview({
         ) : (
           <div className="mt-6 space-y-8">
             {rounds.map((roundNumber) => {
-              const roundMatches = tournament.matches.filter(
+              const roundMatches = matchesToDisplay.filter(
                 (match) => match.roundNumber === roundNumber,
               );
 

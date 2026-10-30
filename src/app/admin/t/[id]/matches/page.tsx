@@ -5,7 +5,10 @@ import { ParticipantStatus } from "@prisma/client";
 import RoundControls from "./round-controls";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { buildSwissStandings } from "@/lib/tournament-standings";
+import {
+  buildSwissStandings,
+  hasCompletedSwissRounds,
+} from "@/lib/tournament-standings";
 import { SwissStandingsTable } from "@/app/t/[id]/standings/standings-table";
 
 function playerName(
@@ -101,10 +104,6 @@ export default async function AdminTournamentMatchesPage({
     notFound();
   }
 
-  const currentRound =
-    tournament.matches.length > 0
-      ? tournament.matches[tournament.matches.length - 1].roundNumber
-      : null;
   const stageMatches = tournament.matches.filter(
     (match) =>
       match.stage === "SWISS" ||
@@ -112,22 +111,34 @@ export default async function AdminTournamentMatchesPage({
         tournament.format === "SWISS" &&
         match.roundNumber <= tournament.swissRounds),
   );
+  const swissStageComplete =
+    tournament.format === "SWISS" &&
+    hasCompletedSwissRounds(stageMatches, tournament.swissRounds);
+  const matchesToDisplay =
+    tournament.format === "SWISS" && !swissStageComplete
+      ? tournament.matches.filter((match) => match.stage !== "TOP_CUT")
+      : tournament.matches;
+  const currentRound =
+    matchesToDisplay.length > 0
+      ? matchesToDisplay[matchesToDisplay.length - 1].roundNumber
+      : null;
   const swissRoundNumbers = [
     ...new Set(stageMatches.map((match) => match.roundNumber)),
   ];
   const topCutRoundNumbers = [
     ...new Set(
-      tournament.matches
+      matchesToDisplay
         .filter((match) => match.stage === "TOP_CUT")
         .map((match) => match.roundNumber),
     ),
   ];
   const currentStage =
     tournament.format === "SWISS" &&
-    tournament.currentStage === "SINGLE_ELIMINATION"
+    (!swissStageComplete ||
+      tournament.currentStage === "SINGLE_ELIMINATION")
       ? "SWISS"
       : tournament.currentStage;
-  const currentRoundMatches = tournament.matches.filter(
+  const currentRoundMatches = matchesToDisplay.filter(
     (match) => match.roundNumber === currentRound,
   );
   const currentRoundComplete =
@@ -153,7 +164,7 @@ export default async function AdminTournamentMatchesPage({
     tournament.format === "SWISS" &&
     currentStage === "SWISS" &&
     tournament.topCut > 0 &&
-    swissRoundNumbers.length === tournament.swissRounds &&
+    swissStageComplete &&
     currentRoundComplete;
   const showRoundControl =
     currentRound === null
@@ -252,7 +263,7 @@ export default async function AdminTournamentMatchesPage({
           className="mt-8 scroll-mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
         >
           <h2 className="text-xl font-semibold">Matches</h2>
-          {tournament.matches.length === 0 ? (
+          {matchesToDisplay.length === 0 ? (
             <p className="mt-4 text-[#9FB0E6]">
               No matches have been generated yet. Approved participants who have
               checked in: {tournament.participants.length}.
@@ -260,9 +271,9 @@ export default async function AdminTournamentMatchesPage({
           ) : (
             <div className="mt-5 space-y-8">
               {Array.from(
-                new Set(tournament.matches.map((match) => match.roundNumber)),
+                new Set(matchesToDisplay.map((match) => match.roundNumber)),
               ).map((roundNumber) => {
-                const roundMatches = tournament.matches.filter(
+                const roundMatches = matchesToDisplay.filter(
                   (match) => match.roundNumber === roundNumber,
                 );
 
