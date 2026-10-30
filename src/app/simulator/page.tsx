@@ -1,7 +1,10 @@
+import { connection } from "next/server";
 import { prisma } from "@/lib/prisma";
 import PackSimulator, { type SimulatorPack } from "./pack-simulator";
 
 export default async function SimulatorPage() {
+  await connection();
+
   const activePacks = await prisma.tournamentPack.findMany({
     where: {
       active: true,

@@ -2,6 +2,7 @@
 
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { AdminDialog } from "../admin-dialog";
 
 type ImportResult = {
   error?: string;
@@ -125,7 +126,7 @@ export function PackCsvImporter() {
   }
 
   return (
-    <section className="mb-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5">
+    <AdminDialog buttonLabel="Import packs" title="Import packs from CSV">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Import a pack from CSV</h2>
@@ -222,6 +223,6 @@ export function PackCsvImporter() {
           </ul>
         </div>
       )}
-    </section>
+    </AdminDialog>
   );
 }
