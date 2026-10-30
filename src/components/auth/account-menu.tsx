@@ -26,7 +26,7 @@ export function AccountMenu({
         </span>
       </summary>
       <div
-        className={`absolute right-0 z-20 w-64 rounded-xl border border-[#243775] bg-[#0C1638] p-4 shadow-xl ${
+        className={`absolute left-0 z-20 w-full rounded-xl border border-[#243775] bg-[#0C1638] p-4 shadow-xl ${
           placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
         }`}
       >
