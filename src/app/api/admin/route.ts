@@ -947,6 +947,159 @@ export async function POST(request: NextRequest) {
         return NextResponse.redirect(new URL("/admin", request.url), 303);
       }
 
+      case "bulkUpdateTournamentPacks": {
+        const tournamentId = asString(body.tournamentId);
+        const rawPackIds = asString(body.packIds);
+        if (!tournamentId || !rawPackIds) {
+          return NextResponse.json(
+            { error: "Tournament ID and pack list are required." },
+            { status: 400 },
+          );
+        }
+
+        let packIds: unknown;
+        try {
+          packIds = JSON.parse(rawPackIds);
+        } catch {
+          return NextResponse.json({ error: "The submitted pack list is invalid." }, { status: 400 });
+        }
+        if (!Array.isArray(packIds)) {
+          return NextResponse.json({ error: "The submitted pack list is invalid." }, { status: 400 });
+        }
+        const submittedPackIds: string[] = [];
+        for (const packId of packIds) {
+          if (typeof packId !== "string" || !packId) {
+            return NextResponse.json(
+              { error: "The submitted pack list is invalid." },
+              { status: 400 },
+            );
+          }
+          submittedPackIds.push(packId);
+        }
+        if (new Set(submittedPackIds).size !== submittedPackIds.length) {
+          return NextResponse.json({ error: "The submitted pack list is invalid." }, { status: 400 });
+        }
+
+        const [tournament, catalogPacks] = await Promise.all([
+          prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            select: { id: true },
+          }),
+          prisma.pack.findMany({ select: { id: true } }),
+        ]);
+        if (!tournament) {
+          return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
+        }
+        const catalogPackIds = catalogPacks.map((pack) => pack.id);
+        if (
+          submittedPackIds.length !== catalogPackIds.length ||
+          catalogPackIds.some((packId) => !submittedPackIds.includes(packId))
+        ) {
+          return NextResponse.json(
+            { error: "The global pack catalog changed. Reload the page and try again." },
+            { status: 409 },
+          );
+        }
+
+        const packSettings: Array<{
+          packId: string;
+          attached: boolean;
+          price: number;
+          purchaseLimit: number | null;
+          active: boolean;
+        }> = [];
+        for (const packId of submittedPackIds) {
+          const prefix = `pack.${packId}.`;
+          const price = asStrictInt(body[`${prefix}price`]);
+          const rawPurchaseLimit = body[`${prefix}purchaseLimit`];
+          const purchaseLimit =
+            rawPurchaseLimit === undefined ||
+            rawPurchaseLimit === null ||
+            asString(rawPurchaseLimit).trim() === ""
+              ? null
+              : asStrictInt(rawPurchaseLimit) ?? -1;
+          const rawActive = asOptionalBoolean(body[`${prefix}active`]);
+          const rawAttached = asOptionalBoolean(body[`${prefix}attached`]);
+
+          if (
+            price === undefined ||
+            price < 0 ||
+            price > 2_147_483_647
+          ) {
+            return NextResponse.json(
+              { error: "Pack price must be a non-negative whole number." },
+              { status: 400 },
+            );
+          }
+          if (
+            purchaseLimit !== null &&
+            (purchaseLimit < 1 || purchaseLimit > 2_147_483_647)
+          ) {
+            return NextResponse.json(
+              { error: "Purchase limit must be at least one or left blank for unlimited." },
+              { status: 400 },
+            );
+          }
+          if (
+            rawActive === undefined ||
+            (body[`${prefix}attached`] !== undefined && rawAttached === undefined)
+          ) {
+            return NextResponse.json(
+              { error: "Pack sale and attachment settings must be valid." },
+              { status: 400 },
+            );
+          }
+
+          packSettings.push({
+            packId,
+            attached: rawAttached ?? false,
+            price,
+            purchaseLimit,
+            active: rawActive,
+          });
+        }
+
+        const selectedSettings = packSettings.filter((setting) => setting.attached);
+        const unattachedPackIds = packSettings
+          .filter((setting) => !setting.attached)
+          .map((setting) => setting.packId);
+
+        await prisma.$transaction(async (tx) => {
+          if (unattachedPackIds.length > 0) {
+            await tx.tournamentPack.deleteMany({
+              where: { tournamentId, packId: { in: unattachedPackIds } },
+            });
+          }
+          for (const setting of selectedSettings) {
+            await tx.tournamentPack.upsert({
+              where: {
+                tournamentId_packId: { tournamentId, packId: setting.packId },
+              },
+              create: {
+                tournamentId,
+                packId: setting.packId,
+                price: setting.price,
+                purchaseLimit: setting.purchaseLimit,
+                active: setting.active,
+              },
+              update: {
+                price: setting.price,
+                purchaseLimit: setting.purchaseLimit,
+                active: setting.active,
+              },
+            });
+          }
+        });
+
+        if (request.headers.get("content-type")?.includes("application/json")) {
+          return NextResponse.json({ success: true });
+        }
+        return NextResponse.redirect(
+          new URL(`/admin/t/${tournamentId}/packs?updated=1`, request.url),
+          303,
+        );
+      }
+
       case "attachTournamentPack": {
         const tournamentId = asString(body.tournamentId);
         const packId = asString(body.packId);
