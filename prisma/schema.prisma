@@ -214,15 +214,16 @@ model Species {
 }
 
 model Pack {
-  id          String           @id @default(cuid())
-  name        String
-  description String           @default("")
-  packImage   String?
-  pullCount   Int              @default(1)
-  tiers       PackTier[]
-  entries     PackEntry[]
-  purchases   Purchase[]
-  tournaments TournamentPack[]
+  id             String           @id @default(cuid())
+  name           String
+  description    String           @default("")
+  packImage      String?
+  pullCount      Int              @default(1)
+  showInPractice Boolean          @default(true)
+  tiers          PackTier[]
+  entries        PackEntry[]
+  purchases      Purchase[]
+  tournaments    TournamentPack[]
 }
 
 model TournamentPack {

@@ -1,0 +1,2 @@
+ALTER TABLE "Pack"
+ADD COLUMN "showInPractice" BOOLEAN NOT NULL DEFAULT true;

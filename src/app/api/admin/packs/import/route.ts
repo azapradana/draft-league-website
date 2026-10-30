@@ -8,6 +8,7 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const MAX_PACK_ROWS = 5000;
 const MAX_DROP_ITEMS = 5000;
 const REQUIRED_HEADERS = ["packName", "description", "price", "isGlobal", "pokemonList"] as const;
+const OPTIONAL_HEADERS = ["spriteUrl", "showInPractice"] as const;
 
 type CsvRecord = { line: number; values: string[] };
 type CsvPackItem = {
@@ -21,6 +22,7 @@ type CsvPack = {
   name: string;
   description: string;
   spriteUrl: string;
+  showInPractice: boolean;
   items: CsvPackItem[];
 };
 
@@ -173,7 +175,13 @@ export async function POST(request: NextRequest) {
     if (!headerIndexes.has(header.toLowerCase())) errors.push(`Missing required column "${header}".`);
   }
   for (const header of headers) {
-    if (header && ![...REQUIRED_HEADERS.map((required) => required.toLowerCase()), "spriteurl"].includes(header)) {
+    if (
+      header &&
+      ![
+        ...REQUIRED_HEADERS.map((required) => required.toLowerCase()),
+        ...OPTIONAL_HEADERS.map((optional) => optional.toLowerCase()),
+      ].includes(header)
+    ) {
       errors.push(`Unexpected column "${header}".`);
     }
   }
@@ -201,6 +209,9 @@ export async function POST(request: NextRequest) {
     const isGlobal = parseBoolean(rowValue(record, headerIndexes, "isglobal"));
     const pokemonList = rowValue(record, headerIndexes, "pokemonlist");
     const spriteUrl = rowValue(record, headerIndexes, "spriteurl");
+    const showInPractice = headerIndexes.has("showinpractice")
+      ? parseBoolean(rowValue(record, headerIndexes, "showinpractice"))
+      : true;
     const price = /^\d+$/.test(rawPrice) ? Number(rawPrice) : Number.NaN;
 
     if (!name || name.length > 80) errors.push(`Line ${record.line}: pack name must contain 1–80 characters.`);
@@ -209,6 +220,9 @@ export async function POST(request: NextRequest) {
       errors.push(`Line ${record.line}: price must be a non-negative whole number.`);
     }
     if (isGlobal !== true) errors.push(`Line ${record.line}: isGlobal must be true for a global pack import.`);
+    if (showInPractice === undefined) {
+      errors.push(`Line ${record.line}: showInPractice must be true or false.`);
+    }
     if (spriteUrl && !validHttpsUrl(spriteUrl)) {
       errors.push(`Line ${record.line}: spriteUrl must be an HTTPS URL no longer than 2,048 characters.`);
     }
@@ -279,7 +293,14 @@ export async function POST(request: NextRequest) {
       errors.push(`The CSV may contain no more than ${MAX_DROP_ITEMS} Pokémon drops in total.`);
       break;
     }
-    packs.push({ line: record.line, name, description, spriteUrl, items });
+    packs.push({
+      line: record.line,
+      name,
+      description,
+      spriteUrl,
+      showInPractice: showInPractice ?? true,
+      items,
+    });
   }
 
   if (errors.length > 0) return NextResponse.json({ errors: errors.slice(0, 100) }, { status: 400 });
@@ -313,7 +334,12 @@ export async function POST(request: NextRequest) {
     await prisma.$transaction(async (tx) => {
       for (const packData of resolvedPacks) {
         const pack = await tx.pack.create({
-          data: { name: packData.name, description: packData.description, pullCount: 1 },
+          data: {
+            name: packData.name,
+            description: packData.description,
+            pullCount: 1,
+            showInPractice: packData.showInPractice,
+          },
         });
         const tierIds = new Map<string, string>();
         const tierWeights = new Map<string, string>();

@@ -6,6 +6,7 @@ export default async function SimulatorPage() {
     where: {
       active: true,
       tournament: { active: true, completed: false },
+      pack: { showInPractice: true },
     },
     orderBy: [{ tournament: { name: "asc" } }, { pack: { name: "asc" } }],
     include: {

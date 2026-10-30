@@ -55,6 +55,15 @@ function asBoolean(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+function asOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off", ""].includes(normalized)) return false;
+  return undefined;
+}
+
 function isValidImageUrl(value: string): boolean {
   if (value.length > 2048) return false;
   try {
@@ -776,6 +785,8 @@ export async function POST(request: NextRequest) {
         const description = asString(body.description);
         const packImage = asString(body.packImage).trim();
         const pullCount = asStrictInt(body.pullCount) ?? -1;
+        const showInPractice =
+          body.showInPractice === undefined ? true : asOptionalBoolean(body.showInPractice);
 
         if (!name || name.length > 80 || pullCount < 1 || pullCount > 2_147_483_647) {
           return NextResponse.json(
@@ -789,6 +800,9 @@ export async function POST(request: NextRequest) {
         if (packImage && !isValidImageUrl(packImage)) {
           return NextResponse.json({ error: "Pack artwork URL must be a valid HTTPS URL no longer than 2,048 characters." }, { status: 400 });
         }
+        if (showInPractice === undefined) {
+          return NextResponse.json({ error: "Practice visibility must be true or false." }, { status: 400 });
+        }
 
         const pack = await prisma.pack.create({
           data: {
@@ -796,6 +810,7 @@ export async function POST(request: NextRequest) {
             description,
             packImage: packImage || null,
             pullCount,
+            showInPractice,
           },
         });
 
@@ -822,6 +837,7 @@ export async function POST(request: NextRequest) {
           description?: string;
           pullCount?: number;
           packImage?: string | null;
+          showInPractice?: boolean;
         } = {};
 
         if ("name" in body) {
@@ -854,6 +870,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Pull count must be at least one." }, { status: 400 });
           }
           updateData.pullCount = pullCount;
+        }
+
+        if ("showInPractice" in body) {
+          const showInPractice = asOptionalBoolean(body.showInPractice);
+          if (showInPractice === undefined) {
+            return NextResponse.json({ error: "Practice visibility must be true or false." }, { status: 400 });
+          }
+          updateData.showInPractice = showInPractice;
         }
 
         const effectivePullCount = updateData.pullCount ?? pack.pullCount;

@@ -1,2 +1,2 @@
-packName,description,price,isGlobal,pokemonList
-"Mega Evolution Showcase","Regulation M-C mega pack",150,true,"Lucario:COMMON:40,Mega Lucario Z:LEGENDARY:2,Absol:COMMON:40,Mega Absol Z:RARE:8"
+packName,description,price,isGlobal,showInPractice,pokemonList
+"Mega Evolution Showcase","Regulation M-C mega pack",150,true,true,"Lucario:COMMON:40,Mega Lucario Z:LEGENDARY:2,Absol:COMMON:40,Mega Absol Z:RARE:8"

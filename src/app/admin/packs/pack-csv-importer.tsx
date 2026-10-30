@@ -132,7 +132,8 @@ export function PackCsvImporter() {
           <p className="mt-1 max-w-3xl text-sm text-[#9FB0E6]">
             Each row defines one global pack. Put all its Pokémon and Mega forms in the quoted pokemonList field as
             pokemonName:rarity:dropWeight entries, separated by commas or semicolons. Price is checked but configured
-            later when the pack is attached to a tournament.
+            later when the pack is attached to a tournament. Add an optional showInPractice column with true or false
+            to control Practice Tear visibility; it defaults to true.
           </p>
         </div>
         <a

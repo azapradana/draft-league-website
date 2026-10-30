@@ -94,6 +94,28 @@ export default async function GlobalPacksAdminPage({
                   className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
                 />
               </label>
+              <label className="flex items-start gap-3 md:col-span-2">
+                <input
+                  type="hidden"
+                  name="showInPractice"
+                  value="false"
+                />
+                <input
+                  type="checkbox"
+                  name="showInPractice"
+                  value="true"
+                  defaultChecked
+                  className="mt-1 h-4 w-4 accent-[#F5C542]"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-[#EEF2FF]">
+                    Show in Practice Tear
+                  </span>
+                  <span className="mt-1 block text-sm text-[#9FB0E6]">
+                    List this pack on the practice page when its tournament pack is active.
+                  </span>
+                </span>
+              </label>
               <div className="self-end">
                 <button
                   type="submit"
@@ -146,6 +168,9 @@ export default async function GlobalPacksAdminPage({
                       <p className="mt-1 text-xs text-[#9FB0E6]">
                         Attached to {pack._count.tournaments} {pack._count.tournaments === 1 ? "tournament" : "tournaments"}
                       </p>
+                      <p className="mt-1 text-xs text-[#9FB0E6]">
+                        Practice Tear: {pack.showInPractice ? "shown" : "hidden"}
+                      </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <Link
@@ -190,6 +215,28 @@ export default async function GlobalPacksAdminPage({
                               defaultValue={pack.pullCount}
                               className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
                             />
+                          </label>
+                          <label className="flex items-start gap-3">
+                            <input
+                              type="hidden"
+                              name="showInPractice"
+                              value="false"
+                            />
+                            <input
+                              type="checkbox"
+                              name="showInPractice"
+                              value="true"
+                              defaultChecked={pack.showInPractice}
+                              className="mt-1 h-4 w-4 accent-[#F5C542]"
+                            />
+                            <span>
+                              <span className="block text-sm font-semibold text-[#EEF2FF]">
+                                Show in Practice Tear
+                              </span>
+                              <span className="mt-1 block text-sm text-[#9FB0E6]">
+                                List this pack on the practice page when its tournament pack is active.
+                              </span>
+                            </span>
                           </label>
                           <button
                             type="submit"
