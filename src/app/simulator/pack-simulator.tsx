@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import PackOpeningModal, { type PackPull } from "@/app/t/[id]/shop/_components/PackOpeningModal";
+import { RichText } from "@/components/rich-text";
 
 type SimulatorSpecies = PackPull["species"];
 
@@ -124,64 +125,34 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
           </div>
 
           {packs.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#243775] bg-[#0C1638]/60 p-8 text-center">
-              <p className="text-lg font-bold">No practice packs right now</p>
-              <p className="mt-2 text-sm text-[#9FB0E6]">
-                Tournament packs enabled for practice will appear here.
-              </p>
+            <div className="flex items-start gap-4 rounded-2xl border border-dashed border-[#243775] p-6 text-[#9FB0E6]">
+              <svg
+                aria-hidden="true"
+                className="mt-0.5 h-6 w-6 shrink-0 text-[#F5C542]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.7"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 9.5 4.5 4h15L21 9.5M4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9M3 9.5a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M9 20v-6h6v6"
+                />
+              </svg>
+              <p>No practice packs are currently available.</p>
             </div>
           ) : (
             <div className="grid gap-5 lg:grid-cols-2">
               {packs.map((pack) => {
                 const disabled = simulatePackIsUnavailable(pack);
                 return (
-                  <article
-                    className="overflow-hidden rounded-2xl border border-[#243775] bg-[#0C1638]"
+                  <PackCard
                     key={pack.id}
-                  >
-                    <div className="flex gap-4 p-5">
-                      <PackArtwork pack={pack} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#9FB0E6]">
-                          {pack.tournamentName}
-                        </p>
-                        <h3 className="mt-1 text-xl font-black">{pack.name}</h3>
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#9FB0E6]">
-                          {pack.description || "A mystery pack awaits."}
-                        </p>
-                        <p className="mt-3 text-xs font-bold text-[#F5C542]">
-                          {pack.pullCount} {pack.pullCount === 1 ? "pull" : "pulls"} · Always free
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 border-t border-[#243775] px-5 py-3">
-                      {pack.tiers.map((tier) => (
-                        <span
-                          className="rounded-full border px-2.5 py-1 text-xs font-bold"
-                          key={tier.name}
-                          style={{ color: tier.color, borderColor: `${tier.color}88` }}
-                        >
-                          {tier.name}
-                          {tier.minimumOne ? " · guaranteed" : ""}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between gap-4 border-t border-[#243775] p-5">
-                      <p className="text-xs text-[#9FB0E6]">
-                        {disabled
-                          ? "This pack has no valid pulls configured."
-                          : "Nothing saved. Rip it as often as you like."}
-                      </p>
-                      <button
-                        className="shrink-0 rounded-xl bg-[#F5C542] px-5 py-3 text-sm font-extrabold text-[#070D24] transition hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={disabled}
-                        onClick={() => openPack(pack)}
-                        type="button"
-                      >
-                        Practice tear
-                      </button>
-                    </div>
-                  </article>
+                    pack={pack}
+                    disabled={disabled}
+                    onOpen={() => openPack(pack)}
+                  />
                 );
               })}
             </div>
@@ -221,23 +192,112 @@ function simulatePackIsUnavailable(pack: SimulatorPack): boolean {
   );
 }
 
-function PackArtwork({ pack }: { pack: SimulatorPack }) {
-  if (!pack.packImage) {
-    return (
-      <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded-xl border border-[#F5C542]/50 bg-gradient-to-br from-[#F5C542] via-[#D9A21B] to-[#9c6800] p-2 text-center text-xs font-black text-[#070D24]">
-        RNG
-        <br />
-        SANDBOX
-      </div>
-    );
-  }
+function PackCard({
+  pack,
+  disabled,
+  onOpen,
+}: {
+  pack: SimulatorPack;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  const [packImageFailed, setPackImageFailed] = useState(false);
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      alt=""
-      className="h-24 w-20 shrink-0 rounded-xl border border-[#243775] object-cover"
-      src={pack.packImage}
-    />
+    <article className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
+      {pack.packImage && !packImageFailed && (
+        <div className="mx-auto mb-5 aspect-[2/3] w-full max-w-[280px] overflow-hidden rounded-xl border border-[#243775] bg-[#070D24]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pack.packImage}
+            alt={`${pack.name} artwork`}
+            onError={() => setPackImageFailed(true)}
+            className="h-full w-full object-contain"
+          />
+        </div>
+      )}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9FB0E6]">
+            {pack.tournamentName}
+          </p>
+          <h3 className="mt-1 text-xl font-bold">{pack.name}</h3>
+          <p className="mt-2 text-sm text-[#9FB0E6]">
+            {pack.pullCount} pull{pack.pullCount === 1 ? "" : "s"} per pack
+          </p>
+        </div>
+        <p className="rounded-lg bg-[#070D24] px-3 py-2 font-bold text-[#F5C542]">
+          Always free
+        </p>
+      </div>
+
+      {pack.description && (
+        <div className="mt-4">
+          <RichText value={pack.description} />
+        </div>
+      )}
+
+      <section className="mt-5">
+        <h4 className="text-sm font-semibold text-[#EEF2FF]">Pull tiers</h4>
+        <p className="mt-1 text-xs text-[#9FB0E6]">
+          Guaranteed tiers are selected first; remaining pulls use tier weights.
+        </p>
+        {pack.tiers.filter((tier) => tier.species.length > 0).length === 0 ? (
+          <p className="mt-3 text-sm text-[#9FB0E6]">
+            No Pokémon have been added to this pack yet.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {pack.tiers
+              .filter((tier) => tier.species.length > 0)
+              .map((tier) => (
+                <li
+                  key={tier.name}
+                  className="rounded-full border px-3 py-1 text-sm"
+                  style={{ borderColor: tier.color, color: tier.color }}
+                >
+                  {tier.name}
+                  {tier.minimumOne ? " · guaranteed" : ""}
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
+
+      <details className="mt-5 rounded-xl border border-[#243775] bg-[#070D24] p-4">
+        <summary className="cursor-pointer font-semibold text-[#EEF2FF]">
+          What can drop?
+        </summary>
+        <div className="mt-4 space-y-3">
+          {pack.tiers
+            .filter((tier) => tier.species.length > 0)
+            .map((tier) => (
+              <div key={tier.name}>
+                <h5 className="text-sm font-semibold" style={{ color: tier.color }}>
+                  {tier.name}
+                  {tier.minimumOne ? " · guaranteed" : ""}
+                </h5>
+                <p className="mt-1 text-sm text-[#9FB0E6]">
+                  {tier.species.map((species) => species.name).join(", ")}
+                </p>
+              </div>
+            ))}
+        </div>
+      </details>
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onOpen}
+        className="mt-5 w-full rounded-xl bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Practice tear
+      </button>
+      {disabled && (
+        <p className="mt-2 text-sm text-amber-200" role="status">
+          This pack has no valid pulls configured.
+        </p>
+      )}
+    </article>
   );
 }
