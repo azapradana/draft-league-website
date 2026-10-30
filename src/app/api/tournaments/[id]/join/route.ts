@@ -30,7 +30,11 @@ export async function POST(
       async (transaction) => {
         const currentTournament = await transaction.tournament.findUnique({
           where: { id: tournament.id },
-          select: { startingCoins: true, maxParticipants: true },
+          select: {
+            startingCoins: true,
+            maxParticipants: true,
+            autoApproveSignups: true,
+          },
         });
         if (!currentTournament) {
           return { kind: "not-found" as const };
@@ -66,7 +70,9 @@ export async function POST(
           data: {
             userId,
             tournamentId: tournament.id,
-            status: ParticipantStatus.PENDING,
+            status: currentTournament.autoApproveSignups
+              ? ParticipantStatus.APPROVED
+              : ParticipantStatus.PENDING,
             coins: currentTournament.startingCoins,
           },
           select: { status: true, coins: true },

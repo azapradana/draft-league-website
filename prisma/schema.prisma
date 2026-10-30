@@ -108,6 +108,7 @@ model Tournament {
   topCut             Int                     @default(0)
   currentStage       TournamentStage         @default(SINGLE_ELIMINATION)
   maxParticipants    Int?
+  autoApproveSignups Boolean                 @default(true)
   swissRounds        Int                     @default(4)
   imageUrl           String?
   cardBackImage      String?

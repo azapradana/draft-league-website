@@ -336,12 +336,12 @@ export default async function TournamentOverview({
             </p>
             {participation.status === "PENDING" && (
               <p className="mt-2 text-sm text-[#9FB0E6]">
-                An admin will review your request.
+                Your registration is pending organizer approval.
               </p>
             )}
             {participation.status === "APPROVED" && (
               <p className="mt-2 text-sm text-[#9FB0E6]">
-                Your request was approved. You can now buy packs and manage your roster.
+                Your registration is approved. You can now buy packs and manage your roster.
               </p>
             )}
             {participation.status === "REJECTED" && (

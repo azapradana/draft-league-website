@@ -203,6 +203,19 @@ export async function POST(request: NextRequest) {
           formatValue === "SINGLE_ELIMINATION" || formatValue === "SWISS"
             ? formatValue
             : null;
+        const parsedAutoApproveSignups = asOptionalBoolean(
+          body.autoApproveSignups,
+        );
+        if (
+          "autoApproveSignups" in body &&
+          parsedAutoApproveSignups === undefined
+        ) {
+          return NextResponse.json(
+            { error: "Automated sign-up approval must be a boolean." },
+            { status: 400 },
+          );
+        }
+        const autoApproveSignups = parsedAutoApproveSignups ?? true;
         const rawMaxParticipants = body.maxParticipants;
         const maxParticipantsIsEmpty =
           rawMaxParticipants === undefined ||
@@ -296,6 +309,7 @@ export async function POST(request: NextRequest) {
                 ? TournamentStage.SWISS
                 : TournamentStage.SINGLE_ELIMINATION,
             maxParticipants,
+            autoApproveSignups,
             swissRounds,
             imageUrl: imageUrl || null,
             cardBackImage: cardBackImage || null,
@@ -345,6 +359,7 @@ export async function POST(request: NextRequest) {
           rostersLocked?: boolean;
           rostersPublic?: boolean;
           checkInOpen?: boolean;
+          autoApproveSignups?: boolean;
           startingCoins?: number;
           maxCopiesPerPlayer?: number;
           maxCopiesLeague?: number | null;
@@ -636,6 +651,17 @@ export async function POST(request: NextRequest) {
 
         if ("checkInOpen" in body) {
           updateData.checkInOpen = asBoolean(body.checkInOpen, tournament.checkInOpen);
+        }
+
+        if ("autoApproveSignups" in body) {
+          const autoApproveSignups = asOptionalBoolean(body.autoApproveSignups);
+          if (autoApproveSignups === undefined) {
+            return NextResponse.json(
+              { error: "Automated sign-up approval must be a boolean." },
+              { status: 400 },
+            );
+          }
+          updateData.autoApproveSignups = autoApproveSignups;
         }
 
         if ("startingCoins" in body) {

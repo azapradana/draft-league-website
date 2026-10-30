@@ -93,6 +93,20 @@ export default async function AdminTournamentSettingsPage({
               initialTopCut={tournament.topCut}
             />
 
+            <label className="flex items-center gap-3 md:col-span-2">
+              <input type="hidden" name="autoApproveSignups" value="false" />
+              <input
+                type="checkbox"
+                name="autoApproveSignups"
+                value="true"
+                defaultChecked={tournament.autoApproveSignups}
+                className="h-4 w-4 accent-[#F5C542]"
+              />
+              <span className="text-sm text-[#9FB0E6]">
+                Automate player sign-ups (Instant approval with no manual review required)
+              </span>
+            </label>
+
             <label className="block">
               <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
               <input

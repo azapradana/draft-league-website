@@ -80,6 +80,19 @@ export default async function AdminPage() {
                   <ImageUpload name="cardBackImage" label="Card back image" />
                 </div>
                 <TournamentFormatFields />
+                <label className="flex items-center gap-3 md:col-span-2">
+                  <input type="hidden" name="autoApproveSignups" value="false" />
+                  <input
+                    type="checkbox"
+                    name="autoApproveSignups"
+                    value="true"
+                    defaultChecked
+                    className="h-4 w-4 accent-[#F5C542]"
+                  />
+                  <span className="text-sm text-[#9FB0E6]">
+                    Automate player sign-ups (Instant approval with no manual review required)
+                  </span>
+                </label>
                 <label className="block">
                   <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
                   <input name="startingCoins" type="number" min={0} defaultValue={500} className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]" />
