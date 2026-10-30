@@ -5,28 +5,23 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const MAX_ROWS = 5000;
-const REQUIRED_HEADERS = [
-  "name",
-  "description",
-  "price",
-  "isGlobal",
-  "pokemonName",
-  "rarity",
-  "dropWeight",
-  "spriteUrl",
-] as const;
+const MAX_PACK_ROWS = 5000;
+const MAX_DROP_ITEMS = 5000;
+const REQUIRED_HEADERS = ["packName", "description", "price", "isGlobal", "pokemonList"] as const;
 
 type CsvRecord = { line: number; values: string[] };
-type CsvPackRow = {
-  line: number;
-  name: string;
-  description: string;
+type CsvPackItem = {
   pokemonName: string;
   rarity: string;
   rarityKey: string;
   dropWeight: string;
+};
+type CsvPack = {
+  line: number;
+  name: string;
+  description: string;
   spriteUrl: string;
+  items: CsvPackItem[];
 };
 
 function parseCsv(input: string): { records?: CsvRecord[]; error?: string } {
@@ -127,7 +122,8 @@ function validHttpsUrl(value: string): boolean {
 }
 
 function rowValue(record: CsvRecord, headerIndexes: Map<string, number>, header: string): string {
-  return record.values[headerIndexes.get(header)!]?.trim() ?? "";
+  const index = headerIndexes.get(header);
+  return index === undefined ? "" : record.values[index]?.trim() ?? "";
 }
 
 export async function POST(request: NextRequest) {
@@ -155,6 +151,10 @@ export async function POST(request: NextRequest) {
   if (!file.name.toLowerCase().endsWith(".csv")) {
     return NextResponse.json({ error: "Choose a file with the .csv extension." }, { status: 400 });
   }
+  const mode = formData.get("mode") ?? "import";
+  if (mode !== "preview" && mode !== "import") {
+    return NextResponse.json({ error: "Choose a valid import action." }, { status: 400 });
+  }
 
   const parsedCsv = parseCsv(await file.text());
   if (!parsedCsv.records) {
@@ -170,25 +170,24 @@ export async function POST(request: NextRequest) {
     else headerIndexes.set(header, index);
   });
   for (const header of REQUIRED_HEADERS) {
-    if (!headerIndexes.has(header)) errors.push(`Missing required column "${header}".`);
+    if (!headerIndexes.has(header.toLowerCase())) errors.push(`Missing required column "${header}".`);
   }
   for (const header of headers) {
-    if (header && !(REQUIRED_HEADERS as readonly string[]).includes(header)) {
+    if (header && ![...REQUIRED_HEADERS.map((required) => required.toLowerCase()), "spriteurl"].includes(header)) {
       errors.push(`Unexpected column "${header}".`);
     }
   }
   if (errors.length > 0) return NextResponse.json({ errors }, { status: 400 });
   if (dataRecords.length === 0) {
-    return NextResponse.json({ errors: ["Add at least one Pokémon row after the header."] }, { status: 400 });
+    return NextResponse.json({ errors: ["Add at least one pack row after the header."] }, { status: 400 });
   }
-  if (dataRecords.length > MAX_ROWS) {
-    return NextResponse.json({ errors: [`The CSV may contain no more than ${MAX_ROWS} Pokémon rows.`] }, { status: 400 });
+  if (dataRecords.length > MAX_PACK_ROWS) {
+    return NextResponse.json({ errors: [`The CSV may contain no more than ${MAX_PACK_ROWS} pack rows.`] }, { status: 400 });
   }
 
-  const rows: CsvPackRow[] = [];
-  const metadataValues = new Map<string, string>();
-  const seenPokemon = new Set<string>();
-  const tierWeights = new Map<string, string>();
+  const packs: CsvPack[] = [];
+  const seenPackNames = new Set<string>();
+  let totalItems = 0;
 
   for (const record of dataRecords) {
     if (record.values.length !== headers.length) {
@@ -196,18 +195,13 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const name = rowValue(record, headerIndexes, "name");
+    const name = rowValue(record, headerIndexes, "packname");
     const description = rowValue(record, headerIndexes, "description");
     const rawPrice = rowValue(record, headerIndexes, "price");
-    const rawIsGlobal = rowValue(record, headerIndexes, "isGlobal");
-    const pokemonName = rowValue(record, headerIndexes, "pokemonName");
-    const rarity = rowValue(record, headerIndexes, "rarity");
-    const rawDropWeight = rowValue(record, headerIndexes, "dropWeight");
-    const spriteUrl = rowValue(record, headerIndexes, "spriteUrl");
+    const isGlobal = parseBoolean(rowValue(record, headerIndexes, "isglobal"));
+    const pokemonList = rowValue(record, headerIndexes, "pokemonlist");
+    const spriteUrl = rowValue(record, headerIndexes, "spriteurl");
     const price = /^\d+$/.test(rawPrice) ? Number(rawPrice) : Number.NaN;
-    const isGlobal = parseBoolean(rawIsGlobal);
-    const normalizedPokemon = pokemonName.toLowerCase();
-    const rarityKey = rarity.toLowerCase();
 
     if (!name || name.length > 80) errors.push(`Line ${record.line}: pack name must contain 1–80 characters.`);
     if (description.length > 5000) errors.push(`Line ${record.line}: description cannot exceed 5,000 characters.`);
@@ -215,112 +209,157 @@ export async function POST(request: NextRequest) {
       errors.push(`Line ${record.line}: price must be a non-negative whole number.`);
     }
     if (isGlobal !== true) errors.push(`Line ${record.line}: isGlobal must be true for a global pack import.`);
-    if (!pokemonName || pokemonName.length > 80) errors.push(`Line ${record.line}: Pokémon name must contain 1–80 characters.`);
-    if (!rarity || rarity.length > 40) errors.push(`Line ${record.line}: rarity must contain 1–40 characters.`);
-    const validWeightFormat = /^\d+(?:\.\d{1,4})?$/.test(rawDropWeight);
-    if (!validWeightFormat) {
-      errors.push(`Line ${record.line}: dropWeight must be a positive number with no more than 4 decimal places.`);
-    }
-    const dropWeight = Number(rawDropWeight);
-    if (validWeightFormat && (dropWeight <= 0 || dropWeight >= 1_000_000)) {
-      errors.push(`Line ${record.line}: dropWeight must be greater than 0 and less than 1,000,000.`);
-    }
     if (spriteUrl && !validHttpsUrl(spriteUrl)) {
       errors.push(`Line ${record.line}: spriteUrl must be an HTTPS URL no longer than 2,048 characters.`);
     }
 
-    for (const [key, currentValue] of Object.entries({
-      name,
-      description,
-      price: Number.isSafeInteger(price) ? String(price) : rawPrice,
-      isGlobal: String(isGlobal),
-    })) {
-      const previousValue = metadataValues.get(key);
-      if (previousValue !== undefined && previousValue !== currentValue) {
-        errors.push(`Line ${record.line}: ${key} must match the value on every other row.`);
-      } else {
-        metadataValues.set(key, currentValue);
+    const normalizedPackName = name.toLowerCase();
+    if (normalizedPackName) {
+      if (seenPackNames.has(normalizedPackName)) {
+        errors.push(`Line ${record.line}: pack "${name}" appears more than once; use one row per pack.`);
       }
+      seenPackNames.add(normalizedPackName);
     }
 
-    if (normalizedPokemon) {
-      if (seenPokemon.has(normalizedPokemon)) errors.push(`Line ${record.line}: Pokémon "${pokemonName}" appears more than once.`);
-      seenPokemon.add(normalizedPokemon);
-    }
-    if (rarityKey && validWeightFormat && dropWeight > 0 && dropWeight < 1_000_000) {
-      const normalizedWeight = dropWeight.toFixed(4);
-      const existingWeight = tierWeights.get(rarityKey);
-      if (existingWeight !== undefined && existingWeight !== normalizedWeight) {
-        errors.push(`Line ${record.line}: rarity "${rarity}" must use the same dropWeight on every row.`);
-      } else {
-        tierWeights.set(rarityKey, normalizedWeight);
-      }
+    const items: CsvPackItem[] = [];
+    const seenPokemon = new Set<string>();
+    const tierWeights = new Map<string, string>();
+    const rawItems = pokemonList.split(/[;,]/).map((item) => item.trim()).filter(Boolean);
+    if (rawItems.length === 0) {
+      errors.push(`Line ${record.line}: pokemonList must contain at least one Pokémon drop.`);
     }
 
-    rows.push({
-      line: record.line,
-      name,
-      description,
-      pokemonName,
-      rarity,
-      rarityKey,
-      dropWeight: Number.isFinite(dropWeight) ? dropWeight.toFixed(4) : "0",
-      spriteUrl,
-    });
+    for (const rawItem of rawItems) {
+      const parts = rawItem.split(":").map((part) => part.trim());
+      if (parts.length !== 3) {
+        errors.push(`Line ${record.line}: invalid drop "${rawItem}"; use pokemonName:rarity:dropWeight.`);
+        continue;
+      }
+      const [pokemonName, rarity, rawDropWeight] = parts;
+      const rarityKey = rarity.toLowerCase();
+      const validWeightFormat = /^\d+(?:\.\d{1,4})?$/.test(rawDropWeight);
+      const dropWeight = Number(rawDropWeight);
+
+      if (!pokemonName || pokemonName.length > 80) {
+        errors.push(`Line ${record.line}: Pokémon name must contain 1–80 characters.`);
+      }
+      if (!rarity || rarity.length > 40) errors.push(`Line ${record.line}: rarity must contain 1–40 characters.`);
+      if (!validWeightFormat) {
+        errors.push(`Line ${record.line}: dropWeight must be a positive number with no more than 4 decimal places.`);
+      } else if (dropWeight <= 0 || dropWeight >= 1_000_000) {
+        errors.push(`Line ${record.line}: dropWeight must be greater than 0 and less than 1,000,000.`);
+      }
+
+      const normalizedPokemon = pokemonName.toLowerCase();
+      if (normalizedPokemon) {
+        if (seenPokemon.has(normalizedPokemon)) {
+          errors.push(`Line ${record.line}: Pokémon "${pokemonName}" appears more than once in this pack.`);
+        }
+        seenPokemon.add(normalizedPokemon);
+      }
+      if (rarityKey && validWeightFormat && dropWeight > 0 && dropWeight < 1_000_000) {
+        const normalizedWeight = dropWeight.toFixed(4);
+        const existingWeight = tierWeights.get(rarityKey);
+        if (existingWeight !== undefined && existingWeight !== normalizedWeight) {
+          errors.push(`Line ${record.line}: rarity "${rarity}" must use the same dropWeight throughout this pack.`);
+        } else {
+          tierWeights.set(rarityKey, normalizedWeight);
+        }
+      }
+      items.push({
+        pokemonName,
+        rarity,
+        rarityKey,
+        dropWeight: Number.isFinite(dropWeight) ? dropWeight.toFixed(4) : "0",
+      });
+    }
+
+    totalItems += items.length;
+    if (totalItems > MAX_DROP_ITEMS) {
+      errors.push(`The CSV may contain no more than ${MAX_DROP_ITEMS} Pokémon drops in total.`);
+      break;
+    }
+    packs.push({ line: record.line, name, description, spriteUrl, items });
   }
 
   if (errors.length > 0) return NextResponse.json({ errors: errors.slice(0, 100) }, { status: 400 });
 
-  const species = await prisma.species.findMany({ select: { dex: true, name: true } });
+  const species = await prisma.species.findMany({ select: { dex: true, name: true, isMega: true } });
   const speciesByName = new Map(species.map((entry) => [entry.name.toLowerCase(), entry]));
-  const resolvedRows = rows.map((row) => {
-    const pokemon = speciesByName.get(row.pokemonName.toLowerCase());
-    if (!pokemon) errors.push(`Line ${row.line}: Pokémon "${row.pokemonName}" was not found in the species catalog.`);
-    return { ...row, speciesDex: pokemon?.dex };
-  });
+  const resolvedPacks = packs.map((pack) => ({
+    ...pack,
+    items: pack.items.map((item) => {
+      const pokemon = speciesByName.get(item.pokemonName.toLowerCase());
+      if (!pokemon) {
+        errors.push(`Line ${pack.line}: Pokémon "${item.pokemonName}" was not found in the species catalog.`);
+      }
+      return { ...item, speciesDex: pokemon?.dex, isMega: pokemon?.isMega ?? false };
+    }),
+  }));
   if (errors.length > 0) return NextResponse.json({ errors: errors.slice(0, 100) }, { status: 400 });
+
+  const megaFormCount = resolvedPacks.reduce(
+    (count, pack) => count + pack.items.filter((item) => item.isMega).length,
+    0,
+  );
+  if (mode === "preview") {
+    return NextResponse.json({
+      success: true,
+      preview: { packCount: resolvedPacks.length, dropItemCount: totalItems, megaFormCount },
+    });
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
-      const pack = await tx.pack.create({
-        data: { name: rows[0].name, description: rows[0].description, pullCount: 1 },
-      });
-      const tierIds = new Map<string, string>();
-      for (const [rarityKey, weight] of tierWeights) {
-        const row = rows.find((entry) => entry.rarityKey === rarityKey)!;
-        const tier = await tx.packTier.create({
-          data: {
-            packId: pack.id,
-            name: row.rarity,
-            weight: new Prisma.Decimal(weight),
-            color: "#9FB0E6",
-            minimumOne: false,
-          },
+      for (const packData of resolvedPacks) {
+        const pack = await tx.pack.create({
+          data: { name: packData.name, description: packData.description, pullCount: 1 },
         });
-        tierIds.set(rarityKey, tier.id);
-      }
+        const tierIds = new Map<string, string>();
+        const tierWeights = new Map<string, string>();
 
-      await tx.packEntry.createMany({
-        data: resolvedRows.map((row) => ({
-          packId: pack.id,
-          speciesDex: row.speciesDex!,
-          tierId: tierIds.get(row.rarityKey)!,
-        })),
-      });
-
-      for (const row of resolvedRows) {
-        if (row.spriteUrl) {
-          await tx.species.update({
-            where: { dex: row.speciesDex! },
-            data: { imageUrl: row.spriteUrl },
+        for (const item of packData.items) {
+          if (!tierWeights.has(item.rarityKey)) tierWeights.set(item.rarityKey, item.dropWeight);
+        }
+        for (const [rarityKey, weight] of tierWeights) {
+          const item = packData.items.find((entry) => entry.rarityKey === rarityKey)!;
+          const tier = await tx.packTier.create({
+            data: {
+              packId: pack.id,
+              name: item.rarity,
+              weight: new Prisma.Decimal(weight),
+              color: "#9FB0E6",
+              minimumOne: false,
+            },
           });
+          tierIds.set(rarityKey, tier.id);
+        }
+
+        await tx.packEntry.createMany({
+          data: packData.items.map((item) => ({
+            packId: pack.id,
+            speciesDex: item.speciesDex!,
+            tierId: tierIds.get(item.rarityKey)!,
+          })),
+        });
+
+        if (packData.spriteUrl) {
+          for (const item of packData.items) {
+            await tx.species.update({
+              where: { dex: item.speciesDex! },
+              data: { imageUrl: packData.spriteUrl },
+            });
+          }
         }
       }
     });
   } catch (error) {
     console.error("Pack CSV import failed:", error);
-    return NextResponse.json({ error: "The pack could not be saved. No changes were committed; please try again." }, { status: 500 });
+    return NextResponse.json({ error: "The packs could not be saved. No changes were committed; please try again." }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true }, { status: 201 });
+  return NextResponse.json({
+    success: true,
+    imported: { packCount: resolvedPacks.length, dropItemCount: totalItems, megaFormCount },
+  }, { status: 201 });
 }

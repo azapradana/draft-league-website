@@ -1,2 +1,2 @@
-name,description,price,isGlobal,pokemonName,rarity,dropWeight,spriteUrl
-Example Pack,Sample pack description,100,true,Pikachu,Rare,10,
+packName,description,price,isGlobal,pokemonList
+"Mega Evolution Showcase","Regulation M-C mega pack",150,true,"Lucario:COMMON:40,Mega Lucario Z:LEGENDARY:2,Absol:COMMON:40,Mega Absol Z:RARE:8"

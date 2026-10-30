@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 type ImportResult = {
   error?: string;
   errors?: string[];
+  preview?: {
+    packCount: number;
+    dropItemCount: number;
+    megaFormCount: number;
+  };
 };
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -16,10 +21,18 @@ export function PackCsvImporter() {
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview] = useState<{
+    file: File;
+    packCount: number;
+    dropItemCount: number;
+    megaFormCount: number;
+  } | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
 
   function chooseFile(candidate: File | undefined) {
     setErrors([]);
+    setPreview(null);
     if (!candidate) return;
     if (!candidate.name.toLowerCase().endsWith(".csv")) {
       setFile(null);
@@ -42,6 +55,40 @@ export function PackCsvImporter() {
     chooseFile(event.dataTransfer.files[0]);
   }
 
+  async function previewCsv() {
+    setErrors([]);
+    setPreview(null);
+    if (!file) {
+      setErrors(["Select a CSV file before previewing."]);
+      return;
+    }
+
+    setPreviewing(true);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("mode", "preview");
+      const response = await fetch("/api/admin/packs/import", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as ImportResult;
+      if (!response.ok) {
+        setErrors(result.errors?.length ? result.errors : [result.error ?? "The CSV could not be validated."]);
+        return;
+      }
+      if (!result.preview) {
+        setErrors(["The CSV validation response was incomplete. Please try again."]);
+        return;
+      }
+      setPreview({ file, ...result.preview });
+    } catch {
+      setErrors(["The CSV could not be validated. Check your connection and try again."]);
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function importCsv(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrors([]);
@@ -49,11 +96,16 @@ export function PackCsvImporter() {
       setErrors(["Select a CSV file before importing."]);
       return;
     }
+    if (preview?.file !== file) {
+      setErrors(["Preview and validate this CSV before importing it."]);
+      return;
+    }
 
     setImporting(true);
     try {
       const formData = new FormData();
       formData.set("file", file);
+      formData.set("mode", "import");
       const response = await fetch("/api/admin/packs/import", {
         method: "POST",
         body: formData,
@@ -78,9 +130,9 @@ export function PackCsvImporter() {
         <div>
           <h2 className="text-lg font-semibold">Import a pack from CSV</h2>
           <p className="mt-1 max-w-3xl text-sm text-[#9FB0E6]">
-            One file creates one global pack. Repeat pack details on every row; each rarity must use the same drop weight.
-            Price is checked but configured later when the pack is attached to a tournament. A sprite URL updates the
-            shared Pokémon artwork.
+            Each row defines one global pack. Put all its Pokémon and Mega forms in the quoted pokemonList field as
+            pokemonName:rarity:dropWeight entries, separated by commas or semicolons. Price is checked but configured
+            later when the pack is attached to a tournament.
           </p>
         </div>
         <a
@@ -120,19 +172,29 @@ export function PackCsvImporter() {
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={!file || importing}
+            disabled={!file || !preview || preview.file !== file || importing}
             className="rounded-lg bg-[#F5C542] px-5 py-2.5 font-bold text-[#070D24] hover:bg-[#D9A21B] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {importing ? "Importing…" : "Import pack"}
+            {importing ? "Importing…" : "Import packs"}
+          </button>
+          <button
+            type="button"
+            onClick={previewCsv}
+            disabled={!file || previewing || importing}
+            className="rounded-lg border border-[#43558F] px-5 py-2.5 font-semibold text-[#EEF2FF] hover:border-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {previewing ? "Validating…" : "Preview import"}
           </button>
           {file && (
             <button
               type="button"
               onClick={() => {
                 setFile(null);
+                setPreview(null);
                 setErrors([]);
                 if (inputRef.current) inputRef.current.value = "";
               }}
+              disabled={previewing || importing}
               className="rounded-lg border border-[#243775] px-4 py-2.5 text-sm text-[#EEF2FF] hover:border-[#F5C542]"
             >
               Clear file
@@ -141,9 +203,19 @@ export function PackCsvImporter() {
         </div>
       </form>
 
+      {preview?.file === file && (
+        <div role="status" className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-4 text-sm text-emerald-100">
+          <p className="font-semibold">CSV validated. Nothing has been saved yet.</p>
+          <p className="mt-1">
+            {preview.packCount} {preview.packCount === 1 ? "pack" : "packs"} · {preview.dropItemCount} total Pokémon drops ·{" "}
+            {preview.megaFormCount} Mega {preview.megaFormCount === 1 ? "form" : "forms"}
+          </p>
+        </div>
+      )}
+
       {errors.length > 0 && (
         <div role="alert" className="mt-4 rounded-lg border border-red-500/50 bg-red-950/40 p-4 text-sm text-red-200">
-          <p className="font-semibold">The pack was not imported. Fix these CSV issues and try again:</p>
+          <p className="font-semibold">The CSV was not imported. Fix these issues and try again:</p>
           <ul className="mt-2 list-inside list-disc space-y-1">
             {errors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}
           </ul>
