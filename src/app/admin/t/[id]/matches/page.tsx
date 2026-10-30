@@ -31,8 +31,10 @@ function playerName(
 
 export default async function AdminTournamentMatchesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ round?: string | string[] }>;
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -43,6 +45,7 @@ export default async function AdminTournamentMatchesPage({
   }
 
   const { id } = await params;
+  const { round: requestedRound } = await searchParams;
   const tournament = await prisma.tournament.findUnique({
     where: { id },
     select: {
@@ -116,6 +119,45 @@ export default async function AdminTournamentMatchesPage({
     matchesToDisplay.length > 0
       ? matchesToDisplay[matchesToDisplay.length - 1].roundNumber
       : null;
+  const plannedSwissRoundNumbers =
+    tournament.format === "SWISS" && !swissStageComplete
+      ? Array.from({ length: tournament.swissRounds }, (_, index) => index + 1)
+      : [];
+  const plannedTopCutRoundNumbers =
+    tournament.format === "SWISS" &&
+    swissStageComplete &&
+    tournament.topCut > 1
+      ? Array.from(
+          { length: Math.ceil(Math.log2(tournament.topCut)) },
+          (_, index) => tournament.swissRounds + index + 1,
+        )
+      : [];
+  const plannedRounds = [
+    ...plannedSwissRoundNumbers.map((roundNumber) => ({
+      roundNumber,
+      label: `Swiss · Round ${roundNumber}`,
+    })),
+    ...plannedTopCutRoundNumbers.map((roundNumber, index) => ({
+      roundNumber,
+      label: `Top Cut · Round ${index + 1}`,
+    })),
+  ];
+  const roundNumbers = [
+    ...new Set([
+      ...matchesToDisplay.map((match) => match.roundNumber),
+      ...plannedRounds.map((round) => round.roundNumber),
+    ]),
+  ].sort((a, b) => a - b);
+  const requestedRoundNumber =
+    typeof requestedRound === "string" && /^\d+$/.test(requestedRound)
+      ? Number(requestedRound)
+      : null;
+  const initialRound =
+    requestedRoundNumber !== null && roundNumbers.includes(requestedRoundNumber)
+      ? requestedRoundNumber
+      : currentRound !== null && roundNumbers.includes(currentRound)
+        ? currentRound
+        : roundNumbers[0];
   const swissRoundNumbers = [
     ...new Set(stageMatches.map((match) => match.roundNumber)),
   ];
@@ -313,7 +355,12 @@ export default async function AdminTournamentMatchesPage({
               Approved participants who have checked in: {tournament.participants.length}.
             </p>
           )}
-          <MatchesRoster matches={rosterMatches} tournamentId={tournament.id} />
+          <MatchesRoster
+            initialRound={String(initialRound ?? "")}
+            matches={rosterMatches}
+            plannedRounds={plannedRounds}
+            tournamentId={tournament.id}
+          />
         </section>
       </div>
     </main>

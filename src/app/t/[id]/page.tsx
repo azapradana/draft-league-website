@@ -11,13 +11,17 @@ import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
 import { RichText } from "@/components/rich-text";
+import SwissRoundTabs from "@/components/SwissRoundTabs";
 
 export default async function TournamentOverview({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ round?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { round: requestedRound } = await searchParams;
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -153,9 +157,36 @@ export default async function TournamentOverview({
       tournament.currentStage === "SINGLE_ELIMINATION")
       ? "SWISS"
       : tournament.currentStage;
+  const plannedSwissRounds =
+    tournament.format === "SWISS" && !swissStageComplete
+      ? Array.from({ length: tournament.swissRounds }, (_, index) => index + 1)
+      : [];
+  const plannedTopCutRounds =
+    tournament.format === "SWISS" &&
+    swissStageComplete &&
+    tournament.topCut > 1
+      ? Array.from(
+          { length: Math.ceil(Math.log2(tournament.topCut)) },
+          (_, index) => tournament.swissRounds + index + 1,
+        )
+      : [];
   const rounds = Array.from(
-    new Set(matchesToDisplay.map((match) => match.roundNumber)),
-  );
+    new Set([
+      ...matchesToDisplay.map((match) => match.roundNumber),
+      ...plannedSwissRounds,
+      ...plannedTopCutRounds,
+    ]),
+  ).sort((a, b) => a - b);
+  const requestedRoundNumber =
+    typeof requestedRound === "string" && /^\d+$/.test(requestedRound)
+      ? Number(requestedRound)
+      : null;
+  const initialRound =
+    requestedRoundNumber !== null && rounds.includes(requestedRoundNumber)
+      ? requestedRoundNumber
+      : currentRound !== null && rounds.includes(currentRound)
+        ? currentRound
+        : rounds[0];
   const topCutRoundNumbers = Array.from(
     new Set(
       matchesToDisplay
@@ -412,7 +443,7 @@ export default async function TournamentOverview({
           )}
         </div>
 
-        {matchesToDisplay.length === 0 ? (
+        {rounds.length === 0 ? (
           <div className="mt-6 flex items-start gap-4 rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
             <svg
               aria-hidden="true"
@@ -434,112 +465,138 @@ export default async function TournamentOverview({
             </p>
           </div>
         ) : (
-          <div className="mt-6 space-y-8">
-            {rounds.map((roundNumber) => {
+          <SwissRoundTabs
+            initialRound={String(initialRound)}
+            tabs={rounds.map((roundNumber) => {
               const roundMatches = matchesToDisplay.filter(
                 (match) => match.roundNumber === roundNumber,
               );
+              const firstMatch = roundMatches[0];
+              const plannedTopCutRoundIndex =
+                plannedTopCutRounds.indexOf(roundNumber);
+              const isSwissRound =
+                firstMatch?.stage === "SWISS" ||
+                (firstMatch?.stage === null && tournament.format === "SWISS") ||
+                (!firstMatch &&
+                  tournament.format === "SWISS" &&
+                  plannedTopCutRoundIndex === -1);
+              const label =
+                firstMatch?.stage === "TOP_CUT"
+                  ? `Top Cut · Round ${topCutRoundNumbers.indexOf(roundNumber) + 1}`
+                  : plannedTopCutRoundIndex !== -1
+                    ? `Top Cut · Round ${plannedTopCutRoundIndex + 1}`
+                    : isSwissRound
+                      ? `Swiss · Round ${roundNumber}`
+                      : `Round ${roundNumber}`;
+              const status =
+                roundMatches.length === 0
+                  ? "upcoming"
+                  : roundMatches.every((match) => match.status === "COMPLETED")
+                    ? "completed"
+                    : "in-progress";
 
-              return (
-                <section key={roundNumber}>
-                  <h4 className="mb-3 text-lg font-semibold">
-                    {roundMatches[0].stage === "TOP_CUT"
-                      ? `Top Cut · Round ${topCutRoundNumbers.indexOf(roundNumber) + 1}`
-                      : roundMatches[0].stage === "SWISS" ||
-                          (roundMatches[0].stage === null &&
-                            tournament.format === "SWISS")
-                        ? `Swiss · Round ${roundNumber}`
-                        : `Round ${roundNumber}`}
-                    {roundNumber === currentRound ? " · Current" : ""}
-                  </h4>
-                  <ul className="space-y-3">
-                    {roundMatches.map((match, index) => {
-                      const isOwnMatch =
-                        roundNumber === currentRound &&
-                        Boolean(participation?.id) &&
-                        (match.player1Id === participation?.id ||
-                          match.player2Id === participation?.id);
+              return {
+                value: String(roundNumber),
+                label,
+                status,
+                content: roundMatches.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
+                      Pairings for this round have not been generated yet.
+                    </p>
+                  ) : (
+                    <section>
+                      <h4 className="mb-3 text-lg font-semibold">
+                        {label}{roundNumber === currentRound ? " · Current" : ""}
+                      </h4>
+                      <ul className="space-y-3">
+                        {roundMatches.map((match, index) => {
+                          const isOwnMatch =
+                            roundNumber === currentRound &&
+                            Boolean(participation?.id) &&
+                            (match.player1Id === participation?.id ||
+                              match.player2Id === participation?.id);
 
-                      return (
-                        <li
-                          key={match.id}
-                          className={`rounded-xl border p-4 ${
-                            isOwnMatch
-                              ? "border-[#F5C542] bg-[#F5C542]/10 ring-1 ring-[#F5C542]/50"
-                              : "border-[#243775] bg-[#070D24]"
-                          }`}
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <span className="text-sm text-[#9FB0E6]">
-                              Match {index + 1}
-                              {isOwnMatch && (
-                                <span className="ml-2 font-bold text-[#F5C542]">
-                                  Your pairing
-                                </span>
-                              )}
-                            </span>
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-bold ${
-                                match.status === "COMPLETED"
-                                  ? "bg-emerald-950 text-emerald-300"
-                                  : match.status === "DISPUTED"
-                                    ? "bg-red-950 text-red-300"
-                                    : "bg-[#243775] text-[#9FB0E6]"
+                          return (
+                            <li
+                              key={match.id}
+                              className={`rounded-xl border p-4 ${
+                                isOwnMatch
+                                  ? "border-[#F5C542] bg-[#F5C542]/10 ring-1 ring-[#F5C542]/50"
+                                  : "border-[#243775] bg-[#070D24]"
                               }`}
                             >
-                              {match.status}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2 font-semibold">
-                            {[match.player1, match.player2].map(
-                              (player, playerIndex) => (
-                                <span
-                                  key={player?.id ?? `bye-${match.id}-${playerIndex}`}
-                                  className="inline-flex items-center gap-2"
-                                >
-                                  {playerIndex > 0 && (
-                                    <span className="text-[#9FB0E6]">vs.</span>
-                                  )}
-                                  <span
-                                    className={
-                                      player?.id === participation?.id
-                                        ? "text-[#F5C542]"
-                                        : undefined
-                                    }
-                                  >
-                                    {displayName(player)}
-                                  </span>
-                                  {player && (
-                                    <Link
-                                      href={`/t/${tournament.id}/matches/${match.id}`}
-                                      className="rounded-md border border-[#243775] px-2 py-1 text-xs font-semibold text-[#9FB0E6] hover:border-[#F5C542] hover:text-[#F5C542]"
-                                    >
-                                      Open match
-                                    </Link>
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <span className="text-sm text-[#9FB0E6]">
+                                  Match {index + 1}
+                                  {isOwnMatch && (
+                                    <span className="ml-2 font-bold text-[#F5C542]">
+                                      Your pairing
+                                    </span>
                                   )}
                                 </span>
-                              ),
-                            )}
-                          </div>
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                                    match.status === "COMPLETED"
+                                      ? "bg-emerald-950 text-emerald-300"
+                                      : match.status === "DISPUTED"
+                                        ? "bg-red-950 text-red-300"
+                                        : "bg-[#243775] text-[#9FB0E6]"
+                                  }`}
+                                >
+                                  {match.status}
+                                </span>
+                              </div>
 
-                          {match.player2 === null ? (
-                            <p className="mt-2 text-sm text-emerald-300">
-                              Bye — {displayName(match.winner)} advanced automatically.
-                            </p>
-                          ) : match.winner ? (
-                            <p className="mt-2 text-sm text-[#9FB0E6]">
-                              Winner: {displayName(match.winner)}
-                            </p>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
+                              <div className="mt-3 flex flex-wrap items-center gap-2 font-semibold">
+                                {[match.player1, match.player2].map(
+                                  (player, playerIndex) => (
+                                    <span
+                                      key={player?.id ?? `bye-${match.id}-${playerIndex}`}
+                                      className="inline-flex items-center gap-2"
+                                    >
+                                      {playerIndex > 0 && (
+                                        <span className="text-[#9FB0E6]">vs.</span>
+                                      )}
+                                      <span
+                                        className={
+                                          player?.id === participation?.id
+                                            ? "text-[#F5C542]"
+                                            : undefined
+                                        }
+                                      >
+                                        {displayName(player)}
+                                      </span>
+                                      {player && (
+                                        <Link
+                                          href={`/t/${tournament.id}/matches/${match.id}`}
+                                          className="rounded-md border border-[#243775] px-2 py-1 text-xs font-semibold text-[#9FB0E6] hover:border-[#F5C542] hover:text-[#F5C542]"
+                                        >
+                                          Open match
+                                        </Link>
+                                      )}
+                                    </span>
+                                  ),
+                                )}
+                              </div>
+
+                              {match.player2 === null ? (
+                                <p className="mt-2 text-sm text-emerald-300">
+                                  Bye — {displayName(match.winner)} advanced automatically.
+                                </p>
+                              ) : match.winner ? (
+                                <p className="mt-2 text-sm text-[#9FB0E6]">
+                                  Winner: {displayName(match.winner)}
+                                </p>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </section>
+                ),
+              };
             })}
-          </div>
+          />
         )}
       </section>
 
