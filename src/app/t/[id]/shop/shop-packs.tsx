@@ -260,8 +260,8 @@ function PackCard({
   const [packImageFailed, setPackImageFailed] = useState(false);
 
   return (
-    <article className="flex min-w-0 flex-col rounded-2xl border border-[#243775] bg-[#0C1638] p-3 transition-colors hover:border-[#52618C] sm:p-4">
-      <div className="mb-3 aspect-[4/5] overflow-hidden rounded-xl bg-[#070D24] sm:mb-4">
+    <article className="flex min-w-0 flex-col">
+      <div className="mb-3 aspect-[4/5] sm:mb-4">
         {pack.packImage && !packImageFailed ? (
           <img
             src={pack.packImage}
@@ -278,11 +278,11 @@ function PackCard({
         )}
       </div>
 
-      <div className="mb-3 flex min-h-14 flex-col items-start gap-1 sm:mb-4 sm:flex-row sm:justify-between sm:gap-2">
+      <div className="mb-3 flex min-h-14 flex-col items-center gap-1 text-center sm:mb-4">
         <h3 className="line-clamp-2 min-w-0 text-sm font-bold leading-5 text-[#EEF2FF] sm:text-base">
           {pack.name}
         </h3>
-        <p className="w-fit shrink-0 rounded-full bg-[#070D24] px-2.5 py-1 text-xs font-bold text-[#F5C542] sm:px-3 sm:text-sm">
+        <p className="shrink-0 text-xs font-semibold text-[#F5C542] sm:text-sm">
           {pack.price.toLocaleString()} coins
         </p>
       </div>
@@ -291,7 +291,7 @@ function PackCard({
         type="button"
         disabled={disabled}
         onClick={onBuy}
-        className="min-h-11 w-full rounded-xl bg-[#F5C542] px-2 py-2.5 text-sm font-bold text-[#070D24] transition-colors hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+        className="mx-auto min-h-11 w-fit rounded-xl bg-[#F5C542] px-6 py-2.5 text-sm font-bold text-[#070D24] transition-colors hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {opening ? "Opening…" : "Open Pack"}
       </button>
@@ -303,7 +303,7 @@ function PackCard({
       <button
         type="button"
         onClick={onInfo}
-        className="mt-1 min-h-11 w-full rounded-lg px-2 text-xs font-medium text-[#9FB0E6] underline decoration-[#52618C] underline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542] sm:text-sm"
+        className="mx-auto mt-1 min-h-11 w-fit px-2 text-xs font-medium text-[#9FB0E6] underline decoration-[#52618C] underline-offset-4 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F5C542] sm:text-sm"
       >
         Pack Information
       </button>
