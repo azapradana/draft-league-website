@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    });
+    }, { maxWait: 10_000, timeout: 30_000 });
   } catch (error) {
     console.error("Pack CSV import failed:", error);
     return NextResponse.json({ error: "The packs could not be saved. No changes were committed; please try again." }, { status: 500 });
