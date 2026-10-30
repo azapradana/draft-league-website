@@ -99,8 +99,8 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
             The RNG Sandbox
           </h1>
           <p className="mt-4 text-base leading-7 text-[#B9C5E8]">
-            Test your luck with packs from live tournaments. The pulls are just
-            for fun: no coins spent, no cards added to your collection.
+            Test your luck with tournament packs enabled for practice. The pulls
+            are just for fun: no coins spent, no cards added to your collection.
           </p>
         </header>
 
@@ -115,7 +115,7 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
                 Currently available
               </p>
               <h2 className="display-font mt-2 text-2xl font-extrabold">
-                Active tournament packs
+                Practice-ready tournament packs
               </h2>
             </div>
             <span className="rounded-full border border-[#243775] bg-[#0C1638] px-3 py-1.5 text-xs font-bold text-[#9FB0E6]">
@@ -125,9 +125,9 @@ export default function PackSimulator({ packs }: { packs: SimulatorPack[] }) {
 
           {packs.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#243775] bg-[#0C1638]/60 p-8 text-center">
-              <p className="text-lg font-bold">No active packs right now</p>
+              <p className="text-lg font-bold">No practice packs right now</p>
               <p className="mt-2 text-sm text-[#9FB0E6]">
-                Check back when a tournament makes its packs available.
+                Tournament packs enabled for practice will appear here.
               </p>
             </div>
           ) : (

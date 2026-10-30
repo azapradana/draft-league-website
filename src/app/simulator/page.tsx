@@ -5,10 +5,8 @@ import PackSimulator, { type SimulatorPack } from "./pack-simulator";
 export default async function SimulatorPage() {
   await connection();
 
-  const activePacks = await prisma.tournamentPack.findMany({
+  const practicePacks = await prisma.tournamentPack.findMany({
     where: {
-      active: true,
-      tournament: { active: true, completed: false },
       pack: { showInPractice: true },
     },
     orderBy: [{ tournament: { name: "asc" } }, { pack: { name: "asc" } }],
@@ -34,7 +32,7 @@ export default async function SimulatorPage() {
     },
   });
 
-  const packs: SimulatorPack[] = activePacks.map(({ tournament, pack }) => ({
+  const packs: SimulatorPack[] = practicePacks.map(({ tournament, pack }) => ({
     id: `${tournament.id}:${pack.id}`,
     tournamentName: tournament.name,
     name: pack.name,
