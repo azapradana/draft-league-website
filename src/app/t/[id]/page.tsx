@@ -9,7 +9,6 @@ import {
   hasCompletedSwissRounds,
 } from "@/lib/tournament-standings";
 import CheckInButton from "./check-in-button";
-import TeamView from "@/components/TeamView";
 import { serializeTeam } from "@/lib/team-access";
 import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import JoinTournamentButton from "./join-tournament-button";
@@ -1019,12 +1018,27 @@ export default async function TournamentOverview({
                               return <span className="text-[#9FB0E6]">Private</span>;
                             }
                             const parsed = "team" in participant ? participant.team?.parsed : null;
+                            const team = parsed ? serializeTeam(parsed, false) : [];
+                            if (team.length === 0) {
+                              return <span className="text-[#9FB0E6]">No team submitted yet</span>;
+                            }
+                            const artwork = teamArtworkByParticipant.get(participant.id) ?? {};
                             return (
-                              <TeamView
-                                horizontal
-                                team={parsed ? serializeTeam(parsed, isAdminViewer || isOwnTeam) : null}
-                                artworkBySpecies={teamArtworkByParticipant.get(participant.id) ?? {}}
-                              />
+                              <ul className="flex flex-wrap gap-1">
+                                {team.map((pokemon, index) => (
+                                  <li key={`${pokemon.species}-${index}`} title={pokemon.species}>
+                                    <PokemonArtwork
+                                      species={artwork[pokemon.species] ?? {
+                                        dex: 0,
+                                        name: pokemon.species,
+                                        isMega: true,
+                                        imageUrl: null,
+                                      }}
+                                      className="h-12 w-12"
+                                    />
+                                  </li>
+                                ))}
+                              </ul>
                             );
                           })()}
                         </td>
