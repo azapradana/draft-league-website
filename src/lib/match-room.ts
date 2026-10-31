@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { serializeTeam } from "@/lib/team-access";
 import type { TeamPokemon } from "@/lib/team-types";
+import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 
 export async function getMatchRoomData({
   tournamentId,
@@ -138,6 +139,22 @@ export async function getMatchRoomData({
     ]),
   );
   const speciesByDex = new Map(species.map((entry) => [entry.dex, entry]));
+  const teamByParticipant = new Map<string, TeamPokemon[]>();
+
+  for (const participant of [match.player1, match.player2]) {
+    if (participant && isRegular && (isAdmin || participant.user.id === userId)) {
+      teamByParticipant.set(
+        participant.id,
+        serializeTeam(participant.team?.parsed, true) as TeamPokemon[],
+      );
+    }
+  }
+
+  const teamArtworkBySpecies = await getTeamArtworkBySpeciesNames(
+    [...teamByParticipant.values()].flatMap((team) =>
+      team.map((pokemon) => pokemon.species),
+    ),
+  );
 
   function getPlayer(participant: MatchParticipant | null) {
     if (!participant) {
@@ -176,16 +193,22 @@ export async function getMatchRoomData({
       .filter((entry) => entry !== null);
 
     const isOwn = participant.user.id === userId;
-    // Only the admin or the owner receives a team (with EVs); the opponent's is never sent.
-    const team =
-      isRegular && (isAdmin || isOwn)
-        ? (serializeTeam(participant.team?.parsed, true) as TeamPokemon[])
-        : null;
+    const team = teamByParticipant.get(participant.id) ?? null;
+    const artworkBySpecies =
+      team === null
+        ? null
+        : Object.fromEntries(
+            team.map((pokemon) => [
+              pokemon.species,
+              teamArtworkBySpecies[pokemon.species],
+            ]),
+          );
 
     return {
       id: participant.id,
       isCurrentUser: isOwn,
       team,
+      artworkBySpecies,
       group: participant.user.group,
       name:
         participant.user.name ??

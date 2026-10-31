@@ -1,4 +1,7 @@
 import type { PublicTeamPokemon, TeamPokemon } from "@/lib/team-types";
+import PokemonArtwork, {
+  type TeamArtworkBySpecies,
+} from "@/app/t/[id]/pokemon-artwork";
 
 type AnyPokemon = PublicTeamPokemon & Partial<Pick<TeamPokemon, "evs" | "ivs" | "level">>;
 
@@ -20,9 +23,11 @@ function formatEvs(evs: Record<string, number> | undefined): string {
 
 export default function TeamView({
   team,
+  artworkBySpecies,
   emptyMessage = "No team submitted yet",
 }: {
   team: AnyPokemon[] | null | undefined;
+  artworkBySpecies: TeamArtworkBySpecies;
   emptyMessage?: string;
 }) {
   if (!team || team.length === 0) {
@@ -36,25 +41,36 @@ export default function TeamView({
         return (
           <li
             key={`${pokemon.species}-${index}`}
-            className="rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
+            className="flex items-start gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
           >
-            <p className="font-bold text-[#EEF2FF]">
-              {pokemon.species}
-              {pokemon.item ? (
-                <span className="font-normal text-[#9FB0E6]"> @ {pokemon.item}</span>
+            <PokemonArtwork
+              species={artworkBySpecies[pokemon.species] ?? {
+                dex: 0,
+                name: pokemon.species,
+                isMega: true,
+                imageUrl: null,
+              }}
+              className="h-16 w-16 sm:h-20 sm:w-20"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="break-words font-bold text-[#EEF2FF]">
+                {pokemon.species}
+                {pokemon.item ? (
+                  <span className="font-normal text-[#9FB0E6]"> @ {pokemon.item}</span>
+                ) : null}
+              </p>
+              <p className="mt-1 text-[#9FB0E6]">
+                {pokemon.ability || "No ability"} · {pokemon.nature || "Hardy"}
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-[#EEF2FF]">
+                {pokemon.moves.map((move) => (
+                  <li key={move}>{move}</li>
+                ))}
+              </ul>
+              {pokemon.evs ? (
+                <p className="mt-2 text-xs text-[#F5C542]">EVs: {evs || "none"}</p>
               ) : null}
-            </p>
-            <p className="mt-1 text-[#9FB0E6]">
-              {pokemon.ability || "No ability"} · {pokemon.nature || "Hardy"}
-            </p>
-            <ul className="mt-2 list-disc pl-5 text-[#EEF2FF]">
-              {pokemon.moves.map((move) => (
-                <li key={move}>{move}</li>
-              ))}
-            </ul>
-            {pokemon.evs ? (
-              <p className="mt-2 text-xs text-[#F5C542]">EVs: {evs || "none"}</p>
-            ) : null}
+            </div>
           </li>
         );
       })}

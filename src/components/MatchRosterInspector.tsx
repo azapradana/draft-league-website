@@ -6,6 +6,7 @@ import TeamView from "@/components/TeamView";
 import type { TeamPokemon } from "@/lib/team-types";
 import PokemonArtwork, {
   type PokemonArtworkSpecies,
+  type TeamArtworkBySpecies,
 } from "@/app/t/[id]/pokemon-artwork";
 
 export type MatchPlayer = {
@@ -20,6 +21,7 @@ export type MatchPlayer = {
     }
   >;
   team?: TeamPokemon[] | null;
+  artworkBySpecies?: TeamArtworkBySpecies | null;
 } | null;
 
 export type RosterTab = { key: string; label: string; player: MatchPlayer };
@@ -72,7 +74,10 @@ export default function MatchRosterInspector({
           </p>
         ) : regular ? (
           <div className="mt-2">
-            <TeamView team={player.team} />
+            <TeamView
+              team={player.team}
+              artworkBySpecies={player.artworkBySpecies ?? {}}
+            />
           </div>
         ) : player.roster.length === 0 ? (
           <p className="mt-2 text-sm text-[#9FB0E6]">No roster has been selected.</p>

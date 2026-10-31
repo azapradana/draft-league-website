@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { serializeTeam } from "@/lib/team-access";
 import type { TeamPokemon } from "@/lib/team-types";
+import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import TeamEditor from "./team-editor";
 
 export default async function TournamentTeamPage({
@@ -31,6 +32,13 @@ export default async function TournamentTeamPage({
   if (!tournament || tournament.mode !== "REGULAR") notFound();
 
   const participant = tournament.participants[0];
+  const initialTeam = participant?.team
+    ? (serializeTeam(participant.team.parsed, true) as TeamPokemon[])
+    : null;
+  const initialArtworkBySpecies = await getTeamArtworkBySpeciesNames(
+    initialTeam?.map((pokemon) => pokemon.species) ?? [],
+  );
+
   return (
     <div className="space-y-6">
       <section>
@@ -49,11 +57,8 @@ export default async function TournamentTeamPage({
       ) : (
         <TeamEditor
           tournamentId={id}
-          initialTeam={
-            participant.team
-              ? (serializeTeam(participant.team.parsed, true) as TeamPokemon[])
-              : null
-          }
+          initialTeam={initialTeam}
+          initialArtworkBySpecies={initialArtworkBySpecies}
           initialPaste={participant.team?.rawPaste ?? ""}
           locked={tournament.rostersLocked}
         />

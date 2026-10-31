@@ -10,6 +10,7 @@ import {
 import CheckInButton from "./check-in-button";
 import TeamView from "@/components/TeamView";
 import { serializeTeam } from "@/lib/team-access";
+import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
 import WarScoreboard from "./war-scoreboard";
@@ -149,6 +150,40 @@ export default async function TournamentOverview({
       },
     },
   });
+  const visibleTeamPokemon = isRegular
+    ? approvedParticipants
+        .filter(
+          (participant) =>
+            isAdminViewer ||
+            participant.userId === session.user.id ||
+            tournament.rostersPublic,
+        )
+        .map((participant) => ({
+          participantId: participant.id,
+          pokemon: serializeTeam(
+            "team" in participant && participant.team
+              ? participant.team.parsed
+              : null,
+            false,
+          ),
+        }))
+    : [];
+  const teamArtworkBySpecies = await getTeamArtworkBySpeciesNames(
+    visibleTeamPokemon.flatMap(({ pokemon }) =>
+      pokemon.map((entry) => entry.species),
+    ),
+  );
+  const teamArtworkByParticipant = new Map(
+    visibleTeamPokemon.map(({ participantId, pokemon }) => [
+      participantId,
+      Object.fromEntries(
+        pokemon.map((entry) => [
+          entry.species,
+          teamArtworkBySpecies[entry.species],
+        ]),
+      ),
+    ]),
+  );
   const visibleRosters = isRegular ? [] : await prisma.roster.findMany({
     where: {
       participant: {
@@ -955,6 +990,7 @@ export default async function TournamentOverview({
                             return (
                               <TeamView
                                 team={parsed ? serializeTeam(parsed, isAdminViewer || isOwnTeam) : null}
+                                artworkBySpecies={teamArtworkByParticipant.get(participant.id) ?? {}}
                               />
                             );
                           })()

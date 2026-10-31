@@ -4,6 +4,7 @@ import { authFailure, requireUser } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { validateTeamPaste } from "@/lib/showdown-team";
 import { serializeTeam } from "@/lib/team-access";
+import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 
 class TeamError extends Error {
   constructor(
@@ -93,6 +94,10 @@ export async function PUT(
     );
   }
 
+  const artworkBySpecies = await getTeamArtworkBySpeciesNames(
+    result.team.map((entry) => entry.species),
+  );
+
   try {
     const team = await prisma.$transaction(async (tx) => {
       const locked = await tx.$queryRaw<Array<{ rostersLocked: boolean }>>`
@@ -123,12 +128,14 @@ export async function PUT(
       });
     });
 
+    const pokemon = serializeTeam(team.parsed, true);
     return NextResponse.json({
       team: {
-        pokemon: serializeTeam(team.parsed, true),
+        pokemon,
         rawPaste: team.rawPaste,
         updatedAt: team.updatedAt,
       },
+      artworkBySpecies,
     });
   } catch (error) {
     if (error instanceof TeamError) {

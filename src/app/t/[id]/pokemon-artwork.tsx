@@ -9,6 +9,8 @@ export type PokemonArtworkSpecies = {
   imageUrl: string | null;
 };
 
+export type TeamArtworkBySpecies = Record<string, PokemonArtworkSpecies>;
+
 export default function PokemonArtwork({
   species,
   className = "h-24 w-24",

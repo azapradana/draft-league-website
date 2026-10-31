@@ -3,20 +3,24 @@
 import { useState } from "react";
 import TeamView from "@/components/TeamView";
 import type { TeamPokemon, TeamPokemonErrors } from "@/lib/team-types";
+import type { TeamArtworkBySpecies } from "@/app/t/[id]/pokemon-artwork";
 
 export default function TeamEditor({
   tournamentId,
   initialTeam,
+  initialArtworkBySpecies,
   initialPaste,
   locked,
 }: {
   tournamentId: string;
   initialTeam: TeamPokemon[] | null;
+  initialArtworkBySpecies: TeamArtworkBySpecies;
   initialPaste: string;
   locked: boolean;
 }) {
   const [paste, setPaste] = useState(initialPaste);
   const [team, setTeam] = useState(initialTeam);
+  const [artworkBySpecies, setArtworkBySpecies] = useState(initialArtworkBySpecies);
   const [saving, setSaving] = useState(false);
   const [general, setGeneral] = useState<string[]>([]);
   const [pokemonErrors, setPokemonErrors] = useState<TeamPokemonErrors[]>([]);
@@ -36,6 +40,7 @@ export default function TeamEditor({
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
         setTeam(data.team.pokemon);
+        setArtworkBySpecies(data.artworkBySpecies);
         setSaved(true);
       } else if (response.status === 422) {
         setGeneral(data.general ?? []);
@@ -107,7 +112,7 @@ export default function TeamEditor({
 
       <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-5">
         <h3 className="mb-3 text-lg font-bold">Your saved team</h3>
-        <TeamView team={team} />
+        <TeamView team={team} artworkBySpecies={artworkBySpecies} />
       </section>
     </div>
   );
