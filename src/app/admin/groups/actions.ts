@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export type GroupActionResult =
-  | { success: true; message?: string; token?: string }
+  | { success: true; message?: string; token?: string; groupId?: string }
   | { error: string };
 
 async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
@@ -45,7 +45,7 @@ function parseName(formData: FormData): string | { error: string } {
   return name;
 }
 
-function done(message: string, extra: { token?: string } = {}): GroupActionResult {
+function done(message: string, extra: { token?: string; groupId?: string } = {}): GroupActionResult {
   revalidatePath("/admin/groups");
   return { success: true, message, ...extra };
 }
@@ -183,7 +183,7 @@ export async function generateInvitation(formData: FormData): Promise<GroupActio
   await prisma.groupInvitation.create({
     data: { token, groupId, maxUses, expiresAt, createdById: auth.userId },
   });
-  return done("Invitation link generated.", { token });
+  return done("Invitation link generated.", { token, groupId });
 }
 
 export async function revokeInvitation(formData: FormData): Promise<GroupActionResult> {

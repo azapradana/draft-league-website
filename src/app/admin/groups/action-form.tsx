@@ -42,8 +42,8 @@ export function ActionForm({
         return;
       }
       setMessage(result.message ?? "Saved.");
-      if (result.token) {
-        setLink(`${window.location.origin}/signup?invite=${result.token}`);
+      if (result.token && result.groupId) {
+        setLink(`${window.location.origin}/register/rival/${result.groupId}?invite=${result.token}`);
       }
       if (resetOnSuccess) form.reset();
       if (closeOnSuccess) form.closest("dialog")?.close();

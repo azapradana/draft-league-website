@@ -288,7 +288,7 @@ export default async function AdminGroupsPage({
                                 <input
                                   readOnly
                                   aria-label="Invitation link"
-                                  value={`${origin}/signup?invite=${invitation.token}`}
+                                  value={`${origin}/register/rival/${group.id}?invite=${invitation.token}`}
                                   className={`${inputClass} flex-1 text-xs`}
                                 />
                                 <span className="text-xs text-[#9FB0E6]">
