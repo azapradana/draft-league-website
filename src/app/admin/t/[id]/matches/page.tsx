@@ -11,6 +11,7 @@ import {
   hasCompletedSwissRounds,
 } from "@/lib/tournament-standings";
 import { SwissStandingsTable } from "@/app/t/[id]/standings/standings-table";
+import { plannedTopCutPlayerCounts, topCutStageLabel } from "@/lib/top-cut-stages";
 
 function playerName(
   participant: {
@@ -139,7 +140,8 @@ export default async function AdminTournamentMatchesPage({
     })),
     ...plannedTopCutRoundNumbers.map((roundNumber, index) => ({
       roundNumber,
-      label: `Top Cut · Round ${index + 1}`,
+      label: topCutStageLabel(plannedTopCutPlayerCounts(tournament.topCut)[index]),
+      group: "top-cut",
     })),
   ];
   const roundNumbers = [
@@ -160,13 +162,6 @@ export default async function AdminTournamentMatchesPage({
         : roundNumbers[0];
   const swissRoundNumbers = [
     ...new Set(stageMatches.map((match) => match.roundNumber)),
-  ];
-  const topCutRoundNumbers = [
-    ...new Set(
-      matchesToDisplay
-        .filter((match) => match.stage === "TOP_CUT")
-        .map((match) => match.roundNumber),
-    ),
   ];
   const currentStage =
     tournament.format === "SWISS" &&
@@ -234,7 +229,11 @@ export default async function AdminTournamentMatchesPage({
         match.roundNumber <= tournament.swissRounds);
     const isTopCut = match.stage === "TOP_CUT";
     const roundLabel = isTopCut
-      ? `Top Cut · Round ${topCutRoundNumbers.indexOf(match.roundNumber) + 1}`
+      ? topCutStageLabel(
+          matchesToDisplay.filter(
+            (candidate) => candidate.roundNumber === match.roundNumber,
+          ).length * 2,
+        )
       : isSwiss
         ? `Swiss · Round ${match.roundNumber}`
         : `Single Elimination · Round ${match.roundNumber}`;
@@ -246,6 +245,7 @@ export default async function AdminTournamentMatchesPage({
       id: match.id,
       roundNumber: match.roundNumber,
       roundLabel,
+      isTopCut,
       tableNumber,
       status: match.status,
       player1: match.player1

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export type SwissRoundTab = {
   value: string;
   label: string;
   status: "completed" | "in-progress" | "upcoming";
+  group?: "swiss" | "top-cut";
   content: ReactNode;
 };
 
@@ -100,17 +101,28 @@ export default function SwissRoundTabs({
         >
           {tabs.map((tab, index) => {
             const isSelected = tab.value === activeTab.value;
+            const startsTopCut =
+              tab.group === "top-cut" && tabs[index - 1]?.group !== "top-cut";
 
             return (
+              <Fragment key={tab.value}>
+              {startsTopCut && (
+                <span
+                  aria-hidden="true"
+                  className="ml-2 flex shrink-0 snap-start items-center border-l border-[#243775] pl-4 pr-1 text-xs font-bold uppercase tracking-wider text-[#F5C542]/80"
+                  role="presentation"
+                >
+                  Top Cut
+                </span>
+              )}
               <button
-                key={tab.value}
                 id={`round-tab-${tab.value}`}
                 aria-controls={isSelected ? `round-panel-${tab.value}` : undefined}
                 aria-label={`${tab.label}, ${statusLabels[tab.status]}`}
                 aria-selected={isSelected}
-                className={`inline-flex min-h-12 shrink-0 snap-start items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#F5C542] ${
+                className={`inline-flex min-h-12 shrink-0 snap-start items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#F5C542] ${
                   isSelected
-                    ? "border-[#F5C542] text-[#F5C542]"
+                    ? "border-[#F5C542] bg-[#070D24] text-[#F5C542]"
                     : "border-transparent text-[#9FB0E6] hover:border-[#9FB0E6]/50 hover:text-[#EEF2FF]"
                 }`}
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
@@ -125,6 +137,7 @@ export default function SwissRoundTabs({
                   className={`h-2 w-2 shrink-0 rounded-full ${statusIndicatorClasses[tab.status]}`}
                 />
               </button>
+              </Fragment>
             );
           })}
         </div>

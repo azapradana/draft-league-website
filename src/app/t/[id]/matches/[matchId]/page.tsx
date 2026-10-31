@@ -52,6 +52,7 @@ export default async function MatchRoomPage({
         timestamp: message.timestamp.toISOString(),
       }))}
       isAdmin={session.user.role === "ADMIN"}
+      currentUserId={session.user.id}
     />
   );
 }

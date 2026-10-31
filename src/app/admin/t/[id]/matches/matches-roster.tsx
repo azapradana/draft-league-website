@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SwissRoundTabs, { type SwissRoundTab } from "@/components/SwissRoundTabs";
@@ -10,6 +10,7 @@ type AdminMatch = {
   id: string;
   roundNumber: number;
   roundLabel: string;
+  isTopCut: boolean;
   tableNumber: number | null;
   status: string;
   player1: { id: string; name: string } | null;
@@ -41,12 +42,14 @@ export default function MatchesRoster({
 }: {
   tournamentId: string;
   matches: AdminMatch[];
-  plannedRounds: { roundNumber: number; label: string }[];
+  plannedRounds: { roundNumber: number; label: string; group?: string }[];
   initialRound: string;
 }) {
   const router = useRouter();
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    setHasMounted(true);
     const refreshInterval = window.setInterval(() => router.refresh(), 15_000);
     return () => window.clearInterval(refreshInterval);
   }, [router]);
@@ -87,6 +90,12 @@ export default function MatchesRoster({
             plannedRounds.find((round) => round.roundNumber === roundNumber)?.label ??
             `Round ${roundNumber}`,
           status,
+          group:
+            roundMatches[0]?.isTopCut ||
+            plannedRounds.find((round) => round.roundNumber === roundNumber)?.group ===
+              "top-cut"
+              ? "top-cut"
+              : "swiss",
           content: roundMatches.length === 0 ? (
               <p className="rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
                 Pairings for this round have not been generated yet.
@@ -154,7 +163,11 @@ export default function MatchesRoster({
                             <p className="mt-1 text-xs text-amber-200/80">
                               Manually set by {match.adminOverrideBy ?? "an administrator"}
                               {match.adminOverrideAt
-                                ? ` · ${new Date(match.adminOverrideAt).toLocaleString()}`
+                                ? ` · ${
+                                    hasMounted
+                                      ? new Date(match.adminOverrideAt).toLocaleString()
+                                      : match.adminOverrideAt
+                                  }`
                                 : ""}
                             </p>
                           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { declareMatchWinner } from "./actions";
 
 export default function MatchOverrideControls({
@@ -17,12 +17,12 @@ export default function MatchOverrideControls({
   player2: { id: string; name: string };
   disabledReason: string | null;
 }) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
-  async function submitOverride(event: React.FormEvent<HTMLFormElement>) {
+  function submitOverride(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
 
@@ -41,6 +41,12 @@ export default function MatchOverrideControls({
 
     setPending(true);
     setError(null);
+    startTransition(() => {
+      void saveOverride(formData);
+    });
+  }
+
+  async function saveOverride(formData: FormData) {
     try {
       const result = await declareMatchWinner(formData);
       if ("error" in result) {
@@ -49,7 +55,6 @@ export default function MatchOverrideControls({
       }
 
       setIsOpen(false);
-      router.refresh();
     } catch (submitError) {
       setError(
         submitError instanceof Error

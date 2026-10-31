@@ -12,6 +12,7 @@ import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
 import { RichText } from "@/components/rich-text";
 import SwissRoundTabs from "@/components/SwissRoundTabs";
+import { plannedTopCutPlayerCounts, topCutStageLabel } from "@/lib/top-cut-stages";
 
 export default async function TournamentOverview({
   params,
@@ -187,13 +188,6 @@ export default async function TournamentOverview({
       : currentRound !== null && rounds.includes(currentRound)
         ? currentRound
         : rounds[0];
-  const topCutRoundNumbers = Array.from(
-    new Set(
-      matchesToDisplay
-        .filter((match) => match.stage === "TOP_CUT")
-        .map((match) => match.roundNumber),
-    ),
-  );
   const finalRoundMatches = matchesToDisplay.filter(
     (match) => match.roundNumber === currentRound,
   );
@@ -480,11 +474,17 @@ export default async function TournamentOverview({
                 (!firstMatch &&
                   tournament.format === "SWISS" &&
                   plannedTopCutRoundIndex === -1);
+              const isTopCutRound =
+                firstMatch?.stage === "TOP_CUT" || plannedTopCutRoundIndex !== -1;
               const label =
                 firstMatch?.stage === "TOP_CUT"
-                  ? `Top Cut · Round ${topCutRoundNumbers.indexOf(roundNumber) + 1}`
+                  ? topCutStageLabel(roundMatches.length * 2)
                   : plannedTopCutRoundIndex !== -1
-                    ? `Top Cut · Round ${plannedTopCutRoundIndex + 1}`
+                    ? topCutStageLabel(
+                        plannedTopCutPlayerCounts(tournament.topCut)[
+                          plannedTopCutRoundIndex
+                        ],
+                      )
                     : isSwissRound
                       ? `Swiss · Round ${roundNumber}`
                       : `Round ${roundNumber}`;
@@ -498,6 +498,7 @@ export default async function TournamentOverview({
               return {
                 value: String(roundNumber),
                 label,
+                group: isTopCutRound ? ("top-cut" as const) : ("swiss" as const),
                 status,
                 content: roundMatches.length === 0 ? (
                     <p className="rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
