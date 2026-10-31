@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export default function JoinTournamentButton({
@@ -11,7 +11,10 @@ export default function JoinTournamentButton({
   label?: string;
 }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const [submitting, setPending] = useState(false);
+  const [refreshing, startTransition] = useTransition();
+  const [joined, setJoined] = useState(false);
+  const pending = submitting || refreshing;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -41,7 +44,8 @@ export default function JoinTournamentButton({
             ? "You are now in the Friendly Match queue."
             : "You are now registered for this tournament.",
       );
-      router.refresh();
+      setJoined(true);
+      startTransition(() => router.refresh());
     } catch {
       setError("Unable to reach the server. Check your connection and try again.");
     } finally {
@@ -51,14 +55,14 @@ export default function JoinTournamentButton({
 
   return (
     <div className="mt-5">
-      <button
+      {!joined && <button
         className="rounded-lg bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#EEF2FF]"
         disabled={pending}
         onClick={joinTournament}
         type="button"
       >
         {pending ? "Joining…" : label}
-      </button>
+      </button>}
       {notice && (
         <p className="mt-3 text-sm text-emerald-300" role="status">
           {notice}
