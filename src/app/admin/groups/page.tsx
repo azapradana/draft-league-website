@@ -14,6 +14,7 @@ import {
   deleteGroup,
   generateInvitation,
   revokeInvitation,
+  updateFriendlyMatchCount,
   updateGroup,
 } from "./actions";
 
@@ -141,7 +142,14 @@ export default async function AdminGroupsPage({
     orderBy: [{ username: "asc" }, { id: "asc" }],
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
-    select: { id: true, username: true, name: true, email: true, groupId: true },
+    select: {
+      id: true,
+      username: true,
+      name: true,
+      email: true,
+      groupId: true,
+      friendlyMatchCount: true,
+    },
   });
 
   const coreGroup = groups.find((group) => group.isCore);
@@ -351,12 +359,13 @@ export default async function AdminGroupsPage({
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-[#243775] bg-[#0B1535]">
-            <table className="w-full min-w-[34rem] text-left text-sm">
+            <table className="w-full min-w-[42rem] text-left text-sm">
               <thead className="border-b border-[#243775] text-xs uppercase tracking-wider text-[#9FB0E6]">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-semibold">User</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Email</th>
                   <th scope="col" className="px-4 py-3 font-semibold">Group</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Friendly matches</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#243775]">
@@ -369,11 +378,31 @@ export default async function AdminGroupsPage({
                     <td className="px-4 py-2">
                       <GroupSelect userId={user.id} value={user.groupId} groups={groupOptions} />
                     </td>
+                    <td className="px-4 py-2">
+                      <ActionForm
+                        action={updateFriendlyMatchCount}
+                        className="flex items-center gap-2"
+                      >
+                        <input type="hidden" name="userId" value={user.id} />
+                        <input
+                          aria-label={`Friendly match count for ${user.username ?? user.name ?? user.id}`}
+                          className={`${inputClass} w-24`}
+                          defaultValue={user.friendlyMatchCount}
+                          min={0}
+                          max={2147483647}
+                          name="friendlyMatchCount"
+                          type="number"
+                          step={1}
+                          required
+                        />
+                        <button type="submit" className={buttonClass}>Save</button>
+                      </ActionForm>
+                    </td>
                   </tr>
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-[#9FB0E6]">
+                    <td colSpan={4} className="px-4 py-6 text-center text-[#9FB0E6]">
                       No users found.
                     </td>
                   </tr>

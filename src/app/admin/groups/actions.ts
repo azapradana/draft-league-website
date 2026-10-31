@@ -133,6 +133,27 @@ export async function assignUserToGroup(formData: FormData): Promise<GroupAction
   return done("Group assignment updated.");
 }
 
+export async function updateFriendlyMatchCount(formData: FormData): Promise<GroupActionResult> {
+  const auth = await requireAdmin();
+  if ("error" in auth) return auth;
+  const userId = text(formData, "userId");
+  const countRaw = text(formData, "friendlyMatchCount");
+  if (!userId) return { error: "Choose a user." };
+  if (!/^\d+$/.test(countRaw)) return { error: "Enter a whole number of 0 or greater." };
+
+  const friendlyMatchCount = Number(countRaw);
+  if (!Number.isSafeInteger(friendlyMatchCount) || friendlyMatchCount > 2_147_483_647) {
+    return { error: "Count must be a whole number no greater than 2147483647." };
+  }
+
+  const result = await prisma.user.updateMany({
+    where: { id: userId },
+    data: { friendlyMatchCount },
+  });
+  if (result.count === 0) return { error: "User not found." };
+  return done("Friendly match count updated.");
+}
+
 export async function addUserToGroupByUsername(
   formData: FormData,
 ): Promise<GroupActionResult> {

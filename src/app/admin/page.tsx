@@ -55,6 +55,12 @@ export default async function AdminPage() {
               Groups
             </Link>
             <Link
+              href="/admin/tournaments/create-friendly"
+              className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
+            >
+              Friendly match
+            </Link>
+            <Link
               href="/admin/settings"
               className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
             >
