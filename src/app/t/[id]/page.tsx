@@ -8,6 +8,8 @@ import {
   hasCompletedSwissRounds,
 } from "@/lib/tournament-standings";
 import CheckInButton from "./check-in-button";
+import TeamView from "@/components/TeamView";
+import { serializeTeam } from "@/lib/team-access";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
 import WarScoreboard from "./war-scoreboard";
@@ -51,6 +53,7 @@ export default async function TournamentOverview({
       completed: true,
       maxParticipants: true,
       regulation: true,
+      mode: true,
       startingCoins: true,
       coinPrizePool: true,
       prizeDistribution: true,
@@ -61,7 +64,7 @@ export default async function TournamentOverview({
       rostersPublic: true,
       participants: {
         where: { userId: session.user.id },
-        select: { id: true, status: true, checkedIn: true },
+        select: { id: true, status: true, checkedIn: true, team: { select: { id: true } } },
       },
       matches: {
         orderBy: [
@@ -122,6 +125,8 @@ export default async function TournamentOverview({
       (match.player1Id === participation?.id ||
         match.player2Id === participation?.id));
 
+  const isRegular = tournament.mode === "REGULAR";
+  const isAdminViewer = session.user.role === "ADMIN";
   const canViewAllRosters =
     session.user.role === "ADMIN" || tournament.rostersPublic;
   const approvedParticipants = await prisma.participant.findMany({
@@ -129,7 +134,9 @@ export default async function TournamentOverview({
     orderBy: [{ user: { name: "asc" } }, { id: "asc" }],
     select: {
       id: true,
+      userId: true,
       checkedIn: true,
+      team: isRegular ? { select: { parsed: true } } : false,
       friendlyMatchSubstitute: true,
       friendlyMatchGroup: { select: { name: true } },
       user: {
@@ -142,7 +149,7 @@ export default async function TournamentOverview({
       },
     },
   });
-  const visibleRosters = await prisma.roster.findMany({
+  const visibleRosters = isRegular ? [] : await prisma.roster.findMany({
     where: {
       participant: {
         is: {
@@ -470,10 +477,12 @@ export default async function TournamentOverview({
             <p className="text-sm text-[#9FB0E6]">Format</p>
             <p className="mt-1 font-semibold text-[#F5C542]">{formatSummary}</p>
           </div>
-          <TournamentRewardModal
-            coinPrizePool={tournament.coinPrizePool}
-            distribution={prizeDistribution}
-          />
+          {!isRegular && (
+            <TournamentRewardModal
+              coinPrizePool={tournament.coinPrizePool}
+              distribution={prizeDistribution}
+            />
+          )}
         </div>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2">
           <div>
@@ -502,24 +511,30 @@ export default async function TournamentOverview({
               {tournament.regulation.toUpperCase()}
             </dd>
           </div>
+          {!isRegular && (
           <div>
             <dt className="text-sm text-[#9FB0E6]">Starting coins</dt>
             <dd className="mt-1 font-semibold text-[#F5C542]">
               {tournament.startingCoins.toLocaleString()}
             </dd>
           </div>
+          )}
+          {!isRegular && (
           <div>
             <dt className="text-sm text-[#9FB0E6]">Copy limit per player</dt>
             <dd className="mt-1 font-semibold">
               {tournament.maxCopiesPerPlayer}
             </dd>
           </div>
+          )}
+          {!isRegular && (
           <div>
             <dt className="text-sm text-[#9FB0E6]">League-wide copy limit</dt>
             <dd className="mt-1 font-semibold">
               {tournament.maxCopiesLeague ?? "No limit"}
             </dd>
           </div>
+          )}
         </dl>
       </section>
 
@@ -540,7 +555,18 @@ export default async function TournamentOverview({
             )}
             {participation.status === "APPROVED" && (
               <p className="mt-2 text-sm text-[#9FB0E6]">
-                Your registration is approved. You can now buy packs and manage your roster.
+                Your registration is approved.{" "}
+                {isRegular ? (
+                  <>
+                    Submit your team on the{" "}
+                    <Link className="font-semibold text-[#F5C542] underline" href={`/t/${id}/team`}>
+                      My Team
+                    </Link>{" "}
+                    page.
+                  </>
+                ) : (
+                  "You can now buy packs and manage your roster."
+                )}
               </p>
             )}
             {participation.status === "REJECTED" && (
@@ -577,8 +603,10 @@ export default async function TournamentOverview({
                 ? "Check-in is currently closed."
                 : participation?.status !== "APPROVED"
                   ? "Check-in is open. An approved tournament place is required."
-                  : participation.checkedIn
-                    ? "You are checked in for this tournament."
+                : participation.checkedIn
+                    ? isRegular && !participation.team
+                      ? "You are checked in, but you have not submitted a valid team yet."
+                      : "You are checked in for this tournament."
                     : "Check in now to confirm your participation."}
             </p>
           </div>
@@ -589,7 +617,9 @@ export default async function TournamentOverview({
                 Checked in
               </span>
             ) : (
-              <CheckInButton tournamentId={id} />
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <CheckInButton tournamentId={id} missingTeam={isRegular && !participation.team} />
+              </div>
             ))}
         </div>
       </section>
@@ -812,7 +842,13 @@ export default async function TournamentOverview({
             </p>
           </div>
           <span className="text-sm text-[#9FB0E6]">
-            {tournament.rostersLocked ? "Rosters locked" : "Roster editing open"}
+            {isRegular
+              ? tournament.rostersLocked
+                ? "Teams locked"
+                : "Team editing open"
+              : tournament.rostersLocked
+                ? "Rosters locked"
+                : "Roster editing open"}
           </span>
         </div>
 
@@ -831,7 +867,11 @@ export default async function TournamentOverview({
                     {tournament.format === "FRIENDLY_MATCH" ? "Group / lineup" : "Check-in"}
                   </th>
                   <th scope="col" className="px-3 py-3 font-semibold">
-                    {tournament.rostersLocked ? "Locked roster" : "Current roster"}
+                    {isRegular
+                      ? "Team"
+                      : tournament.rostersLocked
+                        ? "Locked roster"
+                        : "Current roster"}
                   </th>
                 </tr>
               </thead>
@@ -905,7 +945,20 @@ export default async function TournamentOverview({
                         )}
                       </td>
                       <td className="px-3 py-4">
-                        {roster === null ? (
+                        {isRegular ? (
+                          (() => {
+                            const isOwnTeam = participant.userId === session.user.id;
+                            if (!isAdminViewer && !isOwnTeam && !tournament.rostersPublic) {
+                              return <span className="text-[#9FB0E6]">Private</span>;
+                            }
+                            const parsed = "team" in participant ? participant.team?.parsed : null;
+                            return (
+                              <TeamView
+                                team={parsed ? serializeTeam(parsed, isAdminViewer || isOwnTeam) : null}
+                              />
+                            );
+                          })()
+                        ) : roster === null ? (
                           <span className="text-[#9FB0E6]">Private</span>
                         ) : roster.length === 0 ? (
                           <span className="text-[#9FB0E6]">No roster saved</span>

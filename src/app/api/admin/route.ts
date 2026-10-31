@@ -3,6 +3,7 @@ import {
   ParticipantStatus,
   Prisma,
   TournamentFormat,
+  TournamentMode,
   TournamentStage,
 } from "@prisma/client";
 import { getServerSession } from "next-auth";
@@ -91,6 +92,19 @@ async function readBody(request: NextRequest): Promise<Record<string, unknown>> 
   }
 
   return result;
+}
+
+async function isRegularTournament(tournamentId: string): Promise<boolean> {
+  if (!tournamentId) return false;
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { mode: true },
+  });
+  return tournament?.mode === TournamentMode.REGULAR;
+}
+
+function regularTournamentNotFound() {
+  return NextResponse.json({ error: "Not found." }, { status: 404 });
 }
 
 async function requireAdmin() {
@@ -199,8 +213,29 @@ export async function POST(request: NextRequest) {
         const description = asString(body.description);
         const imageUrl = asString(body.imageUrl).trim();
         const cardBackImage = asString(body.cardBackImage).trim();
+        const modeValue = body.mode === undefined ? null : asString(body.mode);
+        if (modeValue !== null && modeValue !== "GACHA" && modeValue !== "REGULAR") {
+          return NextResponse.json(
+            { error: "Choose the Gacha or Regular tournament mode." },
+            { status: 400 },
+          );
+        }
+        if (modeValue === "GACHA" && body.format === "FRIENDLY_MATCH") {
+          return NextResponse.json(
+            { error: "Friendly Match tournaments must use the Regular mode." },
+            { status: 400 },
+          );
+        }
         const formatValue =
-          body.format === undefined ? "FRIENDLY_MATCH" : asString(body.format);
+          body.format === undefined
+            ? modeValue === "REGULAR"
+              ? "FRIENDLY_MATCH"
+              : "SINGLE_ELIMINATION"
+            : asString(body.format);
+        const mode =
+          modeValue === "REGULAR" || formatValue === "FRIENDLY_MATCH"
+            ? TournamentMode.REGULAR
+            : TournamentMode.GACHA;
         const format =
           formatValue === "FRIENDLY_MATCH" ||
           formatValue === "SINGLE_ELIMINATION" ||
@@ -328,10 +363,12 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Tournament image URLs must be valid HTTPS URLs no longer than 2,048 characters." }, { status: 400 });
         }
 
-        const startingCoins = asInt(body.startingCoins, 0);
-        const maxCopiesPerPlayer = asInt(body.maxCopiesPerPlayer, 3);
+        const isRegular = mode === TournamentMode.REGULAR;
+        const startingCoins = isRegular ? 0 : asInt(body.startingCoins, 0);
+        const maxCopiesPerPlayer = isRegular ? 3 : asInt(body.maxCopiesPerPlayer, 3);
         const rawLeagueCopyLimit = body.maxCopiesLeague;
         const maxCopiesLeague =
+          isRegular ||
           rawLeagueCopyLimit === undefined || rawLeagueCopyLimit === null || asString(rawLeagueCopyLimit) === ""
             ? null
             : asInt(rawLeagueCopyLimit, 0);
@@ -340,6 +377,7 @@ export async function POST(request: NextRequest) {
           data: {
             name,
             description,
+            mode,
             format: format as TournamentFormat,
             topCut,
             currentStage:
@@ -386,10 +424,33 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Tournament not found." }, { status: 404 });
         }
 
+        if ("mode" in body && asString(body.mode) !== tournament.mode) {
+          return NextResponse.json(
+            { error: "The tournament mode cannot be changed after creation." },
+            { status: 400 },
+          );
+        }
+        const isRegularTournament = tournament.mode === TournamentMode.REGULAR;
+        if (
+          isRegularTournament &&
+          ("startingCoins" in body || "maxCopiesPerPlayer" in body || "maxCopiesLeague" in body)
+        ) {
+          return NextResponse.json(
+            { error: "Coins and copy limits do not apply to Regular tournaments." },
+            { status: 400 },
+          );
+        }
+
         const hasPrizeConfiguration =
           "coinPrizePool" in body ||
           "prizeWinnersCount" in body ||
           "prizeDistribution" in body;
+        if (isRegularTournament && hasPrizeConfiguration) {
+          return NextResponse.json(
+            { error: "Coin prizes do not apply to Regular tournaments." },
+            { status: 400 },
+          );
+        }
         if (hasPrizeConfiguration && tournament.completed) {
           return NextResponse.json(
             { error: "Prize settings cannot be changed after the tournament is completed." },
@@ -535,6 +596,16 @@ export async function POST(request: NextRequest) {
             );
           }
           updateData.format = formatValue;
+          if (
+            formatValue === "FRIENDLY_MATCH" &&
+            formatValue !== tournament.format &&
+            tournament.mode !== TournamentMode.REGULAR
+          ) {
+            return NextResponse.json(
+              { error: "Friendly Match is only available for Regular tournaments." },
+              { status: 400 },
+            );
+          }
         }
 
         const updatedFormat = updateData.format ?? tournament.format;
@@ -920,7 +991,7 @@ export async function POST(request: NextRequest) {
 
         if (!name || name.length > 80 || pullCount < 1 || pullCount > 2_147_483_647) {
           return NextResponse.json(
-            { error: "Enter a pack name of 1–80 characters and a positive whole-number pull count." },
+            { error: "Enter a pack name of 1â€“80 characters and a positive whole-number pull count." },
             { status: 400 },
           );
         }
@@ -1017,7 +1088,7 @@ export async function POST(request: NextRequest) {
         });
         if (guaranteedTierCount > effectivePullCount) {
           return NextResponse.json(
-            { error: "Pull count cannot be lower than the number of tiers guaranteed at least one Pokémon." },
+            { error: "Pull count cannot be lower than the number of tiers guaranteed at least one PokÃ©mon." },
             { status: 400 },
           );
         }
@@ -1083,6 +1154,7 @@ export async function POST(request: NextRequest) {
 
       case "bulkUpdateTournamentPacks": {
         const tournamentId = asString(body.tournamentId);
+        if (await isRegularTournament(tournamentId)) return regularTournamentNotFound();
         const rawPackIds = asString(body.packIds);
         if (!tournamentId || !rawPackIds) {
           return NextResponse.json(
@@ -1237,6 +1309,7 @@ export async function POST(request: NextRequest) {
 
       case "attachTournamentPack": {
         const tournamentId = asString(body.tournamentId);
+        if (await isRegularTournament(tournamentId)) return regularTournamentNotFound();
         const packId = asString(body.packId);
         if (!tournamentId || !packId) {
           return NextResponse.json({ error: "Tournament and pack IDs are required." }, { status: 400 });
@@ -1260,6 +1333,7 @@ export async function POST(request: NextRequest) {
 
       case "updateTournamentPack": {
         const tournamentId = asString(body.tournamentId);
+        if (await isRegularTournament(tournamentId)) return regularTournamentNotFound();
         const packId = asString(body.packId);
         const price = asStrictInt(body.price) ?? -1;
         const rawPurchaseLimit = body.purchaseLimit;
@@ -1302,6 +1376,7 @@ export async function POST(request: NextRequest) {
 
       case "detachTournamentPack": {
         const tournamentId = asString(body.tournamentId);
+        if (await isRegularTournament(tournamentId)) return regularTournamentNotFound();
         const packId = asString(body.packId);
         if (!tournamentId || !packId) {
           return NextResponse.json({ error: "Tournament and pack IDs are required." }, { status: 400 });
@@ -1402,7 +1477,7 @@ export async function POST(request: NextRequest) {
           const submittedIds = new Set(normalizedTiers.flatMap((tier) => tier.id ? [tier.id] : []));
           const removedTiers = existingTiers.filter((tier) => !submittedIds.has(tier.id));
           if (removedTiers.some((tier) => tier._count.entries > 0)) {
-            return { error: "A tier containing Pokémon cannot be deleted. Move its Pokémon to another tier first.", status: 409 as const };
+            return { error: "A tier containing PokÃ©mon cannot be deleted. Move its PokÃ©mon to another tier first.", status: 409 as const };
           }
 
           if (normalizedTiers.some((tier) => tier.id && !existingTiers.some((existing) => existing.id === tier.id))) {
@@ -1478,10 +1553,10 @@ export async function POST(request: NextRequest) {
             tx.packTier.findMany({ where: { id: { in: tierIds }, packId }, select: { id: true } }),
           ]);
           if (species.length !== new Set(normalizedEntries.map((entry) => entry.speciesDex)).size) {
-            return { error: "One or more selected Pokémon do not exist.", status: 400 as const };
+            return { error: "One or more selected PokÃ©mon do not exist.", status: 400 as const };
           }
           if (tiers.length !== tierIds.length) {
-            return { error: "Every selected Pokémon must use a tier belonging to this pack.", status: 400 as const };
+            return { error: "Every selected PokÃ©mon must use a tier belonging to this pack.", status: 400 as const };
           }
 
           await tx.packEntry.deleteMany({ where: { packId } });

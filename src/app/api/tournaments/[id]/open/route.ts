@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { ParticipantStatus } from "@prisma/client";
+import { ParticipantStatus, TournamentMode } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -79,8 +79,11 @@ export async function POST(
 
       const tournament = await tx.tournament.findUniqueOrThrow({
         where: { id: tournamentId },
-        select: { active: true, maxCopiesPerPlayer: true, maxCopiesLeague: true },
+        select: { active: true, mode: true, maxCopiesPerPlayer: true, maxCopiesLeague: true },
       });
+      if (tournament.mode !== TournamentMode.GACHA) {
+        throw new GachaError("Not found.", 404);
+      }
       if (!tournament.active) {
         throw new GachaError("This tournament is not active, so its shop is closed.", 409);
       }

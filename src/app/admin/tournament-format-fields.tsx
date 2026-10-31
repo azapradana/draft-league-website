@@ -3,6 +3,10 @@
 import { useState } from "react";
 
 type TournamentFormat = "FRIENDLY_MATCH" | "SINGLE_ELIMINATION" | "SWISS";
+type TournamentMode = "GACHA" | "REGULAR";
+
+const FIELD_CLASS =
+  "w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]";
 
 function recommendSwissRounds(participantCount: number): number | null {
   if (!Number.isSafeInteger(participantCount) || participantCount < 2) {
@@ -17,7 +21,10 @@ function recommendSwissRounds(participantCount: number): number | null {
 
 export function TournamentFormatFields({
   groups,
-  initialFormat = "FRIENDLY_MATCH",
+  initialMode = "GACHA",
+  modeLocked = false,
+  includeGachaFields = false,
+  initialFormat = "SINGLE_ELIMINATION",
   initialMaxParticipants = "",
   initialFriendlyMatchGroupId = "",
   initialFriendlyMatchSize = 6,
@@ -25,6 +32,9 @@ export function TournamentFormatFields({
   initialTopCut = 0,
 }: {
   groups: Array<{ id: string; name: string }>;
+  initialMode?: TournamentMode;
+  modeLocked?: boolean;
+  includeGachaFields?: boolean;
   initialFormat?: TournamentFormat;
   initialMaxParticipants?: number | "";
   initialFriendlyMatchGroupId?: string;
@@ -32,6 +42,7 @@ export function TournamentFormatFields({
   initialSwissRounds?: number;
   initialTopCut?: number;
 }) {
+  const [mode, setMode] = useState<TournamentMode>(initialMode);
   const [format, setFormat] = useState(initialFormat);
   const [maxParticipants, setMaxParticipants] = useState(
     initialMaxParticipants === "" ? "" : String(initialMaxParticipants),
@@ -51,6 +62,39 @@ export function TournamentFormatFields({
 
   return (
     <>
+      {modeLocked ? (
+        <div className="block">
+          <span className="mb-2 block text-sm text-[#9FB0E6]">Tournament mode</span>
+          <p className="rounded-lg border border-[#243775] bg-[#070D24]/60 p-3 font-semibold text-[#EEF2FF]">
+            {mode === "GACHA" ? "Gacha (packs and collection)" : "Regular (Showdown team paste)"}
+          </p>
+          <span className="mt-1 block text-xs text-[#9FB0E6]">
+            The mode is fixed at creation and cannot be changed.
+          </span>
+        </div>
+      ) : (
+        <label className="block">
+          <span className="mb-2 block text-sm text-[#9FB0E6]">Tournament mode</span>
+          <select
+            name="mode"
+            value={mode}
+            onChange={(event) => {
+              const nextMode = event.target.value === "REGULAR" ? "REGULAR" : "GACHA";
+              setMode(nextMode);
+              if (nextMode === "GACHA" && format === "FRIENDLY_MATCH") {
+                setFormat("SINGLE_ELIMINATION");
+              }
+            }}
+            className={FIELD_CLASS}
+          >
+            <option value="GACHA">Gacha (packs and collection)</option>
+            <option value="REGULAR">Regular (Showdown team paste)</option>
+          </select>
+          <span className="mt-1 block text-xs text-[#9FB0E6]">
+            Cannot be changed after the tournament is created.
+          </span>
+        </label>
+      )}
       <label className="block">
         <span className="mb-2 block text-sm text-[#9FB0E6]">Tournament format</span>
         <select
@@ -63,12 +107,17 @@ export function TournamentFormatFields({
               event.target.value === "SWISS"
             ) {
               setFormat(event.target.value);
+              if (event.target.value === "FRIENDLY_MATCH" && !modeLocked) setMode("REGULAR");
               if (event.target.value !== "SWISS") setTopCut("0");
             }
           }}
-          className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+          className={FIELD_CLASS}
         >
-          <option value="FRIENDLY_MATCH">Friendly Match (N-v-N Group War)</option>
+          {(!modeLocked || mode === "REGULAR" || initialFormat === "FRIENDLY_MATCH") && (
+            <option value="FRIENDLY_MATCH">
+              Friendly Match (N-v-N Group War){modeLocked ? "" : " — Regular mode only"}
+            </option>
+          )}
           <option value="SINGLE_ELIMINATION">Single Elimination</option>
           <option value="SWISS">Swiss Rounds</option>
         </select>
@@ -197,6 +246,22 @@ export function TournamentFormatFields({
         </div>
       )}
       {format !== "SWISS" && <input type="hidden" name="topCut" value="0" />}
+      {includeGachaFields && mode === "GACHA" && (
+        <>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
+            <input name="startingCoins" type="number" min={0} defaultValue={500} className={FIELD_CLASS} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies per player</span>
+            <input name="maxCopiesPerPlayer" type="number" min={1} defaultValue={3} className={FIELD_CLASS} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies league-wide</span>
+            <input name="maxCopiesLeague" type="number" min={0} placeholder="Leave blank for no limit" className={FIELD_CLASS} />
+          </label>
+        </>
+      )}
     </>
   );
 }

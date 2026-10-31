@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { serializeTeam } from "@/lib/team-access";
+import type { TeamPokemon } from "@/lib/team-types";
 
 export async function getMatchRoomData({
   tournamentId,
@@ -23,7 +25,7 @@ export async function getMatchRoomData({
       player1DrawVote: true,
       player2DrawVote: true,
       isDraw: true,
-      tournament: { select: { name: true, format: true } },
+      tournament: { select: { name: true, format: true, mode: true } },
       player1: {
         select: {
           id: true,
@@ -37,6 +39,7 @@ export async function getMatchRoomData({
             },
           },
           roster: { select: { speciesIds: true } },
+          team: { select: { parsed: true } },
         },
       },
       player2: {
@@ -52,6 +55,7 @@ export async function getMatchRoomData({
             },
           },
           roster: { select: { speciesIds: true } },
+          team: { select: { parsed: true } },
         },
       },
     },
@@ -69,6 +73,7 @@ export async function getMatchRoomData({
   }
 
   type MatchParticipant = NonNullable<NonNullable<typeof match>["player1"]>;
+  const isRegular = match.tournament.mode === "REGULAR";
   const participantIds = [match.player1?.id, match.player2?.id].filter(
     (participantId): participantId is string => participantId !== undefined,
   );
@@ -170,9 +175,17 @@ export async function getMatchRoomData({
       })
       .filter((entry) => entry !== null);
 
+    const isOwn = participant.user.id === userId;
+    // Only the admin or the owner receives a team (with EVs); the opponent's is never sent.
+    const team =
+      isRegular && (isAdmin || isOwn)
+        ? (serializeTeam(participant.team?.parsed, true) as TeamPokemon[])
+        : null;
+
     return {
       id: participant.id,
-      isCurrentUser: participant.user.id === userId,
+      isCurrentUser: isOwn,
+      team,
       group: participant.user.group,
       name:
         participant.user.name ??
@@ -203,6 +216,7 @@ export async function getMatchRoomData({
     player2DrawVote: match.player2DrawVote,
     isDraw: match.isDraw,
     isFriendlyMatch: match.tournament.format === "FRIENDLY_MATCH",
+    mode: match.tournament.mode,
     tournamentName: match.tournament.name,
     player1,
     player2,

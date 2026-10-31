@@ -1,4 +1,4 @@
-import { ParticipantStatus } from "@prisma/client";
+import { ParticipantStatus, TournamentMode } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -55,11 +55,11 @@ export async function PUT(
   try {
     const roster = await prisma.$transaction(async (tx) => {
       const lockedTournament = await tx.$queryRaw<
-        Array<{ id: string; rostersLocked: boolean }>
+        Array<{ id: string; rostersLocked: boolean; mode: TournamentMode }>
       >`
-        SELECT "id", "rostersLocked" FROM "Tournament" WHERE "id" = ${tournamentId} FOR UPDATE
+        SELECT "id", "rostersLocked", "mode" FROM "Tournament" WHERE "id" = ${tournamentId} FOR UPDATE
       `;
-      if (lockedTournament.length === 0) {
+      if (lockedTournament.length === 0 || lockedTournament[0].mode !== TournamentMode.GACHA) {
         throw new RosterError("Tournament not found.", 404);
       }
       if (lockedTournament[0].rostersLocked) {

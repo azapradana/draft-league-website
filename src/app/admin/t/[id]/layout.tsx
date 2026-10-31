@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminTournamentLayout({
   children,
@@ -9,10 +10,16 @@ export default async function AdminTournamentLayout({
 }) {
   const { id } = await params;
   const basePath = `/admin/t/${id}`;
+  const tournament = await prisma.tournament.findUnique({
+    where: { id },
+    select: { mode: true },
+  });
   const links = [
     { href: `${basePath}`, label: "General settings" },
     { href: `${basePath}/participants`, label: "Participants" },
-    { href: `${basePath}/packs`, label: "Packs / Gacha" },
+    ...(tournament?.mode === "REGULAR"
+      ? []
+      : [{ href: `${basePath}/packs`, label: "Packs / Gacha" }]),
     { href: `${basePath}/matches`, label: "Brackets" },
     { href: `${basePath}/disputes`, label: "Disputes" },
   ];
@@ -37,7 +44,7 @@ export default async function AdminTournamentLayout({
               key={link.href}
               href={link.href}
               className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition hover:bg-[#122050] hover:text-[#F5C542] ${
-                index === 3 ? "mt-4 border-t border-[#243775] pt-5" : ""
+                index === links.findIndex((item) => item.label === "Brackets") ? "mt-4 border-t border-[#243775] pt-5" : ""
               }`}
             >
               {link.label}

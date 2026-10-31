@@ -21,6 +21,7 @@ export default async function TournamentShopPage({
       where: { id },
       select: {
         id: true,
+        mode: true,
         active: true,
         participants: {
           where: { userId: session.user.id },
@@ -30,7 +31,7 @@ export default async function TournamentShopPage({
     }),
     getTournamentShopPacks(id),
   ]);
-  if (!tournament) notFound();
+  if (!tournament || tournament.mode !== "GACHA") notFound();
 
   const participant = tournament.participants[0];
 

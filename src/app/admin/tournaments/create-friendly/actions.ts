@@ -84,6 +84,7 @@ export async function createFriendlyMatch(
         data: {
           name,
           description,
+          mode: "REGULAR",
           format: "SINGLE_ELIMINATION",
           autoApproveSignups: true,
           friendlyWar: {

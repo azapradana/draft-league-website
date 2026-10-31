@@ -1,4 +1,4 @@
-import { ParticipantStatus } from "@prisma/client";
+import { ParticipantStatus, TournamentMode } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -69,7 +69,17 @@ export async function POST(
       });
     });
 
-    return NextResponse.json(participant);
+    const [mode, team] = await Promise.all([
+      prisma.tournament.findUnique({ where: { id: tournamentId }, select: { mode: true } }),
+      prisma.team.findUnique({ where: { participantId: participant.id }, select: { id: true } }),
+    ]);
+    // Teams are only stored once valid; check-in is allowed without one.
+    const teamWarning =
+      mode?.mode === TournamentMode.REGULAR && !team
+        ? "You checked in without a valid team. Submit one on the Team page before your match."
+        : null;
+
+    return NextResponse.json({ ...participant, teamWarning });
   } catch (error) {
     if (error instanceof CheckInError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

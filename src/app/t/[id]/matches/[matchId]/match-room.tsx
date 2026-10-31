@@ -19,6 +19,7 @@ type MatchData = {
   player2DrawVote: boolean;
   isDraw: boolean;
   isFriendlyMatch: boolean;
+  mode: "GACHA" | "REGULAR";
   tournamentName: string;
   player1: MatchPlayer;
   player2: MatchPlayer;
@@ -172,14 +173,23 @@ export default function MatchRoom({
       : match.player2?.isCurrentUser
         ? match.player1
         : null;
+  const regularMode = match.mode === "REGULAR";
   const rosterTabs = ownPlayer
     ? [
-        { key: "mine", player: ownPlayer, label: "My Roster" },
-        { key: "opponent", player: opponent, label: "Opponent Roster" },
+        { key: "mine", player: ownPlayer, label: regularMode ? "My Team" : "My Roster" },
+        ...(regularMode && !isAdmin
+          ? []
+          : [
+              {
+                key: "opponent",
+                player: opponent,
+                label: regularMode ? "Opponent Team" : "Opponent Roster",
+              },
+            ]),
       ]
     : [
-        { key: "p1", player: match.player1, label: "Player 1 Roster" },
-        { key: "p2", player: match.player2, label: "Player 2 Roster" },
+        { key: "p1", player: match.player1, label: regularMode ? "Player 1 Team" : "Player 1 Roster" },
+        { key: "p2", player: match.player2, label: regularMode ? "Player 2 Team" : "Player 2 Roster" },
       ];
   const ownVote = match.player1?.isCurrentUser
     ? player1Vote
@@ -356,7 +366,7 @@ export default function MatchRoom({
             </section>
           )}
 
-          <MatchRosterInspector tabs={rosterTabs} />
+          <MatchRosterInspector tabs={rosterTabs} regular={regularMode} />
         </div>
       </div>
     </div>

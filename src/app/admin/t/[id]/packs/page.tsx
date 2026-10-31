@@ -25,7 +25,7 @@ export default async function AdminTournamentPacksPage({
   const [tournament, packs, attachments] = await Promise.all([
     prisma.tournament.findUnique({
       where: { id: tournamentId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, mode: true },
     }),
     prisma.pack.findMany({
       orderBy: { name: "asc" },
@@ -33,7 +33,7 @@ export default async function AdminTournamentPacksPage({
     }),
     prisma.tournamentPack.findMany({ where: { tournamentId } }),
   ]);
-  if (!tournament) notFound();
+  if (!tournament || tournament.mode === "REGULAR") notFound();
 
   const attachedByPackId = new Map(attachments.map((attachment) => [attachment.packId, attachment]));
 

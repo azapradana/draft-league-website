@@ -18,6 +18,7 @@ export default async function TournamentRosterPage({
   const tournament = await prisma.tournament.findUnique({
     where: { id },
     select: {
+      mode: true,
       rostersLocked: true,
       participants: {
         where: { userId: session.user.id },
@@ -44,7 +45,7 @@ export default async function TournamentRosterPage({
       },
     },
   });
-  if (!tournament) notFound();
+  if (!tournament || tournament.mode !== "GACHA") notFound();
 
   const participant = tournament.participants[0];
   if (participant?.status !== "APPROVED") {

@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function CheckInButton({ tournamentId }: { tournamentId: string }) {
+export default function CheckInButton({
+  tournamentId,
+  missingTeam = false,
+}: {
+  tournamentId: string;
+  missingTeam?: boolean;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +47,11 @@ export default function CheckInButton({ tournamentId }: { tournamentId: string }
       >
         {pending ? "Checking in…" : "Check In"}
       </button>
+      {missingTeam && (
+        <p className="mt-3 text-sm text-amber-200" role="status">
+          You have no valid team yet. You can still check in, but submit a team before your match.
+        </p>
+      )}
       {error && (
         <p className="mt-3 text-sm text-red-300" role="alert">
           {error}

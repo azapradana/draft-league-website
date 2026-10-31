@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import GroupBadge, { type GroupInfo } from "@/components/GroupBadge";
+import TeamView from "@/components/TeamView";
+import type { TeamPokemon } from "@/lib/team-types";
 import PokemonArtwork, {
   type PokemonArtworkSpecies,
 } from "@/app/t/[id]/pokemon-artwork";
@@ -17,11 +19,18 @@ export type MatchPlayer = {
       tiers: Array<{ name: string; color: string | null }>;
     }
   >;
+  team?: TeamPokemon[] | null;
 } | null;
 
 export type RosterTab = { key: string; label: string; player: MatchPlayer };
 
-export default function MatchRosterInspector({ tabs }: { tabs: RosterTab[] }) {
+export default function MatchRosterInspector({
+  tabs,
+  regular = false,
+}: {
+  tabs: RosterTab[];
+  regular?: boolean;
+}) {
   const [activeKey, setActiveKey] = useState(tabs[0]?.key);
   const active = tabs.find((tab) => tab.key === activeKey) ?? tabs[0];
   if (!active) {
@@ -61,6 +70,10 @@ export default function MatchRosterInspector({ tabs }: { tabs: RosterTab[] }) {
           <p className="mt-2 text-sm text-[#9FB0E6]">
             This bracket slot is a bye; no roster is available.
           </p>
+        ) : regular ? (
+          <div className="mt-2">
+            <TeamView team={player.team} />
+          </div>
         ) : player.roster.length === 0 ? (
           <p className="mt-2 text-sm text-[#9FB0E6]">No roster has been selected.</p>
         ) : (

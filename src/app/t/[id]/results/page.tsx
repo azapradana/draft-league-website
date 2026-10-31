@@ -17,9 +17,9 @@ export default async function TournamentResultsPage({
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
-    select: { id: true, name: true },
+    select: { id: true, name: true, mode: true },
   });
-  if (!tournament) notFound();
+  if (!tournament || tournament.mode !== "GACHA") notFound();
 
   const participants = await prisma.participant.findMany({
     where: { tournamentId: id, status: "APPROVED" },

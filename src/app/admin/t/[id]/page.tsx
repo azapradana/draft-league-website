@@ -30,6 +30,7 @@ export default async function AdminTournamentSettingsPage({
     }),
   ]);
   if (!tournament) notFound();
+  const isRegular = tournament.mode === "REGULAR";
   const friendlyMatchInviteLink = tournament.friendlyMatchInviteToken
     ? `${process.env.NEXTAUTH_URL?.replace(/\/+$/, "") ?? ""}/signup?invite=${encodeURIComponent(tournament.friendlyMatchInviteToken)}`
     : null;
@@ -101,6 +102,8 @@ export default async function AdminTournamentSettingsPage({
             </div>
             <TournamentFormatFields
               groups={groups}
+              initialMode={tournament.mode}
+              modeLocked
               initialFormat={tournament.format}
               initialMaxParticipants={tournament.maxParticipants ?? ""}
               initialFriendlyMatchGroupId={tournament.friendlyMatchGroupId ?? ""}
@@ -142,37 +145,41 @@ export default async function AdminTournamentSettingsPage({
               </span>
             </label>
 
-            <label className="block">
-              <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
-              <input
-                name="startingCoins"
-                type="number"
-                min={0}
-                defaultValue={tournament.startingCoins}
-                className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies per player</span>
-              <input
-                name="maxCopiesPerPlayer"
-                type="number"
-                min={1}
-                defaultValue={tournament.maxCopiesPerPlayer}
-                className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies league-wide</span>
-              <input
-                name="maxCopiesLeague"
-                type="number"
-                min={0}
-                defaultValue={tournament.maxCopiesLeague ?? ""}
-                placeholder="Leave blank for no limit"
-                className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
-              />
-            </label>
+            {!isRegular && (
+              <>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
+                  <input
+                    name="startingCoins"
+                    type="number"
+                    min={0}
+                    defaultValue={tournament.startingCoins}
+                    className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies per player</span>
+                  <input
+                    name="maxCopiesPerPlayer"
+                    type="number"
+                    min={1}
+                    defaultValue={tournament.maxCopiesPerPlayer}
+                    className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies league-wide</span>
+                  <input
+                    name="maxCopiesLeague"
+                    type="number"
+                    min={0}
+                    defaultValue={tournament.maxCopiesLeague ?? ""}
+                    placeholder="Leave blank for no limit"
+                    className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+                  />
+                </label>
+              </>
+            )}
 
             <label className="flex items-center gap-3">
               <input
@@ -184,13 +191,17 @@ export default async function AdminTournamentSettingsPage({
               <span className="text-sm text-[#9FB0E6]">Open registration</span>
             </label>
             <label className="flex items-center gap-3">
+              <input type="hidden" name="rostersLocked" value="false" />
               <input
                 type="checkbox"
                 name="rostersLocked"
+                value="true"
                 defaultChecked={tournament.rostersLocked}
                 className="h-4 w-4 accent-[#F5C542]"
               />
-              <span className="text-sm text-[#9FB0E6]">Lock roster editing</span>
+              <span className="text-sm text-[#9FB0E6]">
+                {isRegular ? "Lock teams (no more submissions or edits)" : "Lock roster editing"}
+              </span>
             </label>
             <label className="flex items-center gap-3">
               <input type="hidden" name="rostersPublic" value="false" />
@@ -201,7 +212,9 @@ export default async function AdminTournamentSettingsPage({
                 defaultChecked={tournament.rostersPublic}
                 className="h-4 w-4 accent-[#F5C542]"
               />
-              <span className="text-sm text-[#9FB0E6]">Show rosters to participants</span>
+              <span className="text-sm text-[#9FB0E6]">
+                {isRegular ? "Teams open (visible to participants, without EVs)" : "Show rosters to participants"}
+              </span>
             </label>
             <label className="flex items-center gap-3">
               <input type="hidden" name="checkInOpen" value="false" />
@@ -225,6 +238,7 @@ export default async function AdminTournamentSettingsPage({
           </form>
         </section>
 
+        {!isRegular && (
         <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
           <h2 className="text-xl font-semibold">Tournament coin prizes</h2>
           <p className="mt-2 text-sm text-[#9FB0E6]">
@@ -240,6 +254,7 @@ export default async function AdminTournamentSettingsPage({
             disabled={tournament.completed}
           />
         </section>
+        )}
 
         <section className="mt-6 flex flex-col gap-4 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7">
           <div>

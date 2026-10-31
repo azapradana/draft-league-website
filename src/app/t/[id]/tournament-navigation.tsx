@@ -10,6 +10,7 @@ type TournamentNavigationProps = {
   tournamentId: string;
   tournamentName: string;
   swissFormat: boolean;
+  regular: boolean;
   active: boolean;
   completed: boolean;
   email?: string | null;
@@ -42,23 +43,29 @@ function TournamentStatus({
 function NavigationLinks({
   tournamentId,
   swissFormat,
+  regular,
   pathname,
   onNavigate,
 }: {
   tournamentId: string;
   swissFormat: boolean;
+  regular: boolean;
   pathname: string;
   onNavigate?: () => void;
 }) {
   const basePath = `/t/${tournamentId}`;
   const navigation = [
     { label: "Overview", href: basePath },
-    { label: "Shop", href: `${basePath}/shop` },
-    { label: "My Roster", href: `${basePath}/roster` },
+    ...(regular
+      ? [{ label: "My Team", href: `${basePath}/team` }]
+      : [
+          { label: "Shop", href: `${basePath}/shop` },
+          { label: "My Roster", href: `${basePath}/roster` },
+        ]),
     ...(swissFormat
       ? [{ label: "Swiss Standings", href: `${basePath}/standings` }]
       : []),
-    { label: "Results", href: `${basePath}/results` },
+    ...(regular ? [] : [{ label: "Results", href: `${basePath}/results` }]),
     { label: "Matches / Bracket", href: `${basePath}#bracket` },
   ];
 
@@ -103,6 +110,7 @@ export default function TournamentNavigation({
   tournamentId,
   tournamentName,
   swissFormat,
+  regular,
   active,
   completed,
   email,
@@ -158,17 +166,20 @@ export default function TournamentNavigation({
           </div>
         </div>
 
-        <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
-            Tournament balance
-          </p>
-          <div className="mt-1 text-lg font-bold text-[#F5C542]">
-            <CoinBalanceDisplay />
+        {!regular && (
+          <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
+              Tournament balance
+            </p>
+            <div className="mt-1 text-lg font-bold text-[#F5C542]">
+              <CoinBalanceDisplay />
+            </div>
           </div>
-        </div>
+        )}
 
         <NavigationLinks
           tournamentId={tournamentId}
+          regular={regular}
           swissFormat={swissFormat}
           pathname={pathname}
         />
@@ -223,17 +234,20 @@ export default function TournamentNavigation({
             </button>
           </div>
 
-          <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
-              Tournament balance
-            </p>
-            <div className="mt-1 text-lg font-bold text-[#F5C542]">
-              <CoinBalanceDisplay />
+          {!regular && (
+            <div className="mx-3 my-6 rounded-xl border border-[#F5C542]/40 bg-[#070D24]/60 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#9FB0E6]">
+                Tournament balance
+              </p>
+              <div className="mt-1 text-lg font-bold text-[#F5C542]">
+                <CoinBalanceDisplay />
+              </div>
             </div>
-          </div>
+          )}
 
           <NavigationLinks
             tournamentId={tournamentId}
+            regular={regular}
             swissFormat={swissFormat}
             pathname={pathname}
             onNavigate={() => setMenuOpen(false)}

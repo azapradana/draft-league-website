@@ -104,7 +104,7 @@ export default async function AdminPage() {
                 <div className="md:col-span-2">
                   <ImageUpload name="cardBackImage" label="Card back image" />
                 </div>
-                <TournamentFormatFields groups={groups} />
+                <TournamentFormatFields groups={groups} includeGachaFields />
                 <label className="flex items-center gap-3 md:col-span-2">
                   <input type="hidden" name="autoApproveSignups" value="false" />
                   <input
@@ -117,18 +117,6 @@ export default async function AdminPage() {
                   <span className="text-sm text-[#9FB0E6]">
                     Automate player sign-ups (Instant approval with no manual review required)
                   </span>
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm text-[#9FB0E6]">Starting coins</span>
-                  <input name="startingCoins" type="number" min={0} defaultValue={500} className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]" />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies per player</span>
-                  <input name="maxCopiesPerPlayer" type="number" min={1} defaultValue={3} className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]" />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm text-[#9FB0E6]">Max copies league-wide</span>
-                  <input name="maxCopiesLeague" type="number" min={0} placeholder="Leave blank for no limit" className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]" />
                 </label>
                 <div className="md:col-span-2">
                   <button type="submit" className="rounded-lg bg-[#F5C542] px-5 py-3 font-bold text-[#070D24] hover:bg-[#D9A21B]">
@@ -192,9 +180,9 @@ export default async function AdminPage() {
                         </th>
                         <td className="px-5 py-4 text-[#C2CCF2]">
                           {tournament.format === "FRIENDLY_MATCH"
-                            ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize}`
+                            ? `Friendly Match Ã‚Â· ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize}`
                             : tournament.format === "SWISS"
-                            ? `Swiss · ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` · Top ${tournament.topCut}` : ""}`
+                            ? `Swiss Ã‚Â· ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` Ã‚Â· Top ${tournament.topCut}` : ""}`
                             : "Single Elimination"}
                         </td>
                         <td className="px-5 py-4">

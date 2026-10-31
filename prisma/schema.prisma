@@ -31,6 +31,11 @@ enum TournamentFormat {
   SWISS
 }
 
+enum TournamentMode {
+  GACHA
+  REGULAR
+}
+
 enum TournamentStage {
   FRIENDLY_MATCH
   SINGLE_ELIMINATION
@@ -215,6 +220,7 @@ model Tournament {
   id                       String                  @id @default(cuid())
   name                     String
   description              String                  @default("")
+  mode                     TournamentMode          @default(GACHA)
   format                   TournamentFormat        @default(FRIENDLY_MATCH)
   topCut                   Int                     @default(0)
   currentStage             TournamentStage         @default(FRIENDLY_MATCH)
@@ -262,6 +268,7 @@ model Participant {
   purchases                 Purchase[]
   ownedPokemon              OwnedPokemon[]
   roster                    Roster?
+  team                      Team?
   player1Matches            Match[]                 @relation("MatchPlayer1")
   player2Matches            Match[]                 @relation("MatchPlayer2")
   wonMatches                Match[]                 @relation("MatchWinner")
@@ -426,6 +433,15 @@ model OwnedPokemon {
 
   @@index([participantId, speciesDex])
   @@index([purchaseId])
+}
+
+model Team {
+  id            String      @id @default(cuid())
+  participantId String      @unique
+  rawPaste      String      @db.Text
+  parsed        Json
+  updatedAt     DateTime    @updatedAt
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 }
 
 model Roster {
