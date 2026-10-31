@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Fragment } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -901,11 +900,13 @@ export default async function TournamentOverview({
                   <th scope="col" className="px-3 py-3 font-semibold">
                     {tournament.format === "FRIENDLY_MATCH" ? "Group / lineup" : "Check-in"}
                   </th>
-                  {!isRegular && (
-                    <th scope="col" className="px-3 py-3 font-semibold">
-                      {tournament.rostersLocked ? "Locked roster" : "Current roster"}
-                    </th>
-                  )}
+                  <th scope="col" className="px-3 py-3 font-semibold">
+                    {isRegular
+                      ? "Team"
+                      : tournament.rostersLocked
+                        ? "Locked roster"
+                        : "Current roster"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -927,8 +928,7 @@ export default async function TournamentOverview({
                     : null;
 
                   return (
-                    <Fragment key={participant.id}>
-                    <tr className={`align-top ${isRegular ? "" : "border-b border-[#243775]/70 last:border-0"}`}>
+                    <tr key={participant.id} className="border-b border-[#243775]/70 align-middle last:border-0">
                       {tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" && (
                         <td className="px-3 py-4 font-bold text-[#F5C542]">
                           {rank}
@@ -978,41 +978,9 @@ export default async function TournamentOverview({
                           </span>
                         )}
                       </td>
-                      {!isRegular && (
                       <td className="px-3 py-4">
-                        {roster === null ? (
-                          <span className="text-[#9FB0E6]">Private</span>
-                        ) : roster.length === 0 ? (
-                          <span className="text-[#9FB0E6]">No roster saved</span>
-                        ) : (
-                          <ul className="flex flex-wrap gap-2">
-                            {roster.map((speciesDex) => {
-                              const entry = speciesByDex.get(speciesDex);
-                              if (!entry) return null;
-
-                              return (
-                                <li
-                                  key={speciesDex}
-                                  className="flex items-center gap-1.5 rounded-lg border border-[#243775] bg-[#070D24] px-2 py-1"
-                                  title={`${entry.name} #${entry.dex}${entry.isMega ? " · Mega" : ""}`}
-                                >
-                                  <PokemonArtwork species={entry} className="h-8 w-8" />
-                                  <span className="text-sm">{entry.name}</span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </td>
-                      )}
-                    </tr>
-                    {isRegular && (
-                      <tr className="border-b border-[#243775]/70 last:border-0">
-                        <td
-                          colSpan={tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" ? 4 : 3}
-                          className="px-3 pb-4"
-                        >
-                          {(() => {
+                        {isRegular ? (
+                          (() => {
                             const isOwnTeam = participant.userId === session.user.id;
                             if (!isAdminViewer && !isOwnTeam && !tournament.rostersPublic) {
                               return <span className="text-[#9FB0E6]">Private</span>;
@@ -1040,11 +1008,32 @@ export default async function TournamentOverview({
                                 ))}
                               </ul>
                             );
-                          })()}
-                        </td>
-                      </tr>
-                    )}
-                    </Fragment>
+                          })()
+                        ) : roster === null ? (
+                          <span className="text-[#9FB0E6]">Private</span>
+                        ) : roster.length === 0 ? (
+                          <span className="text-[#9FB0E6]">No roster saved</span>
+                        ) : (
+                          <ul className="flex flex-wrap gap-2">
+                            {roster.map((speciesDex) => {
+                              const entry = speciesByDex.get(speciesDex);
+                              if (!entry) return null;
+
+                              return (
+                                <li
+                                  key={speciesDex}
+                                  className="flex items-center gap-1.5 rounded-lg border border-[#243775] bg-[#070D24] px-2 py-1"
+                                  title={`${entry.name} #${entry.dex}${entry.isMega ? " · Mega" : ""}`}
+                                >
+                                  <PokemonArtwork species={entry} className="h-8 w-8" />
+                                  <span className="text-sm">{entry.name}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
