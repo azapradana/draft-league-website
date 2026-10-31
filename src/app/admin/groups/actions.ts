@@ -133,6 +133,25 @@ export async function assignUserToGroup(formData: FormData): Promise<GroupAction
   return done("Group assignment updated.");
 }
 
+export async function addUserToGroupByUsername(
+  formData: FormData,
+): Promise<GroupActionResult> {
+  const auth = await requireAdmin();
+  if ("error" in auth) return auth;
+  const username = text(formData, "username");
+  const groupId = text(formData, "groupId");
+  if (!username) return { error: "Enter a username." };
+  const group = await prisma.group.findUnique({ where: { id: groupId }, select: { id: true } });
+  if (!group) return { error: "Group not found." };
+  const user = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!user) return { error: "No user with that username." };
+  await prisma.user.update({ where: { id: user.id }, data: { groupId } });
+  return done("Member added.");
+}
+
 export async function generateInvitation(formData: FormData): Promise<GroupActionResult> {
   const auth = await requireAdmin();
   if ("error" in auth) return auth;

@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { headers } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { ensureCoreGroup } from "@/lib/groups";
 import { prisma } from "@/lib/prisma";
 import { ImageUpload } from "@/components/ImageUpload";
+import { AdminDialog } from "../admin-dialog";
 import { ActionForm } from "./action-form";
+import { GroupSelect } from "./group-select";
 import {
+  addUserToGroupByUsername,
   assignUserToGroup,
   createGroup,
   deleteGroup,
@@ -17,25 +21,99 @@ const inputClass =
   "w-full rounded-lg border border-[#243775] bg-[#070D24] px-3 py-2 text-sm text-[#EEF2FF] outline-none focus:border-[#F5C542]";
 const buttonClass =
   "rounded-lg border border-[#243775] px-3 py-2 text-sm font-semibold transition hover:border-[#F5C542] disabled:opacity-50";
-const cardClass = "rounded-2xl border border-[#243775] bg-[#0B1535] p-5";
+const labelClass = "mb-2 block text-sm font-semibold text-[#B9C5E8]";
 
-const USER_PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
+const MEMBER_LIST_LIMIT = 200;
+
+type SearchParams = { q?: string; g?: string; p?: string };
+
+function pageHref(params: { q: string; g: string }, page: number) {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.g) search.set("g", params.g);
+  if (page > 1) search.set("p", String(page));
+  const qs = search.toString();
+  return qs ? `/admin/groups?${qs}` : "/admin/groups";
+}
+
+function GroupAvatar({ url, name }: { url: string | null; name: string }) {
+  return url ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={url} alt={`${name} logo`} className="h-10 w-10 rounded-lg object-cover" />
+  ) : (
+    <div
+      aria-hidden
+      className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#243775] text-xs font-bold text-[#9FB0E6]"
+    >
+      {name.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function GroupEditForm({ group }: { group: { id: string; name: string; logoUrl: string | null } }) {
+  return (
+    <ActionForm action={updateGroup} className="grid gap-4 md:grid-cols-2">
+      <input type="hidden" name="groupId" value={group.id} />
+      <label className="block">
+        <span className={labelClass}>Name</span>
+        <input
+          name="name"
+          defaultValue={group.name}
+          required
+          minLength={2}
+          maxLength={50}
+          className={inputClass}
+        />
+      </label>
+      <label className="block">
+        <span className={labelClass}>Replace logo with link</span>
+        <input name="logoUrl" type="url" placeholder="https://" className={inputClass} />
+      </label>
+      <div className="md:col-span-2">
+        <ImageUpload
+          name="logoUpload"
+          label="Or upload a new logo"
+          initialUrl={group.logoUrl}
+        />
+      </div>
+      <div>
+        <button type="submit" className={buttonClass}>Save changes</button>
+      </div>
+    </ActionForm>
+  );
+}
 
 export default async function AdminGroupsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { q } = await searchParams;
-  const query = (q ?? "").trim().slice(0, 100);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().slice(0, 100);
+  const g = (sp.g ?? "").slice(0, 100);
+  const requestedPage = Math.max(1, Math.floor(Number(sp.p)) || 1);
 
-  await ensureCoreGroup();
+  const core = await ensureCoreGroup();
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const proto = headerList.get("x-forwarded-proto") ?? "https";
   const origin = host ? `${proto}://${host}` : "";
 
-  const [groups, users] = await Promise.all([
+  const userWhere: Prisma.UserWhereInput = {
+    ...(q
+      ? {
+          OR: [
+            { username: { contains: q, mode: "insensitive" } },
+            { name: { contains: q, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(g === "none" ? { groupId: null } : g ? { groupId: g } : {}),
+  };
+
+  const [groups, coreMembers, totalUsers] = await Promise.all([
     prisma.group.findMany({
       orderBy: [{ isCore: "desc" }, { name: "asc" }],
       include: {
@@ -48,21 +126,27 @@ export default async function AdminGroupsPage({
       },
     }),
     prisma.user.findMany({
-      where: query
-        ? {
-            OR: [
-              { username: { contains: query, mode: "insensitive" } },
-              { name: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-            ],
-          }
-        : undefined,
-      orderBy: [{ username: "asc" }, { id: "asc" }],
-      take: USER_PAGE_SIZE,
-      select: { id: true, username: true, name: true, groupId: true },
+      where: { groupId: core.id },
+      orderBy: { username: "asc" },
+      take: MEMBER_LIST_LIMIT,
+      select: { id: true, username: true, name: true },
     }),
+    prisma.user.count({ where: userWhere }),
   ]);
 
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const page = Math.min(requestedPage, totalPages);
+  const users = await prisma.user.findMany({
+    where: userWhere,
+    orderBy: [{ username: "asc" }, { id: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+    select: { id: true, username: true, name: true, email: true, groupId: true },
+  });
+
+  const coreGroup = groups.find((group) => group.isCore);
+  const rivals = groups.filter((group) => !group.isCore);
+  const groupOptions = groups.map((group) => ({ id: group.id, name: group.name }));
   const now = Date.now();
 
   return (
@@ -77,185 +161,241 @@ export default async function AdminGroupsPage({
               Group management
             </h1>
           </div>
-          <Link
-            href="/admin"
-            className="rounded-lg border border-[#243775] px-4 py-2 text-sm font-semibold transition hover:border-[#F5C542]"
-          >
-            Back to admin
-          </Link>
-        </div>
-
-        <section className={cardClass}>
-          <h2 className="mb-4 text-lg font-bold">Create rival group</h2>
-          <ActionForm action={createGroup} resetOnSuccess className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">Group name</span>
-              <input name="name" required minLength={2} maxLength={50} className={inputClass} />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">
-                Logo link (optional)
-              </span>
-              <input name="logoUrl" type="url" placeholder="https://" className={inputClass} />
-            </label>
-            <div className="md:col-span-2">
-              <ImageUpload name="logoUpload" label="Or upload a logo" />
-            </div>
-            <div>
-              <button type="submit" className={buttonClass}>Create group</button>
-            </div>
-          </ActionForm>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold">Groups</h2>
-          {groups.map((group) => (
-            <div key={group.id} className={cardClass}>
-              <div className="mb-4 flex items-center gap-3">
-                {group.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={group.logoUrl} alt="" className="h-12 w-12 rounded-lg object-cover" />
-                ) : (
-                  <div className="h-12 w-12 rounded-lg border border-[#243775]" />
-                )}
-                <div>
-                  <p className="font-bold">
-                    {group.name}
-                    {group.isCore && (
-                      <span className="ml-2 rounded bg-[#F5C542] px-2 py-0.5 text-xs font-bold text-[#070D24]">
-                        CORE
-                      </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin"
+              className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold transition hover:border-[#F5C542]"
+            >
+              Back to admin
+            </Link>
+            {coreGroup && (
+              <AdminDialog buttonLabel="7DS setting" title="7DS setting" variant="secondary">
+                <div className="space-y-6">
+                  <GroupEditForm group={coreGroup} />
+                  <div className="space-y-3 border-t border-[#243775] pt-5">
+                    <h3 className="text-sm font-bold text-[#B9C5E8]">
+                      Members ({coreGroup._count.members})
+                    </h3>
+                    <ActionForm
+                      action={addUserToGroupByUsername}
+                      resetOnSuccess
+                      className="flex flex-wrap items-end gap-3"
+                    >
+                      <input type="hidden" name="groupId" value={coreGroup.id} />
+                      <label className="block flex-1">
+                        <span className="mb-1 block text-xs text-[#9FB0E6]">Add member by username</span>
+                        <input name="username" required className={inputClass} />
+                      </label>
+                      <button type="submit" className={buttonClass}>Add</button>
+                    </ActionForm>
+                    <ul className="max-h-72 divide-y divide-[#243775] overflow-y-auto rounded-lg border border-[#243775]">
+                      {coreMembers.map((member) => (
+                        <li key={member.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                          <span className="text-sm">{member.username ?? member.name ?? member.id}</span>
+                          <ActionForm action={assignUserToGroup} className="flex items-center gap-2">
+                            <input type="hidden" name="userId" value={member.id} />
+                            <input type="hidden" name="groupId" value="" />
+                            <button type="submit" className="text-xs font-semibold text-red-300 hover:underline">
+                              Remove
+                            </button>
+                          </ActionForm>
+                        </li>
+                      ))}
+                      {coreMembers.length === 0 && (
+                        <li className="px-3 py-3 text-sm text-[#9FB0E6]">No members yet.</li>
+                      )}
+                    </ul>
+                    {coreGroup._count.members > MEMBER_LIST_LIMIT && (
+                      <p className="text-xs text-[#9FB0E6]">
+                        Showing the first {MEMBER_LIST_LIMIT} members. Use the user table below for the rest.
+                      </p>
                     )}
-                  </p>
-                  <p className="text-xs text-[#9FB0E6]">{group._count.members} members</p>
+                  </div>
                 </div>
-              </div>
-
-              <ActionForm action={updateGroup} className="grid gap-4 md:grid-cols-2">
-                <input type="hidden" name="groupId" value={group.id} />
+              </AdminDialog>
+            )}
+            <AdminDialog buttonLabel="Create rival group" title="Create rival group">
+              <ActionForm
+                action={createGroup}
+                resetOnSuccess
+                closeOnSuccess
+                className="grid gap-4 md:grid-cols-2"
+              >
                 <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">Name</span>
-                  <input
-                    name="name"
-                    defaultValue={group.name}
-                    required
-                    minLength={2}
-                    maxLength={50}
-                    className={inputClass}
-                  />
+                  <span className={labelClass}>Group name</span>
+                  <input name="name" required minLength={2} maxLength={50} className={inputClass} />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-semibold text-[#B9C5E8]">
-                    Replace logo with link
-                  </span>
+                  <span className={labelClass}>Logo link (optional)</span>
                   <input name="logoUrl" type="url" placeholder="https://" className={inputClass} />
                 </label>
                 <div className="md:col-span-2">
-                  <ImageUpload name="logoUpload" label="Or upload a new logo" />
+                  <ImageUpload name="logoUpload" label="Or upload a logo" />
                 </div>
                 <div>
-                  <button type="submit" className={buttonClass}>Save</button>
+                  <button type="submit" className={buttonClass}>Create group</button>
                 </div>
               </ActionForm>
+            </AdminDialog>
+          </div>
+        </div>
 
-              {!group.isCore && (
-                <div className="mt-5 space-y-3 border-t border-[#243775] pt-4">
-                  <h3 className="text-sm font-bold text-[#B9C5E8]">Invitation links</h3>
-                  <ActionForm
-                    action={generateInvitation}
-                    className="flex flex-wrap items-end gap-3"
-                  >
-                    <input type="hidden" name="groupId" value={group.id} />
-                    <label className="block">
-                      <span className="mb-1 block text-xs text-[#9FB0E6]">Max uses</span>
-                      <input name="maxUses" type="number" min={1} max={1000} className={`${inputClass} w-28`} />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-xs text-[#9FB0E6]">Expires (days)</span>
-                      <input name="expiresInDays" type="number" min={1} max={365} className={`${inputClass} w-28`} />
-                    </label>
-                    <button type="submit" className={buttonClass}>Generate link</button>
-                  </ActionForm>
-                  <ul className="space-y-2">
-                    {group.invitations.map((invitation) => {
-                      const expired = invitation.expiresAt !== null && invitation.expiresAt.getTime() < now;
-                      const exhausted =
-                        invitation.maxUses !== null && invitation.useCount >= invitation.maxUses;
-                      return (
-                        <li key={invitation.id} className="flex flex-wrap items-center gap-2">
-                          <input
-                            readOnly
-                            aria-label="Invitation link"
-                            value={`${origin}/signup?invite=${invitation.token}`}
-                            className={`${inputClass} flex-1 text-xs`}
-                          />
-                          <span className="text-xs text-[#9FB0E6]">
-                            {invitation.useCount}
-                            {invitation.maxUses !== null ? `/${invitation.maxUses}` : ""} used
-                            {expired ? " · expired" : ""}
-                            {exhausted ? " · full" : ""}
-                          </span>
-                          <ActionForm action={revokeInvitation} className="flex items-center gap-2">
-                            <input type="hidden" name="invitationId" value={invitation.id} />
-                            <button type="submit" className={buttonClass}>Revoke</button>
-                          </ActionForm>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <ActionForm
-                    action={deleteGroup}
-                    confirmMessage={`Delete ${group.name}? Members will be unassigned.`}
-                    className="pt-2"
-                  >
-                    <input type="hidden" name="groupId" value={group.id} />
-                    <button type="submit" className={`${buttonClass} text-red-300`}>
-                      Delete group
-                    </button>
-                  </ActionForm>
-                </div>
-              )}
-            </div>
-          ))}
+        <section aria-labelledby="rivals-heading" className="space-y-3">
+          <h2 id="rivals-heading" className="text-lg font-bold">Rival groups</h2>
+          {rivals.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-[#243775] p-6 text-sm text-[#9FB0E6]">
+              No rival groups yet. Use “Create rival group” to add one.
+            </p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {rivals.map((group) => (
+                <li
+                  key={group.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[#243775] bg-[#0B1535] p-4"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <GroupAvatar url={group.logoUrl} name={group.name} />
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">{group.name}</p>
+                      <p className="text-xs text-[#9FB0E6]">{group._count.members} members</p>
+                    </div>
+                  </div>
+                  <AdminDialog buttonLabel="Manage" title={`Manage ${group.name}`} variant="secondary">
+                    <div className="space-y-6">
+                      <GroupEditForm group={group} />
+                      <div className="space-y-3 border-t border-[#243775] pt-5">
+                        <h3 className="text-sm font-bold text-[#B9C5E8]">Invitation links</h3>
+                        <ActionForm action={generateInvitation} className="flex flex-wrap items-end gap-3">
+                          <input type="hidden" name="groupId" value={group.id} />
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-[#9FB0E6]">Max uses</span>
+                            <input name="maxUses" type="number" min={1} max={1000} className={`${inputClass} w-28`} />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs text-[#9FB0E6]">Expires (days)</span>
+                            <input name="expiresInDays" type="number" min={1} max={365} className={`${inputClass} w-28`} />
+                          </label>
+                          <button type="submit" className={buttonClass}>Generate link</button>
+                        </ActionForm>
+                        <ul className="space-y-2">
+                          {group.invitations.map((invitation) => {
+                            const expired =
+                              invitation.expiresAt !== null && invitation.expiresAt.getTime() < now;
+                            const full =
+                              invitation.maxUses !== null && invitation.useCount >= invitation.maxUses;
+                            return (
+                              <li key={invitation.id} className="flex flex-wrap items-center gap-2">
+                                <input
+                                  readOnly
+                                  aria-label="Invitation link"
+                                  value={`${origin}/signup?invite=${invitation.token}`}
+                                  className={`${inputClass} flex-1 text-xs`}
+                                />
+                                <span className="text-xs text-[#9FB0E6]">
+                                  {invitation.useCount}
+                                  {invitation.maxUses !== null ? `/${invitation.maxUses}` : ""} used
+                                  {expired ? " · expired" : ""}
+                                  {full ? " · full" : ""}
+                                </span>
+                                <ActionForm action={revokeInvitation} className="flex items-center gap-2">
+                                  <input type="hidden" name="invitationId" value={invitation.id} />
+                                  <button type="submit" className={buttonClass}>Revoke</button>
+                                </ActionForm>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                      <div className="border-t border-[#243775] pt-5">
+                        <ActionForm
+                          action={deleteGroup}
+                          closeOnSuccess
+                          confirmMessage={`Delete ${group.name}? Members will be unassigned.`}
+                        >
+                          <input type="hidden" name="groupId" value={group.id} />
+                          <button type="submit" className={`${buttonClass} text-red-300`}>
+                            Delete group
+                          </button>
+                        </ActionForm>
+                      </div>
+                    </div>
+                  </AdminDialog>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
-        <section className={cardClass}>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold">Assign users</h2>
-            <form className="flex gap-2">
+        <section aria-labelledby="users-heading" className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="users-heading" className="text-lg font-bold">
+              Users <span className="text-sm font-normal text-[#9FB0E6]">({totalUsers})</span>
+            </h2>
+            <form className="flex flex-wrap gap-2">
               <input
                 name="q"
-                defaultValue={query}
+                defaultValue={q}
                 placeholder="Search username, name, email"
+                aria-label="Search users"
                 className={`${inputClass} w-64`}
               />
-              <button type="submit" className={buttonClass}>Search</button>
+              <select name="g" defaultValue={g} aria-label="Filter by group" className={`${inputClass} w-44`}>
+                <option value="">All groups</option>
+                <option value="none">No group</option>
+                {groupOptions.map((group) => (
+                  <option key={group.id} value={group.id}>{group.name}</option>
+                ))}
+              </select>
+              <button type="submit" className={buttonClass}>Apply</button>
             </form>
           </div>
-          <ul className="divide-y divide-[#243775]">
-            {users.map((user) => (
-              <li key={user.id} className="py-2">
-                <ActionForm action={assignUserToGroup} className="flex flex-wrap items-center gap-3">
-                  <input type="hidden" name="userId" value={user.id} />
-                  <span className="min-w-40 flex-1 text-sm font-semibold">
-                    {user.username ?? user.name ?? user.id}
-                  </span>
-                  <select name="groupId" defaultValue={user.groupId ?? ""} className={`${inputClass} w-48`}>
-                    <option value="">No group</option>
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>{group.name}</option>
-                    ))}
-                  </select>
-                  <button type="submit" className={buttonClass}>Assign</button>
-                </ActionForm>
-              </li>
-            ))}
-            {users.length === 0 && <li className="py-2 text-sm text-[#9FB0E6]">No users found.</li>}
-          </ul>
-          {users.length === USER_PAGE_SIZE && (
-            <p className="mt-3 text-xs text-[#9FB0E6]">
-              Showing the first {USER_PAGE_SIZE} users. Use search to narrow the list.
-            </p>
+
+          <div className="overflow-x-auto rounded-xl border border-[#243775] bg-[#0B1535]">
+            <table className="w-full min-w-[34rem] text-left text-sm">
+              <thead className="border-b border-[#243775] text-xs uppercase tracking-wider text-[#9FB0E6]">
+                <tr>
+                  <th scope="col" className="px-4 py-3 font-semibold">User</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Email</th>
+                  <th scope="col" className="px-4 py-3 font-semibold">Group</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#243775]">
+                {users.map((user) => (
+                  <tr key={user.id} className="hover:bg-[#101C45]">
+                    <td className="px-4 py-2 font-semibold">
+                      {user.username ?? user.name ?? user.id}
+                    </td>
+                    <td className="px-4 py-2 text-[#9FB0E6]">{user.email ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      <GroupSelect userId={user.id} value={user.groupId} groups={groupOptions} />
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-6 text-center text-[#9FB0E6]">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <nav aria-label="Pagination" className="flex items-center justify-between text-sm">
+              {page > 1 ? (
+                <Link href={pageHref({ q, g }, page - 1)} className={buttonClass}>Previous</Link>
+              ) : (
+                <span />
+              )}
+              <span className="text-[#9FB0E6]">Page {page} of {totalPages}</span>
+              {page < totalPages ? (
+                <Link href={pageHref({ q, g }, page + 1)} className={buttonClass}>Next</Link>
+              ) : (
+                <span />
+              )}
+            </nav>
           )}
         </section>
       </div>

@@ -161,6 +161,7 @@ function SidebarContents({
               {[
                 { label: "Admin dashboard", href: "/admin" },
                 { label: "Global packs", href: "/admin/packs" },
+                { label: "Groups", href: "/admin/groups" },
                 { label: "Site branding", href: "/admin/settings" },
               ].map(({ label, href }) => {
                 const isActive =

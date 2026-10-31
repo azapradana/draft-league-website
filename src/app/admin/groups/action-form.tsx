@@ -9,6 +9,7 @@ type Props = {
   children: ReactNode;
   className?: string;
   resetOnSuccess?: boolean;
+  closeOnSuccess?: boolean;
   confirmMessage?: string;
 };
 
@@ -17,6 +18,7 @@ export function ActionForm({
   children,
   className,
   resetOnSuccess = false,
+  closeOnSuccess = false,
   confirmMessage,
 }: Props) {
   const router = useRouter();
@@ -44,6 +46,7 @@ export function ActionForm({
         setLink(`${window.location.origin}/signup?invite=${result.token}`);
       }
       if (resetOnSuccess) form.reset();
+      if (closeOnSuccess) form.closest("dialog")?.close();
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
