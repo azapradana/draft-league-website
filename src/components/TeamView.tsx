@@ -25,23 +25,35 @@ export default function TeamView({
   team,
   artworkBySpecies,
   emptyMessage = "No team submitted yet",
+  horizontal = false,
 }: {
   team: AnyPokemon[] | null | undefined;
   artworkBySpecies: TeamArtworkBySpecies;
   emptyMessage?: string;
+  horizontal?: boolean;
 }) {
   if (!team || team.length === 0) {
     return <p className="text-sm text-[#9FB0E6]">{emptyMessage}</p>;
   }
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <ul
+      className={
+        horizontal
+          ? "grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6"
+          : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      }
+    >
       {team.map((pokemon, index) => {
         const evs = formatEvs(pokemon.evs);
         return (
           <li
             key={`${pokemon.species}-${index}`}
-            className="flex items-start gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
+            className={
+              horizontal
+                ? "flex flex-col items-center gap-2 rounded-xl border border-[#243775] bg-[#070D24] p-2 text-xs"
+                : "flex items-start gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
+            }
           >
             <PokemonArtwork
               species={artworkBySpecies[pokemon.species] ?? {
@@ -50,9 +62,9 @@ export default function TeamView({
                 isMega: true,
                 imageUrl: null,
               }}
-              className="h-16 w-16 sm:h-20 sm:w-20"
+              className={horizontal ? "h-16 w-16" : "h-16 w-16 sm:h-20 sm:w-20"}
             />
-            <div className="min-w-0 flex-1">
+            <div className={horizontal ? "w-full min-w-0 text-center" : "min-w-0 flex-1"}>
               <p className="break-words font-bold text-[#EEF2FF]">
                 {pokemon.species}
                 {pokemon.item ? (
@@ -62,7 +74,13 @@ export default function TeamView({
               <p className="mt-1 text-[#9FB0E6]">
                 {pokemon.ability || "No ability"} · {pokemon.nature || "Hardy"}
               </p>
-              <ul className="mt-2 list-disc pl-5 text-[#EEF2FF]">
+              <ul
+                className={
+                  horizontal
+                    ? "mt-2 space-y-0.5 text-[#EEF2FF]"
+                    : "mt-2 list-disc pl-5 text-[#EEF2FF]"
+                }
+              >
                 {pokemon.moves.map((move) => (
                   <li key={move}>{move}</li>
                 ))}

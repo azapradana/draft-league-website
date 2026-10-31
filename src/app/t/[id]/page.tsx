@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -901,13 +902,11 @@ export default async function TournamentOverview({
                   <th scope="col" className="px-3 py-3 font-semibold">
                     {tournament.format === "FRIENDLY_MATCH" ? "Group / lineup" : "Check-in"}
                   </th>
-                  <th scope="col" className="px-3 py-3 font-semibold">
-                    {isRegular
-                      ? "Team"
-                      : tournament.rostersLocked
-                        ? "Locked roster"
-                        : "Current roster"}
-                  </th>
+                  {!isRegular && (
+                    <th scope="col" className="px-3 py-3 font-semibold">
+                      {tournament.rostersLocked ? "Locked roster" : "Current roster"}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -929,7 +928,8 @@ export default async function TournamentOverview({
                     : null;
 
                   return (
-                    <tr key={participant.id} className="border-b border-[#243775]/70 align-top last:border-0">
+                    <Fragment key={participant.id}>
+                    <tr className={`align-top ${isRegular ? "" : "border-b border-[#243775]/70 last:border-0"}`}>
                       {tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" && (
                         <td className="px-3 py-4 font-bold text-[#F5C542]">
                           {rank}
@@ -979,22 +979,9 @@ export default async function TournamentOverview({
                           </span>
                         )}
                       </td>
+                      {!isRegular && (
                       <td className="px-3 py-4">
-                        {isRegular ? (
-                          (() => {
-                            const isOwnTeam = participant.userId === session.user.id;
-                            if (!isAdminViewer && !isOwnTeam && !tournament.rostersPublic) {
-                              return <span className="text-[#9FB0E6]">Private</span>;
-                            }
-                            const parsed = "team" in participant ? participant.team?.parsed : null;
-                            return (
-                              <TeamView
-                                team={parsed ? serializeTeam(parsed, isAdminViewer || isOwnTeam) : null}
-                                artworkBySpecies={teamArtworkByParticipant.get(participant.id) ?? {}}
-                              />
-                            );
-                          })()
-                        ) : roster === null ? (
+                        {roster === null ? (
                           <span className="text-[#9FB0E6]">Private</span>
                         ) : roster.length === 0 ? (
                           <span className="text-[#9FB0E6]">No roster saved</span>
@@ -1018,7 +1005,32 @@ export default async function TournamentOverview({
                           </ul>
                         )}
                       </td>
+                      )}
                     </tr>
+                    {isRegular && (
+                      <tr className="border-b border-[#243775]/70 last:border-0">
+                        <td
+                          colSpan={tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" ? 4 : 3}
+                          className="px-3 pb-4"
+                        >
+                          {(() => {
+                            const isOwnTeam = participant.userId === session.user.id;
+                            if (!isAdminViewer && !isOwnTeam && !tournament.rostersPublic) {
+                              return <span className="text-[#9FB0E6]">Private</span>;
+                            }
+                            const parsed = "team" in participant ? participant.team?.parsed : null;
+                            return (
+                              <TeamView
+                                horizontal
+                                team={parsed ? serializeTeam(parsed, isAdminViewer || isOwnTeam) : null}
+                                artworkBySpecies={teamArtworkByParticipant.get(participant.id) ?? {}}
+                              />
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
