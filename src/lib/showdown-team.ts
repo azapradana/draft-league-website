@@ -1,4 +1,4 @@
-import { TeamValidator, Teams } from "@pkmn/sim";
+import { Teams } from "@pkmn/sim";
 import {
   MAX_TEAM_PASTE_LENGTH,
   TEAM_SIZE,
@@ -8,25 +8,8 @@ import {
 } from "@/lib/team-types";
 
 const MAX_LEVEL = 50;
-const KEPT_BANS = new Set(["-unreleased", "-tag:unobtainable", "-nonexistent"]);
-
-let cachedValidator: TeamValidator | null = null;
-
-// National Dex doubles keeps the Mega Evolution data and learnset/ability/item/EV
-// legality checks. Metagame bans and clauses are removed because the M-C species
-// table is the only roster whitelist this site enforces.
-function getValidator() {
-  if (cachedValidator) return cachedValidator;
-  const validator = TeamValidator.get("gen9nationaldexdoubles");
-  for (const key of [...validator.ruleTable.keys()]) {
-    if ((key.startsWith("-") && !KEPT_BANS.has(key)) || key.endsWith("clause")) {
-      validator.ruleTable.delete(key);
-    }
-  }
-  validator.ruleTable.maxLevel = MAX_LEVEL;
-  cachedValidator = validator;
-  return validator;
-}
+const DEFAULT_EVS = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+const DEFAULT_IVS = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
 
 export type TeamValidationResult =
   | { ok: true; team: TeamPokemon[] }
@@ -43,8 +26,8 @@ function toTeamPokemon(set: NonNullable<ReturnType<typeof Teams.import>>[number]
     gender: set.gender,
     shiny: Boolean(set.shiny),
     moves: [...set.moves],
-    evs: { ...set.evs },
-    ivs: { ...set.ivs },
+    evs: { ...DEFAULT_EVS, ...set.evs },
+    ivs: { ...DEFAULT_IVS, ...set.ivs },
   };
 }
 
@@ -72,30 +55,21 @@ export function validateTeamPaste(
     );
   }
 
-  const validator = getValidator();
   const pokemon: TeamPokemonErrors[] = [];
   const team: TeamPokemon[] = [];
+  const allowedNames = [...allowedSpecies].map((species) => species.toLowerCase());
 
   sets.forEach((set, index) => {
-    const errors: string[] = [];
     if (!set.level) set.level = MAX_LEVEL;
-    const problems = validator.validateSet(set, {});
-    if (problems) errors.push(...problems);
-
-    const species = validator.dex.species.get(set.species);
-    if (species.exists) {
-      const inRegulation =
-        allowedSpecies.has(species.name) ||
-        allowedSpecies.has(species.baseSpecies);
-      if (!inRegulation) {
-        errors.push(`${species.baseSpecies} is not in the Regulation M-C species list.`);
-      }
-    }
-    if (errors.length > 0) {
+    const speciesName = set.species.toLowerCase();
+    const inRegulation = allowedNames.some(
+      (name) => speciesName === name || speciesName.startsWith(`${name}-`),
+    );
+    if (!inRegulation) {
       pokemon.push({
         index,
         label: set.name && set.name !== set.species ? `${set.name} (${set.species})` : set.species || `Pokémon ${index + 1}`,
-        errors: [...new Set(errors)],
+        errors: [`${set.species} is not in the Regulation M-C species list.`],
       });
     }
     team.push(toTeamPokemon(set));

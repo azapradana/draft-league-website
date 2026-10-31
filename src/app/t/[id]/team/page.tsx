@@ -36,8 +36,10 @@ export default async function TournamentTeamPage({
       <section>
         <h2 className="text-3xl font-bold">My Team</h2>
         <p className="mt-2 max-w-2xl text-[#9FB0E6]">
-          Paste a Pokémon Showdown export with exactly 6 Pokémon. Only species, item, moves,
-          ability and nature are visible to others, and only when teams are public.
+          Paste a Pokémon Showdown export with exactly 6 Pokémon. Species are checked against
+          the league list, but generation-specific legality is not checked and EVs are optional.
+          Only species, item, moves, ability and nature are visible to others, and only when
+          teams are public.
         </p>
       </section>
       {participant?.status !== "APPROVED" ? (
