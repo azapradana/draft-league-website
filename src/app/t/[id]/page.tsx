@@ -10,6 +10,8 @@ import {
 import CheckInButton from "./check-in-button";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
+import WarScoreboard from "./war-scoreboard";
+import GroupBadge from "@/components/GroupBadge";
 import { RichText } from "@/components/rich-text";
 import SwissRoundTabs from "@/components/SwissRoundTabs";
 import RoundNotificationBanner from "@/components/RoundNotificationBanner";
@@ -68,12 +70,12 @@ export default async function TournamentOverview({
         include: {
           player1: {
             include: {
-              user: { select: { name: true, username: true } },
+              user: { select: { name: true, username: true, group: { select: { name: true, logoUrl: true, isCore: true } } } },
             },
           },
           player2: {
             include: {
-              user: { select: { name: true, username: true } },
+              user: { select: { name: true, username: true, group: { select: { name: true, logoUrl: true, isCore: true } } } },
             },
           },
           winner: {
@@ -308,6 +310,8 @@ export default async function TournamentOverview({
       : "Single Elimination";
   const prizeDistribution = parsePrizeDistribution(tournament.prizeDistribution) ?? [];
   const roundInProgress = currentRound !== null && !tournamentCompleted;
+  const isWar =
+    (await prisma.friendlyWar.count({ where: { tournamentId: tournament.id } })) > 0;
 
   return (
     <div className="space-y-8">
@@ -326,8 +330,9 @@ export default async function TournamentOverview({
           Unauthorized: You are not a participant in this match room
         </div>
       )}
+      <WarScoreboard tournamentId={tournament.id} />
       <section>
-        {champion && (
+        {champion && !isWar && (
           <div className="mb-5 flex items-center gap-4 rounded-2xl border border-[#F5C542] bg-gradient-to-r from-[#F5C542]/25 via-[#F5C542]/10 to-transparent px-5 py-4">
             <span aria-hidden="true" className="text-3xl">🏆</span>
             <div>
@@ -640,6 +645,9 @@ export default async function TournamentOverview({
                                       >
                                         {displayName(player)}
                                       </span>
+                                      {isWar && (
+                                        <GroupBadge group={player?.user.group} />
+                                      )}
                                       {player && !canOpenMatch(match) && (
                                         <span
                                           aria-disabled="true"
@@ -670,6 +678,8 @@ export default async function TournamentOverview({
                                 <p className="mt-2 text-sm text-[#9FB0E6]">
                                   Winner: {displayName(match.winner)}
                                 </p>
+                              ) : isWar && match.status === "COMPLETED" ? (
+                                <p className="mt-2 text-sm text-[#9FB0E6]">Draw</p>
                               ) : null}
                             </li>
                           );

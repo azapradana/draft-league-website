@@ -7,6 +7,7 @@ const routeTitles: Record<string, string> = {
   "/profile": "My profile & wallet",
   "/admin": "Admin dashboard",
   "/admin/packs": "Global packs",
+  "/admin/groups": "Group management",
   "/admin/settings": "Site branding",
 };
 

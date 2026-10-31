@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { ParticipantStatus } from "@prisma/client";
 import MatchesRoster from "./matches-roster";
 import RoundControls from "./round-controls";
+import WarAdminPanel from "./war-admin-panel";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -100,6 +101,76 @@ export default async function AdminTournamentMatchesPage({
 
   if (!tournament) {
     notFound();
+  }
+
+  const war = await prisma.friendlyWar.findUnique({
+    where: { tournamentId: id },
+    select: {
+      id: true,
+      status: true,
+      pairingsSeeded: true,
+      groups: { select: { groupId: true } },
+      entries: {
+        select: {
+          userId: true,
+          group: { select: { name: true } },
+          user: { select: { name: true, username: true, email: true } },
+        },
+      },
+    },
+  });
+  let warPanel: React.ReactNode = null;
+  if (war) {
+    const userGroup = new Map(war.entries.map((e) => [e.userId, e.group.name]));
+    const userName = (u: { name: string | null; username: string | null; email: string | null }) =>
+      u.name ?? u.username ?? u.email ?? "Unnamed player";
+    const person = (participant: (typeof tournament.matches)[number]["player1"]) =>
+      participant
+        ? {
+            userId: participant.userId,
+            name: userName(participant.user),
+            groupName: userGroup.get(participant.userId) ?? "—",
+          }
+        : null;
+    const rosterIds = new Set(war.entries.map((e) => e.userId));
+    const candidateUsers = await prisma.user.findMany({
+      where: {
+        id: { notIn: [...rosterIds] },
+        group: { OR: [{ isCore: true }, { id: { in: war.groups.map((g) => g.groupId) } }] },
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        group: { select: { name: true } },
+      },
+      orderBy: { username: "asc" },
+    });
+    warPanel = (
+      <WarAdminPanel
+        tournamentId={tournament.id}
+        warStatus={war.status}
+        pairingsSeeded={war.pairingsSeeded}
+        matches={tournament.matches.map((match) => ({
+          id: match.id,
+          status: match.status,
+          player1: person(match.player1),
+          player2: person(match.player2),
+          winnerName: match.winner ? userName(match.winner.user) : null,
+        }))}
+        roster={war.entries.map((e) => ({
+          userId: e.userId,
+          name: userName(e.user),
+          groupName: e.group.name,
+        }))}
+        candidates={candidateUsers.map((u) => ({
+          userId: u.id,
+          name: userName(u),
+          groupName: u.group?.name ?? "—",
+        }))}
+      />
+    );
   }
 
   const stageMatches = tournament.matches.filter(
@@ -291,7 +362,7 @@ export default async function AdminTournamentMatchesPage({
               ? "Tournament has not started."
               : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}`}
           </p>
-          <div className="mt-5">
+          <div className={war ? "hidden" : "mt-5"}>
             <RoundControls
               tournamentId={tournament.id}
               currentRound={currentRound}
@@ -328,6 +399,8 @@ export default async function AdminTournamentMatchesPage({
               </p>
             )}
         </header>
+
+        {warPanel}
 
         {tournament.format === "SWISS" && (
           <section className="mt-8 rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
