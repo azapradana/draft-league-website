@@ -28,7 +28,13 @@ export async function getMatchRoomData({
         select: {
           id: true,
           user: {
-            select: { id: true, name: true, username: true, email: true },
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              email: true,
+              group: { select: { name: true, logoUrl: true, isCore: true } },
+            },
           },
           roster: { select: { speciesIds: true } },
         },
@@ -37,7 +43,13 @@ export async function getMatchRoomData({
         select: {
           id: true,
           user: {
-            select: { id: true, name: true, username: true, email: true },
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              email: true,
+              group: { select: { name: true, logoUrl: true, isCore: true } },
+            },
           },
           roster: { select: { speciesIds: true } },
         },
@@ -161,6 +173,7 @@ export async function getMatchRoomData({
     return {
       id: participant.id,
       isCurrentUser: participant.user.id === userId,
+      group: participant.user.group,
       name:
         participant.user.name ??
         participant.user.username ??

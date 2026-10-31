@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import MatchChat, { type MatchMessage } from "@/components/MatchChat";
+import GroupBadge from "@/components/GroupBadge";
 import MatchRosterInspector, { type MatchPlayer } from "@/components/MatchRosterInspector";
 import { usePersonalWallet } from "@/components/wallet/personal-wallet";
 
@@ -230,6 +231,20 @@ export default function MatchRoom({
                     : "Bye round"
                   : `${match.player1?.name ?? "Bye"} vs ${match.player2?.name ?? "Bye"}`}
               </span>
+              {ownPlayer && opponent && (
+                <span className="ml-2 inline-flex gap-1 align-middle">
+                  <GroupBadge group={ownPlayer.group} />
+                  <span className="text-[0.65rem] text-[#9FB0E6]">vs</span>
+                  <GroupBadge group={opponent.group} />
+                </span>
+              )}
+              {!ownPlayer && match.player1 && match.player2 && (
+                <span className="ml-2 inline-flex gap-1 align-middle">
+                  <GroupBadge group={match.player1.group} />
+                  <span className="text-[0.65rem] text-[#9FB0E6]">vs</span>
+                  <GroupBadge group={match.player2.group} />
+                </span>
+              )}
             </h1>
           </div>
           <span

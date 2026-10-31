@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import GroupBadge, { type GroupInfo } from "@/components/GroupBadge";
 import PokemonArtwork, {
   type PokemonArtworkSpecies,
 } from "@/app/t/[id]/pokemon-artwork";
@@ -9,6 +10,7 @@ export type MatchPlayer = {
   id: string;
   isCurrentUser: boolean;
   name: string;
+  group?: GroupInfo;
   roster: Array<
     PokemonArtworkSpecies & {
       types: string[];
@@ -51,7 +53,10 @@ export default function MatchRosterInspector({ tabs }: { tabs: RosterTab[] }) {
       </div>
 
       <div id="roster-panel" role="tabpanel" aria-labelledby={`roster-tab-${active.key}`} className="mt-3">
-        <h3 className="text-sm font-bold">{player?.name ?? "Bye"}</h3>
+        <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold">
+          {player?.name ?? "Bye"}
+          <GroupBadge group={player?.group} />
+        </h3>
         {!player ? (
           <p className="mt-2 text-sm text-[#9FB0E6]">
             This bracket slot is a bye; no roster is available.

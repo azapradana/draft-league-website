@@ -3,6 +3,7 @@ import {
   TournamentStage,
   type Prisma,
 } from "@prisma/client";
+import { syncWarOutcome } from "@/lib/friendly-war";
 import { awardTournamentPrizes } from "@/lib/tournament-prizes";
 import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 
@@ -33,6 +34,10 @@ export async function closeTournamentIfComplete(
   if (lockedTournament.length === 0) return false;
   const tournament = lockedTournament[0];
   if (tournament.completed) return false;
+
+  // Friendly Match wars are scored by group wins, not by bracket progression.
+  const warOutcome = await syncWarOutcome(tx, tournamentId);
+  if (warOutcome !== null) return warOutcome;
 
   const matches = await tx.match.findMany({
     where: { tournamentId },

@@ -6,10 +6,12 @@ export function AdminDialog({
   buttonLabel,
   title,
   children,
+  variant = "primary",
 }: {
   buttonLabel: string;
   title: string;
   children: ReactNode;
+  variant?: "primary" | "secondary";
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -18,7 +20,11 @@ export function AdminDialog({
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="rounded-lg bg-[#F5C542] px-5 py-3 text-sm font-bold text-[#070D24] transition hover:bg-[#D9A21B] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542]"
+        className={`rounded-lg px-5 py-3 text-sm font-bold transition focus-visible:outline-[#F5C542] ${
+          variant === "primary"
+            ? "bg-[#F5C542] text-[#070D24] hover:bg-[#D9A21B]"
+            : "border border-[#243775] text-[#EEF2FF] hover:border-[#F5C542]"
+        } focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5C542]`}
       >
         {buttonLabel}
       </button>
