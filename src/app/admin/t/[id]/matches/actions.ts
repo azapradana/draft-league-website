@@ -52,7 +52,9 @@ export async function declareMatchWinner(
     return { error: "The final scores must not be tied." };
   }
 
-  const result = await prisma.$transaction(async (tx): Promise<OverrideResult> => {
+  let result: OverrideResult;
+  try {
+    result = await prisma.$transaction(async (tx): Promise<OverrideResult> => {
     const lockedMatch = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
       FROM "Match"
@@ -121,7 +123,15 @@ export async function declareMatchWinner(
     });
     await closeTournamentIfComplete(tx, tournamentId);
     return { success: true };
-  });
+    });
+  } catch (error) {
+    console.error("declareMatchWinner failed", error);
+    return {
+      error: `Could not save the result: ${
+        error instanceof Error ? error.message : "unexpected error"
+      }`,
+    };
+  }
 
   if ("success" in result) {
     revalidatePath(`/admin/t/${tournamentId}/matches`);
