@@ -38,22 +38,124 @@ enum TournamentStage {
 }
 
 model User {
-  id                     String                  @id @default(cuid())
-  username               String?                 @unique
+  id                     String                   @id @default(cuid())
+  username               String?                  @unique
   name                   String?
-  email                  String?                 @unique
+  email                  String?                  @unique
   emailVerified          DateTime?
   image                  String?
   passwordHash           String?
   googleEmail            String?
-  role                   Role                    @default(PLAYER)
-  coinsBalance           Int                     @default(0)
+  role                   Role                     @default(PLAYER)
+  coinsBalance           Int                      @default(0)
   accounts               Account[]
   sessions               Session[]
   participants           Participant[]
   matchMessages          MatchMessage[]
-  adminOverriddenMatches Match[]                 @relation("MatchAdminOverride")
+  adminOverriddenMatches Match[]                  @relation("MatchAdminOverride")
   prizePayouts           TournamentPrizePayout[]
+  groupId                String?
+  group                  Group?                   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  friendlyMatchCount     Int                      @default(0)
+  createdInvitations     GroupInvitation[]
+  friendlyWarEntries     FriendlyWarParticipant[]
+
+  @@index([groupId])
+}
+
+enum FriendlyWarStatus {
+  DRAFT
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum FriendlyWarEntryStatus {
+  JOINED
+  SELECTED
+  BENCH
+}
+
+model Group {
+  id          String                   @id @default(cuid())
+  name        String                   @unique
+  logoUrl     String?
+  isCore      Boolean                  @default(false)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  members     User[]
+  invitations GroupInvitation[]
+  warStats    FriendlyWarGroup[]
+  entries     FriendlyWarParticipant[]
+  warsWon     FriendlyWar[]            @relation("FriendlyWarWinner")
+}
+
+model GroupInvitation {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  groupId     String
+  createdById String?
+  maxUses     Int?
+  useCount    Int       @default(0)
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  group       Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([groupId])
+}
+
+model FriendlyWar {
+  id             String                   @id @default(cuid())
+  tournamentId   String?                  @unique
+  squadSize      Int                      @default(6)
+  status         FriendlyWarStatus        @default(DRAFT)
+  isDraw         Boolean                  @default(false)
+  winnerGroupId  String?
+  pairingsSeeded Boolean                  @default(false)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime                 @default(now())
+  tournament     Tournament?              @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  winnerGroup    Group?                   @relation("FriendlyWarWinner", fields: [winnerGroupId], references: [id], onDelete: SetNull)
+  groups         FriendlyWarGroup[]
+  entries        FriendlyWarParticipant[]
+
+  @@index([status])
+}
+
+model FriendlyWarGroup {
+  id      String      @id @default(cuid())
+  warId   String
+  groupId String
+  score   Int         @default(0)
+  wins    Int         @default(0)
+  losses  Int         @default(0)
+  draws   Int         @default(0)
+  war     FriendlyWar @relation(fields: [warId], references: [id], onDelete: Cascade)
+  group   Group       @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@unique([warId, groupId])
+  @@index([groupId])
+}
+
+model FriendlyWarParticipant {
+  id            String                 @id @default(cuid())
+  warId         String
+  userId        String
+  groupId       String
+  status        FriendlyWarEntryStatus @default(JOINED)
+  forceAssigned Boolean                @default(false)
+  joinedAt      DateTime               @default(now())
+  war           FriendlyWar            @relation(fields: [warId], references: [id], onDelete: Cascade)
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group         Group                  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+
+  @@unique([warId, userId])
+  @@index([groupId])
+  @@index([userId])
 }
 
 model Account {
@@ -132,6 +234,7 @@ model Tournament {
   packs              TournamentPack[]
   matches            Match[]
   prizePayouts       TournamentPrizePayout[]
+  friendlyWar        FriendlyWar?
 }
 
 model Participant {
