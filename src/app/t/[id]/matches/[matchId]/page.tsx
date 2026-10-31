@@ -27,6 +27,14 @@ export default async function MatchRoomPage({
     isAdmin: session.user.role === "ADMIN",
   });
   if (!match) {
+    // The loader returns null for both missing and unauthorized matches.
+    const exists = await prisma.match.findFirst({
+      where: { id: matchId, tournamentId },
+      select: { id: true },
+    });
+    if (exists) {
+      redirect(`/t/${tournamentId}?error=match-unauthorized`);
+    }
     notFound();
   }
 

@@ -19,10 +19,11 @@ export default async function TournamentOverview({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ round?: string | string[] }>;
+  searchParams: Promise<{ round?: string | string[]; error?: string | string[] }>;
 }) {
   const { id } = await params;
-  const { round: requestedRound } = await searchParams;
+  const { round: requestedRound, error: requestedError } = await searchParams;
+  const showMatchUnauthorized = requestedError === "match-unauthorized";
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -95,6 +96,15 @@ export default async function TournamentOverview({
     tournament.maxParticipants !== null &&
     activeParticipantCount !== null &&
     activeParticipantCount >= tournament.maxParticipants;
+
+  const canOpenMatch = (match: {
+    player1Id: string | null;
+    player2Id: string | null;
+  }) =>
+    session.user.role === "ADMIN" ||
+    (Boolean(participation?.id) &&
+      (match.player1Id === participation?.id ||
+        match.player2Id === participation?.id));
 
   const canViewAllRosters =
     session.user.role === "ADMIN" || tournament.rostersPublic;
@@ -277,6 +287,14 @@ export default async function TournamentOverview({
 
   return (
     <div className="space-y-8">
+      {showMatchUnauthorized && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-800 bg-red-950 px-4 py-3 text-sm font-semibold text-red-300"
+        >
+          Unauthorized: You are not a participant in this match room
+        </div>
+      )}
       <section>
         {tournament.imageUrl && (
           <div className="mb-5 overflow-hidden rounded-2xl border border-[#243775]">
@@ -567,7 +585,16 @@ export default async function TournamentOverview({
                                       >
                                         {displayName(player)}
                                       </span>
-                                      {player && (
+                                      {player && !canOpenMatch(match) && (
+                                        <span
+                                          aria-disabled="true"
+                                          title="Only participants can open this match room"
+                                          className="rounded-md border border-[#243775] px-2 py-1 text-xs font-semibold text-[#9FB0E6]/50"
+                                        >
+                                          🔒 Locked
+                                        </span>
+                                      )}
+                                      {player && canOpenMatch(match) && (
                                         <Link
                                           href={`/t/${tournament.id}/matches/${match.id}`}
                                           className="rounded-md border border-[#243775] px-2 py-1 text-xs font-semibold text-[#9FB0E6] hover:border-[#F5C542] hover:text-[#F5C542]"
