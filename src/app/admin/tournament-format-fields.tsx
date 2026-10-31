@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type TournamentFormat = "SINGLE_ELIMINATION" | "SWISS";
+type TournamentFormat = "FRIENDLY_MATCH" | "SINGLE_ELIMINATION" | "SWISS";
 
 function recommendSwissRounds(participantCount: number): number | null {
   if (!Number.isSafeInteger(participantCount) || participantCount < 2) {
@@ -16,13 +16,19 @@ function recommendSwissRounds(participantCount: number): number | null {
 }
 
 export function TournamentFormatFields({
-  initialFormat = "SINGLE_ELIMINATION",
+  groups,
+  initialFormat = "FRIENDLY_MATCH",
   initialMaxParticipants = "",
+  initialFriendlyMatchGroupId = "",
+  initialFriendlyMatchSize = 6,
   initialSwissRounds = 4,
   initialTopCut = 0,
 }: {
+  groups: Array<{ id: string; name: string }>;
   initialFormat?: TournamentFormat;
   initialMaxParticipants?: number | "";
+  initialFriendlyMatchGroupId?: string;
+  initialFriendlyMatchSize?: number;
   initialSwissRounds?: number;
   initialTopCut?: number;
 }) {
@@ -32,6 +38,12 @@ export function TournamentFormatFields({
   );
   const [swissRounds, setSwissRounds] = useState(String(initialSwissRounds));
   const [topCut, setTopCut] = useState(String(initialTopCut));
+  const [friendlyMatchGroupId, setFriendlyMatchGroupId] = useState(
+    initialFriendlyMatchGroupId,
+  );
+  const [friendlyMatchSize, setFriendlyMatchSize] = useState(
+    String(initialFriendlyMatchSize),
+  );
   const participantCount = Number(maxParticipants);
   const recommendation =
     maxParticipants === "" ? null : recommendSwissRounds(participantCount);
@@ -46,6 +58,7 @@ export function TournamentFormatFields({
           value={format}
           onChange={(event) => {
             if (
+              event.target.value === "FRIENDLY_MATCH" ||
               event.target.value === "SINGLE_ELIMINATION" ||
               event.target.value === "SWISS"
             ) {
@@ -55,28 +68,73 @@ export function TournamentFormatFields({
           }}
           className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
         >
+          <option value="FRIENDLY_MATCH">Friendly Match (N-v-N Group War)</option>
           <option value="SINGLE_ELIMINATION">Single Elimination</option>
           <option value="SWISS">Swiss Rounds</option>
         </select>
       </label>
 
-      <label className="block">
-        <span className="mb-2 block text-sm text-[#9FB0E6]">Maximum participants</span>
-        <input
-          name="maxParticipants"
-          type="number"
-          min={2}
-          max={2_147_483_647}
-          step={1}
-          value={maxParticipants}
-          onChange={(event) => setMaxParticipants(event.target.value)}
-          placeholder="No limit"
-          className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
-        />
-        <span className="mt-1 block text-xs text-[#9FB0E6]">
-          Leave blank for no participant limit.
-        </span>
-      </label>
+      {format === "FRIENDLY_MATCH" ? (
+        <>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Rival group</span>
+            <select
+              name="friendlyMatchGroupId"
+              required
+              value={friendlyMatchGroupId}
+              onChange={(event) => setFriendlyMatchGroupId(event.target.value)}
+              className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+            >
+              <option value="">Choose a group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            {groups.length === 0 && (
+              <span className="mt-1 block text-xs text-amber-300">
+                Create a rival group in Group management first.
+              </span>
+            )}
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[#9FB0E6]">Players per group (N)</span>
+            <input
+              name="friendlyMatchSize"
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              required
+              value={friendlyMatchSize}
+              onChange={(event) => setFriendlyMatchSize(event.target.value)}
+              className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+            />
+            <span className="mt-1 block text-xs text-[#9FB0E6]">
+              Each player gets one randomized match. Extra joiners are substitutes.
+            </span>
+          </label>
+        </>
+      ) : (
+        <label className="block">
+          <span className="mb-2 block text-sm text-[#9FB0E6]">Maximum participants</span>
+          <input
+            name="maxParticipants"
+            type="number"
+            min={2}
+            max={2_147_483_647}
+            step={1}
+            value={maxParticipants}
+            onChange={(event) => setMaxParticipants(event.target.value)}
+            placeholder="No limit"
+            className="w-full rounded-lg border border-[#243775] bg-[#070D24] p-3 text-[#EEF2FF]"
+          />
+          <span className="mt-1 block text-xs text-[#9FB0E6]">
+            Leave blank for no participant limit.
+          </span>
+        </label>
+      )}
 
       {format === "SWISS" && (
         <div className="rounded-lg border border-[#243775] bg-[#070D24]/60 p-4 md:col-span-2">

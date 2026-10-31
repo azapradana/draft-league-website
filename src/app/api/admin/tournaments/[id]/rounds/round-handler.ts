@@ -186,12 +186,14 @@ export async function generateRound(
           checkInOpen: boolean;
           completed: boolean;
           format: string;
+          friendlyMatchGroupId: string | null;
+          friendlyMatchSize: number;
           swissRounds: number;
           topCut: number;
           currentStage: TournamentStage;
         }>
       >`
-        SELECT "id", "checkInOpen", "completed", "format", "swissRounds", "topCut", "currentStage"
+        SELECT "id", "checkInOpen", "completed", "format", "friendlyMatchGroupId", "friendlyMatchSize", "swissRounds", "topCut", "currentStage"
         FROM "Tournament"
         WHERE "id" = ${tournamentId}
         FOR UPDATE
@@ -228,7 +230,129 @@ export async function generateRound(
       roundNumber = (maxRound._max.roundNumber ?? 0) + 1;
       let matches: Prisma.MatchCreateManyInput[];
 
-      if (currentStage === TournamentStage.SWISS) {
+      if (currentStage === TournamentStage.FRIENDLY_MATCH) {
+        if (maxRound._max.roundNumber !== null) {
+          throw new RoundGenerationError(
+            "Friendly Match pairings are generated once and cannot be regenerated.",
+            409,
+          );
+        }
+        if (tournament[0].checkInOpen) {
+          throw new RoundGenerationError(
+            "Close check-in before generating Friendly Match pairings.",
+            409,
+          );
+        }
+        if (!tournament[0].friendlyMatchGroupId) {
+          throw new RoundGenerationError(
+            "Choose a rival group before starting this Friendly Match.",
+            409,
+          );
+        }
+        const coreGroup = await tx.group.findFirst({
+          where: { isCore: true },
+          select: { id: true },
+        });
+        if (!coreGroup) {
+          throw new RoundGenerationError(
+            "The 7DS core group has not been configured.",
+            409,
+          );
+        }
+        const participants = await tx.participant.findMany({
+          where: {
+            tournamentId,
+            status: ParticipantStatus.APPROVED,
+          },
+          select: {
+            id: true,
+            friendlyMatchGroupId: true,
+            user: {
+              select: {
+                groupId: true,
+                friendlyMatchParticipationCount: true,
+              },
+            },
+            friendlyMatchForcedLineup: true,
+          },
+        });
+        const rankByParticipation = (
+          groupParticipants: typeof participants,
+        ) =>
+          shuffle([...groupParticipants]).sort(
+            (left, right) =>
+              left.user.friendlyMatchParticipationCount -
+              right.user.friendlyMatchParticipationCount,
+          );
+        const coreParticipants = rankByParticipation(
+          participants.filter(
+            ({ friendlyMatchGroupId }) =>
+              friendlyMatchGroupId === coreGroup.id,
+          ),
+        );
+        const rivalParticipants = rankByParticipation(
+          participants.filter(
+            ({ friendlyMatchGroupId }) =>
+              friendlyMatchGroupId === tournament[0].friendlyMatchGroupId,
+          ),
+        );
+        const lineupSize = Math.min(
+          tournament[0].friendlyMatchSize,
+          coreParticipants.length,
+          rivalParticipants.length,
+        );
+        if (lineupSize < 1) {
+          throw new RoundGenerationError(
+            "At least one approved player from each group must join before starting the Friendly Match.",
+            409,
+          );
+        }
+
+        const selectLineup = (groupParticipants: typeof participants) => {
+          const forced = groupParticipants.filter(
+            (participant) => participant.friendlyMatchForcedLineup,
+          );
+          if (forced.length > lineupSize) {
+            throw new RoundGenerationError(
+              "The manually selected lineup exceeds the available opposing players.",
+              409,
+            );
+          }
+          const remaining = rankByParticipation(
+            groupParticipants.filter(
+              (participant) => !participant.friendlyMatchForcedLineup,
+            ),
+          );
+          return [...forced, ...remaining.slice(0, lineupSize - forced.length)];
+        };
+        const activeCore = shuffle(
+          selectLineup(coreParticipants).map(({ id }) => id),
+        );
+        const activeRival = shuffle(
+          selectLineup(rivalParticipants).map(({ id }) => id),
+        );
+        const activeIds = new Set([...activeCore, ...activeRival]);
+        const allParticipantIds = participants.map(({ id }) => id);
+        await tx.participant.updateMany({
+          where: { id: { in: allParticipantIds } },
+          data: { friendlyMatchSubstitute: true },
+        });
+        await tx.participant.updateMany({
+          where: { id: { in: [...activeIds] } },
+          data: { friendlyMatchSubstitute: false },
+        });
+
+        participantIds = [...activeCore, ...activeRival];
+        matches = activeCore.map((player1Id, index) => ({
+          tournamentId,
+          roundNumber: 1,
+          stage: TournamentStage.FRIENDLY_MATCH,
+          bracketPosition: index + 1,
+          player1Id,
+          player2Id: activeRival[index],
+          status: MatchStatus.PENDING,
+        }));
+      } else if (currentStage === TournamentStage.SWISS) {
         const swissMatches = await tx.match.findMany({
           where: {
             tournamentId,

@@ -24,18 +24,25 @@ async function getPrizeRankings(
 ): Promise<RankedParticipant[]> {
   const tournament = await tx.tournament.findUniqueOrThrow({
     where: { id: tournamentId },
-    select: { format: true, swissRounds: true },
+    select: {
+      format: true,
+      swissRounds: true,
+      friendlyMatchGroupId: true,
+    },
   });
   const participants = await tx.participant.findMany({
     where: {
       tournamentId,
       status: ParticipantStatus.APPROVED,
-      checkedIn: true,
+      ...(tournament.format === TournamentFormat.FRIENDLY_MATCH
+        ? {}
+        : { checkedIn: true }),
     },
     orderBy: { id: "asc" },
     select: {
       id: true,
       userId: true,
+      friendlyMatchGroupId: true,
       user: { select: { name: true, username: true, email: true } },
     },
   });
@@ -49,8 +56,84 @@ async function getPrizeRankings(
       player2Id: true,
       winnerId: true,
       status: true,
+      isDraw: true,
     },
   });
+
+  if (tournament.format === TournamentFormat.FRIENDLY_MATCH) {
+    const coreGroup = await tx.group.findFirst({
+      where: { isCore: true },
+      select: { id: true },
+    });
+    const participantsById = new Map(
+      participants.map((participant) => [participant.id, participant]),
+    );
+    const groupWins = new Map<string, number>();
+    const individualResults = new Map<string, number>();
+    for (const match of matches) {
+      if (match.status !== MatchStatus.COMPLETED) continue;
+      const player1 = match.player1Id
+        ? participantsById.get(match.player1Id)
+        : undefined;
+      const player2 = match.player2Id
+        ? participantsById.get(match.player2Id)
+        : undefined;
+      if (
+        !player1 ||
+        !player2 ||
+        (match.winnerId !== player1.id && match.winnerId !== player2.id)
+      ) {
+        if (match.isDraw && player1 && player2) {
+          individualResults.set(player1.id, 1);
+          individualResults.set(player2.id, 1);
+        }
+        continue;
+      }
+      if (match.isDraw) {
+        individualResults.set(player1.id, 1);
+        individualResults.set(player2.id, 1);
+        continue;
+      }
+
+      const winner = match.winnerId === player1.id ? player1 : player2;
+      const loser = winner.id === player1.id ? player2 : player1;
+      individualResults.set(winner.id, 0);
+      individualResults.set(loser.id, 2);
+      const winnerGroupId = winner.friendlyMatchGroupId;
+      if (winnerGroupId) {
+        groupWins.set(winnerGroupId, (groupWins.get(winnerGroupId) ?? 0) + 1);
+      }
+    }
+
+    const coreWins = coreGroup ? (groupWins.get(coreGroup.id) ?? 0) : 0;
+    const rivalWins = tournament.friendlyMatchGroupId
+      ? (groupWins.get(tournament.friendlyMatchGroupId) ?? 0)
+      : 0;
+    const winningGroupId =
+      coreWins === rivalWins
+        ? null
+        : coreWins > rivalWins
+          ? coreGroup?.id ?? null
+          : tournament.friendlyMatchGroupId;
+
+    return participants
+      .filter((participant) => individualResults.has(participant.id))
+      .sort((left, right) => {
+        const groupRank =
+          winningGroupId === null
+            ? 0
+            : Number(left.friendlyMatchGroupId !== winningGroupId) -
+              Number(right.friendlyMatchGroupId !== winningGroupId);
+        if (groupRank !== 0) return groupRank;
+        const resultRank =
+          (individualResults.get(left.id) ?? 3) -
+          (individualResults.get(right.id) ?? 3);
+        if (resultRank !== 0) return resultRank;
+        const leftName = left.user.name ?? left.user.username ?? "";
+        const rightName = right.user.name ?? right.user.username ?? "";
+        return leftName.localeCompare(rightName) || left.id.localeCompare(right.id);
+      });
+  }
 
   const swissMatches = matches.filter(
     (match) =>

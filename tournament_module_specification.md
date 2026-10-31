@@ -1,6 +1,6 @@
 # Pokémon VGC Gacha Draft League — Tournament Running & Match Module Specification
 
-This document specifies the tournament execution module for the Pokémon VGC Gacha Draft League web application. It builds directly upon the core gacha, shop, and drafting mechanics defined in `SPEC.md`, adding tournament check-ins, single-elimination and Swiss-to-Top-Cut formats, match rooms with chat, roster inspection, mutual result confirmation, and admin dispute handling.
+This document specifies the tournament execution module for the Pokémon VGC Gacha Draft League web application. It builds directly upon the core gacha, shop, and drafting mechanics defined in `SPEC.md`, adding Friendly Match group wars as the default format alongside single-elimination and Swiss-to-Top-Cut formats, plus match rooms with chat, roster inspection, mutual result confirmation, and admin dispute handling.
 
 ---
 

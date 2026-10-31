@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
+import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 
 type ResolutionResult =
   | { ok: true; winnerId: string }
@@ -90,10 +91,12 @@ export async function POST(
       data: {
         winnerId,
         status: MatchStatus.COMPLETED,
+        isDraw: false,
         adminOverrideById: session.user.id,
         adminOverrideAt: new Date(),
       },
     });
+    await recordFriendlyMatchParticipation(tx, tournamentId, matchId);
     await closeTournamentIfComplete(tx, tournamentId);
     return { ok: true, winnerId };
   });

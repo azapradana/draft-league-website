@@ -4,6 +4,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { awardTournamentPrizes } from "@/lib/tournament-prizes";
+import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 
 export async function closeTournamentIfComplete(
   tx: Prisma.TransactionClient,
@@ -37,12 +38,14 @@ export async function closeTournamentIfComplete(
     where: { tournamentId },
     orderBy: { roundNumber: "desc" },
     select: {
+      id: true,
       roundNumber: true,
       stage: true,
       player1Id: true,
       player2Id: true,
       winnerId: true,
       status: true,
+      isDraw: true,
     },
   });
   if (matches.length === 0) return false;
@@ -52,14 +55,37 @@ export async function closeTournamentIfComplete(
     (tournament.format === "SWISS" &&
     match.roundNumber <= tournament.swissRounds
       ? TournamentStage.SWISS
-      : TournamentStage.SINGLE_ELIMINATION);
+      : tournament.format === "FRIENDLY_MATCH"
+        ? TournamentStage.FRIENDLY_MATCH
+        : TournamentStage.SINGLE_ELIMINATION);
   const hasValidWinner = (match: (typeof matches)[number]) =>
     match.status === MatchStatus.COMPLETED &&
     match.winnerId !== null &&
     (match.winnerId === match.player1Id ||
       match.winnerId === match.player2Id);
+  const hasValidOutcome = (match: (typeof matches)[number]) =>
+    match.status === MatchStatus.COMPLETED &&
+    (match.isDraw ? match.winnerId === null : hasValidWinner(match));
 
-  if (
+  if (tournament.format === "FRIENDLY_MATCH") {
+    const friendlyMatches = matches.filter(
+      (match) => getStage(match) === TournamentStage.FRIENDLY_MATCH,
+    );
+    if (
+      friendlyMatches.length === 0 ||
+      friendlyMatches.some(
+        (match) =>
+          match.status !== MatchStatus.COMPLETED || !hasValidOutcome(match),
+      )
+    ) {
+      return false;
+    }
+    await Promise.all(
+      friendlyMatches.map((match) =>
+        recordFriendlyMatchParticipation(tx, tournamentId, match.id),
+      ),
+    );
+  } else if (
     tournament.currentStage === TournamentStage.SWISS ||
     (tournament.format === "SWISS" &&
       tournament.currentStage === TournamentStage.SINGLE_ELIMINATION)
@@ -97,8 +123,8 @@ export async function closeTournamentIfComplete(
     );
     if (
       finalRoundMatches.length !== 1 ||
-      tournamentMatches.some((match) => !hasValidWinner(match)) ||
-      !hasValidWinner(finalRoundMatches[0])
+      tournamentMatches.some((match) => !hasValidOutcome(match)) ||
+      !hasValidOutcome(finalRoundMatches[0])
     ) {
       return false;
     }

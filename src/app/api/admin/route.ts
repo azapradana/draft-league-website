@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import {
   ParticipantStatus,
   Prisma,
@@ -199,9 +200,11 @@ export async function POST(request: NextRequest) {
         const imageUrl = asString(body.imageUrl).trim();
         const cardBackImage = asString(body.cardBackImage).trim();
         const formatValue =
-          body.format === undefined ? "SINGLE_ELIMINATION" : asString(body.format);
+          body.format === undefined ? "FRIENDLY_MATCH" : asString(body.format);
         const format =
-          formatValue === "SINGLE_ELIMINATION" || formatValue === "SWISS"
+          formatValue === "FRIENDLY_MATCH" ||
+          formatValue === "SINGLE_ELIMINATION" ||
+          formatValue === "SWISS"
             ? formatValue
             : null;
         const parsedAutoApproveSignups = asOptionalBoolean(
@@ -222,9 +225,18 @@ export async function POST(request: NextRequest) {
           rawMaxParticipants === undefined ||
           rawMaxParticipants === null ||
           (typeof rawMaxParticipants === "string" && rawMaxParticipants.trim() === "");
-        const maxParticipants = maxParticipantsIsEmpty
+        const maxParticipants =
+          format === "FRIENDLY_MATCH" || maxParticipantsIsEmpty
           ? null
           : asStrictInt(rawMaxParticipants);
+        const friendlyMatchGroupId =
+          format === "FRIENDLY_MATCH"
+            ? asString(body.friendlyMatchGroupId).trim()
+            : "";
+        const friendlyMatchSize =
+          format === "FRIENDLY_MATCH"
+            ? asStrictInt(body.friendlyMatchSize)
+            : 1;
         const swissRounds =
           format === "SWISS" ? asStrictInt(body.swissRounds) ?? 0 : 4;
         const topCut =
@@ -239,11 +251,36 @@ export async function POST(request: NextRequest) {
         }
         if (!format) {
           return NextResponse.json(
-            { error: "Choose Single Elimination or Swiss Rounds." },
+            { error: "Choose Friendly Match, Single Elimination, or Swiss Rounds." },
             { status: 400 },
           );
         }
         if (
+          format === "FRIENDLY_MATCH" &&
+          (!friendlyMatchGroupId ||
+            friendlyMatchSize === undefined ||
+            friendlyMatchSize < 1 ||
+            friendlyMatchSize > 1000)
+        ) {
+          return NextResponse.json(
+            { error: "Choose a rival group and a team size from 1 to 1,000." },
+            { status: 400 },
+          );
+        }
+        if (format === "FRIENDLY_MATCH") {
+          const rivalGroup = await prisma.group.findFirst({
+            where: { id: friendlyMatchGroupId, isCore: false },
+            select: { id: true },
+          });
+          if (!rivalGroup) {
+            return NextResponse.json(
+              { error: "Choose an existing rival group." },
+              { status: 400 },
+            );
+          }
+        }
+        if (
+          format !== "FRIENDLY_MATCH" &&
           !maxParticipantsIsEmpty &&
           (maxParticipants === null ||
             maxParticipants === undefined ||
@@ -306,10 +343,18 @@ export async function POST(request: NextRequest) {
             format: format as TournamentFormat,
             topCut,
             currentStage:
-              format === "SWISS"
-                ? TournamentStage.SWISS
-                : TournamentStage.SINGLE_ELIMINATION,
+              format === "FRIENDLY_MATCH"
+                ? TournamentStage.FRIENDLY_MATCH
+                : format === "SWISS"
+                  ? TournamentStage.SWISS
+                  : TournamentStage.SINGLE_ELIMINATION,
             maxParticipants,
+            friendlyMatchGroupId: friendlyMatchGroupId || null,
+            friendlyMatchSize: friendlyMatchSize ?? 1,
+            friendlyMatchInviteToken:
+              format === "FRIENDLY_MATCH"
+                ? randomBytes(24).toString("base64url")
+                : null,
             autoApproveSignups,
             swissRounds,
             imageUrl: imageUrl || null,
@@ -368,6 +413,9 @@ export async function POST(request: NextRequest) {
           topCut?: number;
           currentStage?: TournamentStage;
           maxParticipants?: number | null;
+          friendlyMatchGroupId?: string | null;
+          friendlyMatchSize?: number;
+          friendlyMatchInviteToken?: string | null;
           swissRounds?: number;
           imageUrl?: string | null;
           cardBackImage?: string | null;
@@ -476,16 +524,63 @@ export async function POST(request: NextRequest) {
 
         if ("format" in body) {
           const formatValue = asString(body.format);
-          if (formatValue !== "SINGLE_ELIMINATION" && formatValue !== "SWISS") {
+          if (
+            formatValue !== "FRIENDLY_MATCH" &&
+            formatValue !== "SINGLE_ELIMINATION" &&
+            formatValue !== "SWISS"
+          ) {
             return NextResponse.json(
-              { error: "Choose Single Elimination or Swiss Rounds." },
+              { error: "Choose Friendly Match, Single Elimination, or Swiss Rounds." },
               { status: 400 },
             );
           }
           updateData.format = formatValue;
         }
 
-        if ("maxParticipants" in body) {
+        const updatedFormat = updateData.format ?? tournament.format;
+        if (updatedFormat === TournamentFormat.FRIENDLY_MATCH) {
+          const friendlyMatchGroupId =
+            "friendlyMatchGroupId" in body
+              ? asString(body.friendlyMatchGroupId).trim()
+              : tournament.friendlyMatchGroupId ?? "";
+          const friendlyMatchSize =
+            "friendlyMatchSize" in body
+              ? asStrictInt(body.friendlyMatchSize)
+              : tournament.friendlyMatchSize;
+          if (
+            !friendlyMatchGroupId ||
+            friendlyMatchSize === undefined ||
+            friendlyMatchSize < 1 ||
+            friendlyMatchSize > 1000
+          ) {
+            return NextResponse.json(
+              { error: "Choose a rival group and a team size from 1 to 1,000." },
+              { status: 400 },
+            );
+          }
+          const rivalGroup = await prisma.group.findFirst({
+            where: { id: friendlyMatchGroupId, isCore: false },
+            select: { id: true },
+          });
+          if (!rivalGroup) {
+            return NextResponse.json(
+              { error: "Choose an existing rival group." },
+              { status: 400 },
+            );
+          }
+          updateData.friendlyMatchGroupId = friendlyMatchGroupId;
+          updateData.friendlyMatchSize = friendlyMatchSize;
+          if (!tournament.friendlyMatchInviteToken) {
+            updateData.friendlyMatchInviteToken =
+              randomBytes(24).toString("base64url");
+          }
+          updateData.maxParticipants = null;
+        }
+
+        if (
+          updatedFormat !== TournamentFormat.FRIENDLY_MATCH &&
+          "maxParticipants" in body
+        ) {
           const rawMaxParticipants = body.maxParticipants;
           const isEmpty =
             rawMaxParticipants === null ||
@@ -526,7 +621,6 @@ export async function POST(request: NextRequest) {
           updateData.maxParticipants = maxParticipants;
         }
 
-        const updatedFormat = updateData.format ?? tournament.format;
         if (updatedFormat === TournamentFormat.SWISS && "swissRounds" in body) {
           const swissRounds = asStrictInt(body.swissRounds);
           if (
@@ -584,15 +678,21 @@ export async function POST(request: NextRequest) {
         }
 
         const matchCount = await prisma.match.count({ where: { tournamentId: id } });
+        const friendlyMatchConfigurationChanged =
+          tournament.format === TournamentFormat.FRIENDLY_MATCH &&
+          updatedFormat === TournamentFormat.FRIENDLY_MATCH &&
+          (updateData.friendlyMatchGroupId !== tournament.friendlyMatchGroupId ||
+            updateData.friendlyMatchSize !== tournament.friendlyMatchSize);
         if (
           matchCount > 0 &&
           (updatedFormat !== tournament.format ||
             configuredTopCut !== tournament.topCut ||
+            friendlyMatchConfigurationChanged ||
             (updateData.swissRounds !== undefined &&
               updateData.swissRounds !== tournament.swissRounds))
         ) {
           return NextResponse.json(
-            { error: "Tournament format, Top Cut, and Swiss rounds cannot change after matches begin." },
+            { error: "Tournament format, Friendly Match group and team size, Top Cut, and Swiss rounds cannot change after matches begin." },
             { status: 409 },
           );
         }
@@ -613,9 +713,11 @@ export async function POST(request: NextRequest) {
         }
         if (matchCount === 0 && updatedFormat !== tournament.format) {
           updateData.currentStage =
-            updatedFormat === TournamentFormat.SWISS
-              ? TournamentStage.SWISS
-              : TournamentStage.SINGLE_ELIMINATION;
+            updatedFormat === TournamentFormat.FRIENDLY_MATCH
+              ? TournamentStage.FRIENDLY_MATCH
+              : updatedFormat === TournamentFormat.SWISS
+                ? TournamentStage.SWISS
+                : TournamentStage.SINGLE_ELIMINATION;
         }
 
         if ("imageUrl" in body) {

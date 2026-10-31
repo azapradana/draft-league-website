@@ -14,6 +14,10 @@ type MatchData = {
   winnerName: string | null;
   player1Vote: string | null;
   player2Vote: string | null;
+  player1DrawVote: boolean;
+  player2DrawVote: boolean;
+  isDraw: boolean;
+  isFriendlyMatch: boolean;
   tournamentName: string;
   player1: MatchPlayer;
   player2: MatchPlayer;
@@ -48,6 +52,9 @@ export default function MatchRoom({
   const [winnerId, setWinnerId] = useState(match.winnerId);
   const [player1Vote, setPlayer1Vote] = useState(match.player1Vote);
   const [player2Vote, setPlayer2Vote] = useState(match.player2Vote);
+  const [player1DrawVote, setPlayer1DrawVote] = useState(match.player1DrawVote);
+  const [player2DrawVote, setPlayer2DrawVote] = useState(match.player2DrawVote);
+  const [isDraw, setIsDraw] = useState(match.isDraw);
   const [voting, setVoting] = useState(false);
   const [resultError, setResultError] = useState("");
   const endpoint = `/api/tournaments/${encodeURIComponent(tournamentId)}/matches/${encodeURIComponent(match.id)}/chat`;
@@ -75,6 +82,9 @@ export default function MatchRoom({
           setWinnerId(result.match.winnerId);
           setPlayer1Vote(result.match.player1Vote);
           setPlayer2Vote(result.match.player2Vote);
+          setPlayer1DrawVote(result.match.player1DrawVote);
+          setPlayer2DrawVote(result.match.player2DrawVote);
+          setIsDraw(result.match.isDraw);
         }
       } catch (error) {
         if (active) {
@@ -96,7 +106,7 @@ export default function MatchRoom({
     };
   }, [matchEndpoint]);
 
-  async function submitResult(outcome: "WIN" | "LOSS") {
+  async function submitResult(outcome: "WIN" | "LOSS" | "DRAW") {
     if (voting) {
       return;
     }
@@ -115,6 +125,9 @@ export default function MatchRoom({
             winnerId: string | null;
             player1Vote: string | null;
             player2Vote: string | null;
+            player1DrawVote: boolean;
+            player2DrawVote: boolean;
+            isDraw: boolean;
             walletBalance: number;
           }
         | { error: string };
@@ -123,7 +136,10 @@ export default function MatchRoom({
         !("status" in result) ||
         !("winnerId" in result) ||
         !("player1Vote" in result) ||
-        !("player2Vote" in result)
+        !("player2Vote" in result) ||
+        !("player1DrawVote" in result) ||
+        !("player2DrawVote" in result) ||
+        !("isDraw" in result)
       ) {
         throw new Error("error" in result ? result.error : "Your result could not be submitted.");
       }
@@ -132,6 +148,9 @@ export default function MatchRoom({
       setWinnerId(result.winnerId);
       setPlayer1Vote(result.player1Vote);
       setPlayer2Vote(result.player2Vote);
+      setPlayer1DrawVote(result.player1DrawVote);
+      setPlayer2DrawVote(result.player2DrawVote);
+      setIsDraw(result.isDraw);
       setWalletBalance(result.walletBalance);
     } catch (error) {
       setResultError(
@@ -166,6 +185,11 @@ export default function MatchRoom({
     : match.player2?.isCurrentUser
       ? player2Vote
       : null;
+  const ownDrawVote = match.player1?.isCurrentUser
+    ? player1DrawVote
+    : match.player2?.isCurrentUser
+      ? player2DrawVote
+      : false;
   const reportedWinnerName =
     winnerId === match.player1?.id
       ? match.player1.name
@@ -214,7 +238,12 @@ export default function MatchRoom({
             {matchStatus}
           </span>
         </div>
-        {matchStatus === "COMPLETED" && (reportedWinnerName ?? match.winnerName) && (
+        {matchStatus === "COMPLETED" && isDraw && (
+          <p className="mt-1 text-xs font-semibold text-amber-300">Result: Draw</p>
+        )}
+        {matchStatus === "COMPLETED" &&
+          !isDraw &&
+          (reportedWinnerName ?? match.winnerName) && (
           <p className="mt-1 text-xs font-semibold text-emerald-300">
             Winner: {reportedWinnerName ?? match.winnerName}
           </p>
@@ -249,10 +278,18 @@ export default function MatchRoom({
               <h2 className="text-sm font-bold">Confirm match result</h2>
               {matchStatus === "PENDING" && ownVote ? (
                 <p className="mt-1 text-xs text-[#9FB0E6]">
-                  Your vote: {ownVote === ownPlayer.id ? "you reported a win" : "you reported a loss"}.
-                  {player1Vote && player2Vote
+                  Your vote: {ownDrawVote
+                    ? "you reported a draw"
+                    : ownVote === ownPlayer.id
+                      ? "you reported a win"
+                      : "you reported a loss"}.
+                  {(player1Vote || player1DrawVote) && (player2Vote || player2DrawVote)
                     ? " Waiting for the result to update."
                     : " Waiting for opponent confirmation."}
+                </p>
+              ) : matchStatus === "PENDING" && ownDrawVote ? (
+                <p className="mt-1 text-xs text-[#9FB0E6]">
+                  Your vote: you reported a draw. Waiting for opponent confirmation.
                 </p>
               ) : matchStatus === "PENDING" ? (
                 <>
@@ -276,6 +313,16 @@ export default function MatchRoom({
                     >
                       Report Loss
                     </button>
+                    {match.isFriendlyMatch && (
+                      <button
+                        type="button"
+                        disabled={voting}
+                        onClick={() => void submitResult("DRAW")}
+                        className="rounded-lg border border-[#9FB0E6] px-3 py-1.5 text-sm font-bold text-[#EEF2FF] hover:border-[#F5C542] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Report Draw
+                      </button>
+                    )}
                   </div>
                 </>
               ) : matchStatus === "DISPUTED" ? (
@@ -284,7 +331,11 @@ export default function MatchRoom({
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-emerald-300">
-                  Result confirmed. {reportedWinnerName ?? "The winner"} advances in the bracket.
+                  {isDraw
+                    ? "Result confirmed as a draw."
+                    : match.isFriendlyMatch
+                      ? `Result confirmed for ${reportedWinnerName ?? "the winning player"}'s group.`
+                      : `Result confirmed. ${reportedWinnerName ?? "The winner"} advances in the bracket.`}
                 </p>
               )}
             </section>

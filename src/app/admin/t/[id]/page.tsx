@@ -18,8 +18,21 @@ export default async function AdminTournamentSettingsPage({
   if (session.user.role !== "ADMIN") redirect("/");
 
   const { id } = await params;
-  const tournament = await prisma.tournament.findUnique({ where: { id } });
+  const [tournament, groups] = await Promise.all([
+    prisma.tournament.findUnique({
+      where: { id },
+      include: { friendlyMatchGroup: { select: { name: true } } },
+    }),
+    prisma.group.findMany({
+      where: { isCore: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   if (!tournament) notFound();
+  const friendlyMatchInviteLink = tournament.friendlyMatchInviteToken
+    ? `${process.env.NEXTAUTH_URL?.replace(/\/+$/, "") ?? ""}/signup?invite=${encodeURIComponent(tournament.friendlyMatchInviteToken)}`
+    : null;
 
   return (
     <main className="min-h-screen bg-[#070D24] px-4 py-8 text-[#EEF2FF] sm:px-8 sm:py-10">
@@ -87,11 +100,33 @@ export default async function AdminTournamentSettingsPage({
               />
             </div>
             <TournamentFormatFields
+              groups={groups}
               initialFormat={tournament.format}
               initialMaxParticipants={tournament.maxParticipants ?? ""}
+              initialFriendlyMatchGroupId={tournament.friendlyMatchGroupId ?? ""}
+              initialFriendlyMatchSize={tournament.friendlyMatchSize}
               initialSwissRounds={tournament.swissRounds}
               initialTopCut={tournament.topCut}
             />
+            {tournament.format === "FRIENDLY_MATCH" &&
+              tournament.friendlyMatchInviteToken && (
+                <div className="rounded-lg border border-[#F5C542]/40 bg-[#101C45] p-4 md:col-span-2">
+                  <p className="font-semibold text-[#F5C542]">
+                    Rival group invitation · {tournament.friendlyMatchGroup?.name ?? "Group"}
+                  </p>
+                  <p className="mt-1 break-all text-sm text-[#9FB0E6]">
+                    <a
+                      href={friendlyMatchInviteLink ?? undefined}
+                      className="underline underline-offset-2 hover:text-[#EEF2FF]"
+                    >
+                      {friendlyMatchInviteLink}
+                    </a>
+                  </p>
+                  <p className="mt-2 text-xs text-[#9FB0E6]">
+                    Share this link with rival players. New accounts will join the group and this war automatically.
+                  </p>
+                </div>
+              )}
 
             <label className="flex items-center gap-3 md:col-span-2">
               <input type="hidden" name="autoApproveSignups" value="false" />

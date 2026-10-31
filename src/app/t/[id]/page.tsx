@@ -41,6 +41,8 @@ export default async function TournamentOverview({
       description: true,
       imageUrl: true,
       format: true,
+      friendlyMatchSize: true,
+      friendlyMatchGroup: { select: { id: true, name: true, logoUrl: true } },
       swissRounds: true,
       topCut: true,
       currentStage: true,
@@ -88,6 +90,13 @@ export default async function TournamentOverview({
 
   if (!tournament) notFound();
 
+  const coreGroup =
+    tournament.format === "FRIENDLY_MATCH"
+      ? await prisma.group.findFirst({
+          where: { isCore: true },
+          select: { id: true, name: true, logoUrl: true },
+        })
+      : null;
   const activeParticipantCount =
     tournament.maxParticipants === null
       ? null
@@ -119,7 +128,16 @@ export default async function TournamentOverview({
     select: {
       id: true,
       checkedIn: true,
-      user: { select: { name: true, username: true } },
+      friendlyMatchSubstitute: true,
+      friendlyMatchGroup: { select: { name: true } },
+      user: {
+        select: {
+          name: true,
+          username: true,
+          groupId: true,
+          group: { select: { name: true } },
+        },
+      },
     },
   });
   const visibleRosters = await prisma.roster.findMany({
@@ -219,7 +237,8 @@ export default async function TournamentOverview({
       finalMatch.winnerId === finalMatch.player2Id) &&
     tournament.matches.every((match) => match.status === "COMPLETED");
   const tournamentCompleted =
-    tournament.format === "SWISS" && tournament.topCut === 0
+    tournament.format === "FRIENDLY_MATCH" ||
+    (tournament.format === "SWISS" && tournament.topCut === 0)
       ? tournament.completed
       : bracketCompleted;
   const swissStandings =
@@ -290,8 +309,36 @@ export default async function TournamentOverview({
     return participant.user.name ?? participant.user.username ?? "Unnamed player";
   }
 
+  const friendlyScore = { coreWins: 0, rivalWins: 0, draws: 0 };
+  if (tournament.format === "FRIENDLY_MATCH" && coreGroup) {
+    for (const match of tournament.matches) {
+      if (match.status !== "COMPLETED") continue;
+      if (match.isDraw) {
+        friendlyScore.draws += 1;
+      } else if (match.winnerId === match.player1Id) {
+        if (match.player1?.friendlyMatchGroupId === coreGroup.id) {
+          friendlyScore.coreWins += 1;
+        } else {
+          friendlyScore.rivalWins += 1;
+        }
+      } else if (match.winnerId === match.player2Id) {
+        if (match.player2?.friendlyMatchGroupId === coreGroup.id) {
+          friendlyScore.coreWins += 1;
+        } else {
+          friendlyScore.rivalWins += 1;
+        }
+      }
+    }
+  }
+  const friendlyMatchWinner =
+    friendlyScore.coreWins === friendlyScore.rivalWins
+      ? null
+      : friendlyScore.coreWins > friendlyScore.rivalWins
+        ? coreGroup
+        : tournament.friendlyMatchGroup;
+
   const championId =
-    tournamentCompleted
+    tournamentCompleted && tournament.format !== "FRIENDLY_MATCH"
       ? tournament.format === "SWISS" && tournament.topCut === 0
         ? (swissStandings[0]?.id ?? null)
         : (finalMatch?.winnerId ?? null)
@@ -301,7 +348,9 @@ export default async function TournamentOverview({
       null)
     : null;
   const formatSummary =
-    tournament.format === "SWISS"
+    tournament.format === "FRIENDLY_MATCH"
+      ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize} group war · one pairing round`
+      : tournament.format === "SWISS"
       ? `Swiss: ${tournament.swissRounds} Rounds | Top Cut: ${
           tournament.topCut > 0 ? `Top ${tournament.topCut}` : "None"
         }`
@@ -366,6 +415,49 @@ export default async function TournamentOverview({
         )}
       </section>
 
+      {tournament.format === "FRIENDLY_MATCH" && (
+        <section
+          aria-label="Friendly Match group score"
+          className="grid gap-3 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:grid-cols-[1fr_auto_1fr]"
+        >
+          <div className="flex items-center gap-3">
+            {coreGroup?.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={coreGroup.logoUrl} alt="" className="size-12 rounded-lg object-cover" />
+            )}
+            <div>
+              <p className="text-sm text-[#9FB0E6]">{coreGroup?.name ?? "7DS"}</p>
+              <p className="text-2xl font-bold text-[#F5C542]">{friendlyScore.coreWins} wins</p>
+            </div>
+          </div>
+          <div className="self-center text-center">
+            <p className="font-bold text-[#EEF2FF]">VS</p>
+            <p className="mt-1 text-xs text-[#9FB0E6]">{friendlyScore.draws} draws</p>
+            {tournamentCompleted && (
+              <p className="mt-1 text-sm font-bold text-[#F5C542]">
+                {friendlyMatchWinner ? `${friendlyMatchWinner.name} wins` : "War drawn"}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-end gap-3 text-right">
+            <div>
+              <p className="text-sm text-[#9FB0E6]">
+                {tournament.friendlyMatchGroup?.name ?? "Rival group"}
+              </p>
+              <p className="text-2xl font-bold text-[#F5C542]">{friendlyScore.rivalWins} wins</p>
+            </div>
+            {tournament.friendlyMatchGroup?.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={tournament.friendlyMatchGroup.logoUrl}
+                alt=""
+                className="size-12 rounded-lg object-cover"
+              />
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
         <h3 className="text-xl font-semibold">Rules and settings</h3>
         <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#F5C542]/40 bg-[#101C45] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -382,17 +474,21 @@ export default async function TournamentOverview({
           <div>
             <dt className="text-sm text-[#9FB0E6]">Tournament format</dt>
             <dd className="mt-1 font-semibold">
-              {tournament.format === "SWISS"
-                ? `Swiss Rounds · ${tournament.swissRounds} rounds`
-                : "Single Elimination"}
+              {tournament.format === "FRIENDLY_MATCH"
+                ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize} · one pairing round`
+                : tournament.format === "SWISS"
+                  ? `Swiss Rounds · ${tournament.swissRounds} rounds`
+                  : "Single Elimination"}
             </dd>
           </div>
           <div>
             <dt className="text-sm text-[#9FB0E6]">Participant limit</dt>
             <dd className="mt-1 font-semibold">
-              {tournament.maxParticipants === null
-                ? "No limit"
-                : `${activeParticipantCount} / ${tournament.maxParticipants}`}
+              {tournament.format === "FRIENDLY_MATCH"
+                ? `Up to ${tournament.friendlyMatchSize} active players per group; extra joiners are substitutes`
+                : tournament.maxParticipants === null
+                  ? "No limit"
+                  : `${activeParticipantCount} / ${tournament.maxParticipants}`}
             </dd>
           </div>
           <div>
@@ -457,12 +553,16 @@ export default async function TournamentOverview({
                 This tournament has reached its participant limit.
               </p>
             ) : (
-              <JoinTournamentButton tournamentId={id} />
+              <JoinTournamentButton
+                tournamentId={id}
+                label={tournament.format === "FRIENDLY_MATCH" ? "Join War" : undefined}
+              />
             )}
           </div>
         )}
       </section>
 
+      {tournament.format !== "FRIENDLY_MATCH" && (
       <section className="rounded-2xl border border-[#F5C542]/50 bg-[#0C1638] p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -488,17 +588,24 @@ export default async function TournamentOverview({
             ))}
         </div>
       </section>
+      )}
 
       <section
         id="bracket"
         className="scroll-mt-20 rounded-2xl border border-[#243775] bg-[#0C1638] p-6"
       >
         <div>
-          <h3 className="text-xl font-semibold">Tournament bracket</h3>
+          <h3 className="text-xl font-semibold">
+            {tournament.format === "FRIENDLY_MATCH" ? "Friendly Match pairings" : "Tournament bracket"}
+          </h3>
           <p className="mt-1 text-sm text-[#9FB0E6]">
             {currentRound === null
-              ? "Pairings will appear here when the tournament starts."
-              : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}. Your active pairing is highlighted.`}
+              ? tournament.format === "FRIENDLY_MATCH"
+                ? "The one-time group pairings will appear here when the war starts."
+                : "Pairings will appear here when the tournament starts."
+              : tournament.format === "FRIENDLY_MATCH"
+                ? "One-time group pairings. Your active match is highlighted."
+                : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}. Your active pairing is highlighted.`}
           </p>
           {tournament.format === "SWISS" && (
             <Link
@@ -527,8 +634,9 @@ export default async function TournamentOverview({
               />
             </svg>
             <p>
-              Tournament bracket has not been generated yet. Check in and wait for the admin to
-              start Round 1.
+              {tournament.format === "FRIENDLY_MATCH"
+                ? "Friendly Match pairings have not been generated yet. Wait for the admin to start the war."
+                : "Tournament bracket has not been generated yet. Check in and wait for the admin to start Round 1."}
             </p>
           </div>
         ) : (
@@ -705,11 +813,13 @@ export default async function TournamentOverview({
             <table className="w-full min-w-[36rem] border-collapse text-left">
               <thead>
                 <tr className="border-b border-[#243775] text-sm text-[#9FB0E6]">
-                  {tournamentCompleted && (
+                  {tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" && (
                     <th scope="col" className="px-3 py-3 font-semibold">Rank</th>
                   )}
                   <th scope="col" className="px-3 py-3 font-semibold">Participant</th>
-                  <th scope="col" className="px-3 py-3 font-semibold">Check-in</th>
+                  <th scope="col" className="px-3 py-3 font-semibold">
+                    {tournament.format === "FRIENDLY_MATCH" ? "Group / lineup" : "Check-in"}
+                  </th>
                   <th scope="col" className="px-3 py-3 font-semibold">
                     {tournament.rostersLocked ? "Locked roster" : "Current roster"}
                   </th>
@@ -735,7 +845,7 @@ export default async function TournamentOverview({
 
                   return (
                     <tr key={participant.id} className="border-b border-[#243775]/70 align-top last:border-0">
-                      {tournamentCompleted && (
+                      {tournamentCompleted && tournament.format !== "FRIENDLY_MATCH" && (
                         <td className="px-3 py-4 font-bold text-[#F5C542]">
                           {rank}
                         </td>
@@ -763,15 +873,26 @@ export default async function TournamentOverview({
                         </span>
                       </th>
                       <td className="px-3 py-4">
-                        <span
-                          className={
-                            participant.checkedIn
-                              ? "font-semibold text-emerald-300"
-                              : "text-[#9FB0E6]"
-                          }
-                        >
-                          {participant.checkedIn ? "Checked in" : "Not checked in"}
-                        </span>
+                        {tournament.format === "FRIENDLY_MATCH" ? (
+                          <span className="text-[#9FB0E6]">
+                            {participant.friendlyMatchGroup?.name ?? "Unassigned"}
+                            {participant.friendlyMatchSubstitute
+                              ? " · Substitute"
+                              : tournament.matches.length > 0
+                                ? " · Active lineup"
+                                : " · Joined"}
+                          </span>
+                        ) : (
+                          <span
+                            className={
+                              participant.checkedIn
+                                ? "font-semibold text-emerald-300"
+                                : "text-[#9FB0E6]"
+                            }
+                          >
+                            {participant.checkedIn ? "Checked in" : "Not checked in"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-4">
                         {roster === null ? (

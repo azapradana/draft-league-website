@@ -20,7 +20,10 @@ export async function getMatchRoomData({
       winnerId: true,
       player1Vote: true,
       player2Vote: true,
-      tournament: { select: { name: true } },
+      player1DrawVote: true,
+      player2DrawVote: true,
+      isDraw: true,
+      tournament: { select: { name: true, format: true } },
       player1: {
         select: {
           id: true,
@@ -183,6 +186,10 @@ export async function getMatchRoomData({
           : null,
     player1Vote: match.player1Vote,
     player2Vote: match.player2Vote,
+    player1DrawVote: match.player1DrawVote,
+    player2DrawVote: match.player2DrawVote,
+    isDraw: match.isDraw,
+    isFriendlyMatch: match.tournament.format === "FRIENDLY_MATCH",
     tournamentName: match.tournament.name,
     player1,
     player2,

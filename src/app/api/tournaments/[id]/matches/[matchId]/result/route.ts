@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
+import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 
 type SubmissionResult =
   | {
@@ -12,6 +13,9 @@ type SubmissionResult =
       winnerId: string | null;
       player1Vote: string | null;
       player2Vote: string | null;
+      player1DrawVote: boolean;
+      player2DrawVote: boolean;
+      isDraw: boolean;
       walletBalance: number;
     }
   | { ok: false; statusCode: number; error: string };
@@ -37,9 +41,9 @@ export async function POST(
     typeof body === "object" && body !== null && "outcome" in body
       ? body.outcome
       : undefined;
-  if (outcome !== "WIN" && outcome !== "LOSS") {
+  if (outcome !== "WIN" && outcome !== "LOSS" && outcome !== "DRAW") {
     return NextResponse.json(
-      { error: "Choose whether you won or lost the match." },
+      { error: "Choose whether you won, lost, or drew the match." },
       { status: 400 },
     );
   }
@@ -57,7 +61,7 @@ export async function POST(
 
     const tournament = await tx.tournament.findUnique({
       where: { id: tournamentId },
-      select: { completed: true },
+      select: { completed: true, format: true },
     });
     if (!tournament) {
       return { ok: false, statusCode: 404, error: "Tournament not found." };
@@ -78,6 +82,8 @@ export async function POST(
         player2Id: true,
         player1Vote: true,
         player2Vote: true,
+          player1DrawVote: true,
+          player2DrawVote: true,
         player1: { select: { userId: true } },
         player2: { select: { userId: true } },
       },
@@ -103,15 +109,30 @@ export async function POST(
       };
     }
 
-    if (isPlayer1 && match.player1Vote !== null) {
+    if (
+      isPlayer1 &&
+      (match.player1Vote !== null || match.player1DrawVote)
+    ) {
       return { ok: false, statusCode: 409, error: "You have already submitted your vote." };
     }
-    if (isPlayer2 && match.player2Vote !== null) {
+    if (
+      isPlayer2 &&
+      (match.player2Vote !== null || match.player2DrawVote)
+    ) {
       return { ok: false, statusCode: 409, error: "You have already submitted your vote." };
+    }
+    if (outcome === "DRAW" && tournament.format !== "FRIENDLY_MATCH") {
+      return {
+        ok: false,
+        statusCode: 400,
+        error: "Draw results are only available for Friendly Match wars.",
+      };
     }
 
     const winnerId =
-      outcome === "WIN"
+      outcome === "DRAW"
+        ? null
+        : outcome === "WIN"
         ? isPlayer1
           ? match.player1Id
           : match.player2Id
@@ -122,42 +143,66 @@ export async function POST(
     if (isPlayer1) {
       await tx.match.update({
         where: { id: matchId },
-        data: { player1Vote: winnerId },
+        data:
+          outcome === "DRAW"
+            ? { player1DrawVote: true }
+            : { player1Vote: winnerId },
       });
     } else {
       await tx.match.update({
         where: { id: matchId },
-        data: { player2Vote: winnerId },
+        data:
+          outcome === "DRAW"
+            ? { player2DrawVote: true }
+            : { player2Vote: winnerId },
       });
     }
 
     const votes = await tx.match.findUniqueOrThrow({
       where: { id: matchId },
-      select: { player1Vote: true, player2Vote: true },
+      select: {
+        player1Vote: true,
+        player2Vote: true,
+        player1DrawVote: true,
+        player2DrawVote: true,
+      },
     });
-    const bothVoted = votes.player1Vote !== null && votes.player2Vote !== null;
+    const player1Voted = votes.player1Vote !== null || votes.player1DrawVote;
+    const player2Voted = votes.player2Vote !== null || votes.player2DrawVote;
+    const bothVoted = player1Voted && player2Voted;
+    const votesAgree =
+      votes.player1DrawVote === votes.player2DrawVote &&
+      (votes.player1DrawVote || votes.player1Vote === votes.player2Vote);
     const status = !bothVoted
       ? MatchStatus.PENDING
-      : votes.player1Vote === votes.player2Vote
+      : votesAgree
         ? MatchStatus.COMPLETED
         : MatchStatus.DISPUTED;
-    const completedWinner = status === MatchStatus.COMPLETED ? votes.player1Vote : null;
+    const isDraw = status === MatchStatus.COMPLETED && votes.player1DrawVote;
+    const completedWinner =
+      status === MatchStatus.COMPLETED && !isDraw ? votes.player1Vote : null;
 
     const updatedMatch = await tx.match.update({
       where: { id: matchId },
       data: {
         status,
-        ...(status === MatchStatus.COMPLETED ? { winnerId: completedWinner } : {}),
+        ...(status === MatchStatus.COMPLETED
+          ? { winnerId: completedWinner, isDraw }
+          : {}),
       },
       select: {
         status: true,
         winnerId: true,
         player1Vote: true,
         player2Vote: true,
+        player1DrawVote: true,
+        player2DrawVote: true,
+        isDraw: true,
       },
     });
 
     if (status === MatchStatus.COMPLETED) {
+      await recordFriendlyMatchParticipation(tx, tournamentId, matchId);
       await closeTournamentIfComplete(tx, tournamentId);
     }
 

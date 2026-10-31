@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
+import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 
 type OverrideResult =
   | { success: true }
@@ -115,12 +116,14 @@ export async function declareMatchWinner(
       data: {
         winnerId,
         status: MatchStatus.COMPLETED,
+        isDraw: false,
         player1Score,
         player2Score,
         adminOverrideById: session.user.id,
         adminOverrideAt: new Date(),
       },
     });
+    await recordFriendlyMatchParticipation(tx, tournamentId, matchId);
     await closeTournamentIfComplete(tx, tournamentId);
     return { success: true };
     });

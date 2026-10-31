@@ -11,6 +11,7 @@ export default function RoundControls({
   canStartNextRound,
   canGenerateTopCut,
   topCut,
+  isFriendlyMatch,
 }: {
   tournamentId: string;
   currentRound: number | null;
@@ -19,6 +20,7 @@ export default function RoundControls({
   canStartNextRound: boolean;
   canGenerateTopCut: boolean;
   topCut: number;
+  isFriendlyMatch: boolean;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -87,9 +89,13 @@ export default function RoundControls({
           type="button"
         >
           {pending
-            ? "Generating round…"
+            ? isFriendlyMatch && currentRound === null
+              ? "Generating pairings…"
+              : "Generating round…"
             : currentRound === null
-              ? "Start Tournament / Generate Round 1"
+              ? isFriendlyMatch
+                ? "Start Friendly Match / Generate Pairings"
+                : "Start Tournament / Generate Round 1"
               : "Start Next Round"}
         </button>
       ) : null}

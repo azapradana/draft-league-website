@@ -12,6 +12,7 @@ type TournamentCard = {
   imageUrl: string | null;
   regulation: string;
   format: TournamentFormat;
+  friendlyMatchSize: number;
   swissRounds: number;
   topCut: number;
   maxParticipants: number | null;
@@ -143,9 +144,11 @@ export default function TournamentStatusTabs({
                     ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-200"
                     : "border-[#526bb4]/40 bg-[#122050] text-[#B9C5E8]";
               const format =
-                tournament.format === "SWISS"
-                  ? `Swiss${tournament.topCut > 0 ? ` + Top ${tournament.topCut}` : ""} · ${tournament.swissRounds} rounds`
-                  : "Single Elimination";
+                tournament.format === "FRIENDLY_MATCH"
+                  ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize}`
+                  : tournament.format === "SWISS"
+                    ? `Swiss${tournament.topCut > 0 ? ` + Top ${tournament.topCut}` : ""} · ${tournament.swissRounds} rounds`
+                    : "Single Elimination";
               const participantLimit =
                 tournament.maxParticipants === null
                   ? "Open"

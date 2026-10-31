@@ -13,6 +13,7 @@ type AdminMatch = {
   isTopCut: boolean;
   tableNumber: number | null;
   status: string;
+  isDraw: boolean;
   player1: { id: string; name: string } | null;
   player2: { id: string; name: string } | null;
   winner: { id: string; name: string } | null;
@@ -153,11 +154,13 @@ export default function MatchesRoster({
                       ) : (
                         <>
                           <p className="mt-2 text-sm text-[#CBD5F5]">
-                            Score:{" "}
-                            {match.player1Score !== null && match.player2Score !== null
-                              ? `${match.player1Score}–${match.player2Score}`
-                              : "Not recorded"}
-                            {match.winner ? ` · Winner: ${match.winner.name}` : ""}
+                            {match.isDraw
+                              ? "Result: Draw"
+                              : `Score: ${
+                                  match.player1Score !== null && match.player2Score !== null
+                                    ? `${match.player1Score}–${match.player2Score}`
+                                    : "Not recorded"
+                                }${match.winner ? ` · Winner: ${match.winner.name}` : ""}`}
                           </p>
                           {(match.adminOverrideBy || match.adminOverrideAt) && (
                             <p className="mt-1 text-xs text-amber-200/80">

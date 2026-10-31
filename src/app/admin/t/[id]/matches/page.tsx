@@ -61,10 +61,10 @@ export default async function AdminTournamentMatchesPage({
       participants: {
         where: {
           status: ParticipantStatus.APPROVED,
-          checkedIn: true,
         },
         select: {
           id: true,
+          checkedIn: true,
           user: { select: { name: true, username: true, email: true } },
         },
       },
@@ -102,6 +102,10 @@ export default async function AdminTournamentMatchesPage({
     notFound();
   }
 
+  const eligibleParticipants =
+    tournament.format === "FRIENDLY_MATCH"
+      ? tournament.participants
+      : tournament.participants.filter((participant) => participant.checkedIn);
   const stageMatches = tournament.matches.filter(
     (match) =>
       match.stage === "SWISS" ||
@@ -183,7 +187,7 @@ export default async function AdminTournamentMatchesPage({
   const canStartRoundOne =
     currentRound === null &&
     !tournament.checkInOpen &&
-    tournament.participants.length > 0;
+    eligibleParticipants.length > 0;
   const canStartAnotherRound =
     currentStage === "SWISS"
       ? swissRoundNumbers.length < tournament.swissRounds
@@ -207,7 +211,7 @@ export default async function AdminTournamentMatchesPage({
   const standings =
     tournament.format === "SWISS"
       ? buildSwissStandings(
-          tournament.participants,
+          eligibleParticipants,
           stageMatches.map((match) => ({
             ...match,
             stage: "SWISS",
@@ -236,7 +240,9 @@ export default async function AdminTournamentMatchesPage({
         )
       : isSwiss
         ? `Swiss · Round ${match.roundNumber}`
-        : `Single Elimination · Round ${match.roundNumber}`;
+        : tournament.format === "FRIENDLY_MATCH"
+          ? "Friendly Match · Pairings"
+          : `Single Elimination · Round ${match.roundNumber}`;
     const hasLaterRound = tournament.matches.some(
       (laterMatch) => laterMatch.roundNumber > match.roundNumber,
     );
@@ -246,6 +252,7 @@ export default async function AdminTournamentMatchesPage({
       roundNumber: match.roundNumber,
       roundLabel,
       isTopCut,
+      isDraw: match.isDraw,
       tableNumber,
       status: match.status,
       player1: match.player1
@@ -299,6 +306,7 @@ export default async function AdminTournamentMatchesPage({
               canStartRoundOne={canStartRoundOne}
               canStartNextRound={canStartNextRound && canStartAnotherRound}
               canGenerateTopCut={canGenerateTopCut}
+              isFriendlyMatch={tournament.format === "FRIENDLY_MATCH"}
               topCut={
                 currentStage === "SWISS" ? tournament.topCut : 0
               }
@@ -352,7 +360,9 @@ export default async function AdminTournamentMatchesPage({
           <h2 className="text-xl font-semibold">Matches</h2>
           {matchesToDisplay.length === 0 && (
             <p className="mt-4 text-[#9FB0E6]">
-              Approved participants who have checked in: {tournament.participants.length}.
+              {tournament.format === "FRIENDLY_MATCH"
+                ? `Approved Friendly Match joiners: ${eligibleParticipants.length}.`
+                : `Approved participants who have checked in: ${eligibleParticipants.length}.`}
             </p>
           )}
           <MatchesRoster

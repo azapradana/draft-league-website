@@ -5,7 +5,15 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-export default function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
+export default function SignupForm({
+  googleEnabled,
+  inviteToken,
+  inviteTournamentId,
+}: {
+  googleEnabled: boolean;
+  inviteToken?: string;
+  inviteTournamentId?: string;
+}) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -21,19 +29,22 @@ export default function SignupForm({ googleEnabled }: { googleEnabled: boolean }
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, inviteToken }),
       });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as { error?: string; tournamentId?: string };
 
       if (!response.ok) {
         setError(result.error ?? "Account creation failed. Please try again.");
         return;
       }
 
+      const callbackUrl = inviteTournamentId
+        ? `/t/${encodeURIComponent(inviteTournamentId)}`
+        : "/";
       const signInResult = await signIn("credentials", {
         identifier: username,
         password,
-        callbackUrl: "/",
+        callbackUrl,
         redirect: false,
       });
 
@@ -42,7 +53,7 @@ export default function SignupForm({ googleEnabled }: { googleEnabled: boolean }
         return;
       }
 
-      router.push("/");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("Account creation could not be completed. Please try again.");
@@ -97,7 +108,7 @@ export default function SignupForm({ googleEnabled }: { googleEnabled: boolean }
       >
         {isSubmitting ? "Creating account…" : "Create account"}
       </button>
-      {googleEnabled && (
+      {googleEnabled && !inviteToken && (
         <button
           className="w-full rounded-md border border-slate-600 px-4 py-2 font-semibold hover:bg-slate-800"
           onClick={() => signIn("google", { callbackUrl: "/" })}

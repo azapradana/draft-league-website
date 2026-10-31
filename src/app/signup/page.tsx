@@ -1,9 +1,25 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 import SignupForm from "./signup-form";
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}) {
+  const { invite } = await searchParams;
   const settings = await getSiteSettings();
+  const inviteTournament = invite
+    ? await prisma.tournament.findUnique({
+        where: { friendlyMatchInviteToken: invite },
+        select: {
+          id: true,
+          name: true,
+          friendlyMatchGroup: { select: { name: true } },
+        },
+      })
+    : null;
   const googleEnabled = Boolean(
     process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
   );
@@ -22,12 +38,22 @@ export default async function SignupPage() {
           <p className="mt-2 text-sm text-slate-300">
             Choose a username and password to join Draft League.
           </p>
+          {inviteTournament && (
+            <p className="mt-2 text-sm text-amber-300">
+              You are invited to join {inviteTournament.name} with{" "}
+              {inviteTournament.friendlyMatchGroup?.name ?? "the rival group"}.
+            </p>
+          )}
           <p className="mt-2 text-sm text-slate-300">
             New accounts start with {settings.initialPlayerCoins.toLocaleString()} coins in their
             personal wallet.
           </p>
         </div>
-        <SignupForm googleEnabled={googleEnabled} />
+        <SignupForm
+          googleEnabled={googleEnabled}
+          inviteToken={inviteTournament ? invite : undefined}
+          inviteTournamentId={inviteTournament?.id}
+        />
         <p className="text-center text-sm text-slate-300">
           Already have an account?{" "}
           <Link className="font-semibold text-amber-300 hover:underline" href="/login">

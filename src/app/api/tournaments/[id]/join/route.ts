@@ -34,10 +34,33 @@ export async function POST(
             startingCoins: true,
             maxParticipants: true,
             autoApproveSignups: true,
+            format: true,
+            friendlyMatchGroupId: true,
           },
         });
         if (!currentTournament) {
           return { kind: "not-found" as const };
+        }
+        let friendlyMatchGroupId: string | null = null;
+        if (currentTournament.format === "FRIENDLY_MATCH") {
+          const [user, coreGroup] = await Promise.all([
+            transaction.user.findUnique({
+              where: { id: userId },
+              select: { groupId: true },
+            }),
+            transaction.group.findFirst({
+              where: { isCore: true },
+              select: { id: true },
+            }),
+          ]);
+          if (
+            !user?.groupId ||
+            (user.groupId !== coreGroup?.id &&
+              user.groupId !== currentTournament.friendlyMatchGroupId)
+          ) {
+            return { kind: "wrong-group" as const };
+          }
+          friendlyMatchGroupId = user.groupId;
         }
 
         const existingParticipant = await transaction.participant.findUnique({
@@ -70,6 +93,9 @@ export async function POST(
           data: {
             userId,
             tournamentId: tournament.id,
+            ...(currentTournament.format === "FRIENDLY_MATCH"
+              ? { friendlyMatchGroupId }
+              : {}),
             status: currentTournament.autoApproveSignups
               ? ParticipantStatus.APPROVED
               : ParticipantStatus.PENDING,
@@ -89,6 +115,12 @@ export async function POST(
       return NextResponse.json(
         { error: "You already have a participation record for this tournament." },
         { status: 409 },
+      );
+    }
+    if (result.kind === "wrong-group") {
+      return NextResponse.json(
+        { error: "You must belong to one of the groups in this Friendly Match to join." },
+        { status: 403 },
       );
     }
     if (result.kind === "full") {

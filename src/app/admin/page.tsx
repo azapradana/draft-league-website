@@ -14,19 +14,26 @@ export default async function AdminPage() {
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "ADMIN") redirect("/");
 
-  const tournaments = await prisma.tournament.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      _count: {
-        select: {
-          matches: true,
-          participants: {
-            where: { status: { in: ["PENDING", "APPROVED"] } },
+  const [tournaments, groups] = await Promise.all([
+    prisma.tournament.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        _count: {
+          select: {
+            matches: true,
+            participants: {
+              where: { status: { in: ["PENDING", "APPROVED"] } },
+            },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.group.findMany({
+      where: { isCore: false },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#070D24] px-4 py-8 text-[#EEF2FF] sm:px-8 sm:py-10">
@@ -42,6 +49,12 @@ export default async function AdminPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/admin/groups"
+              className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
+            >
+              Group management
+            </Link>
             <Link
               href="/admin/packs"
               className="rounded-lg border border-[#243775] px-4 py-3 text-sm font-semibold text-[#9FB0E6] transition hover:border-[#F5C542] hover:text-[#EEF2FF]"
@@ -79,7 +92,7 @@ export default async function AdminPage() {
                 <div className="md:col-span-2">
                   <ImageUpload name="cardBackImage" label="Card back image" />
                 </div>
-                <TournamentFormatFields />
+                <TournamentFormatFields groups={groups} />
                 <label className="flex items-center gap-3 md:col-span-2">
                   <input type="hidden" name="autoApproveSignups" value="false" />
                   <input
@@ -166,7 +179,9 @@ export default async function AdminPage() {
                           {tournament.name}
                         </th>
                         <td className="px-5 py-4 text-[#C2CCF2]">
-                          {tournament.format === "SWISS"
+                          {tournament.format === "FRIENDLY_MATCH"
+                            ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize}`
+                            : tournament.format === "SWISS"
                             ? `Swiss · ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` · Top ${tournament.topCut}` : ""}`
                             : "Single Elimination"}
                         </td>

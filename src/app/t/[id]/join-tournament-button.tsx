@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 
 export default function JoinTournamentButton({
   tournamentId,
+  label = "Join Tournament",
 }: {
   tournamentId: string;
+  label?: string;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -35,7 +37,9 @@ export default function JoinTournamentButton({
       setNotice(
         result.status === "PENDING"
           ? "Your registration is pending organizer approval."
-          : "You are now registered for this tournament.",
+          : label === "Join War"
+            ? "You are now in the Friendly Match queue."
+            : "You are now registered for this tournament.",
       );
       router.refresh();
     } catch {
@@ -53,7 +57,7 @@ export default function JoinTournamentButton({
         onClick={joinTournament}
         type="button"
       >
-        {pending ? "Joining…" : "Join Tournament"}
+        {pending ? "Joining…" : label}
       </button>
       {notice && (
         <p className="mt-3 text-sm text-emerald-300" role="status">

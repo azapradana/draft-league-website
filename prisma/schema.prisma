@@ -26,11 +26,13 @@ enum MatchStatus {
 }
 
 enum TournamentFormat {
+  FRIENDLY_MATCH
   SINGLE_ELIMINATION
   SWISS
 }
 
 enum TournamentStage {
+  FRIENDLY_MATCH
   SINGLE_ELIMINATION
   SWISS
   TOP_CUT
@@ -38,22 +40,38 @@ enum TournamentStage {
 }
 
 model User {
-  id                     String                  @id @default(cuid())
-  username               String?                 @unique
-  name                   String?
-  email                  String?                 @unique
-  emailVerified          DateTime?
-  image                  String?
-  passwordHash           String?
-  googleEmail            String?
-  role                   Role                    @default(PLAYER)
-  coinsBalance           Int                     @default(0)
-  accounts               Account[]
-  sessions               Session[]
-  participants           Participant[]
-  matchMessages          MatchMessage[]
-  adminOverriddenMatches Match[]                 @relation("MatchAdminOverride")
-  prizePayouts           TournamentPrizePayout[]
+  id                              String                  @id @default(cuid())
+  username                        String?                 @unique
+  name                            String?
+  email                           String?                 @unique
+  emailVerified                   DateTime?
+  image                           String?
+  passwordHash                    String?
+  googleEmail                     String?
+  role                            Role                    @default(PLAYER)
+  groupId                         String?
+  friendlyMatchParticipationCount Int                     @default(0)
+  coinsBalance                    Int                     @default(0)
+  group                           Group?                  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  accounts                        Account[]
+  sessions                        Session[]
+  participants                    Participant[]
+  matchMessages                   MatchMessage[]
+  adminOverriddenMatches          Match[]                 @relation("MatchAdminOverride")
+  prizePayouts                    TournamentPrizePayout[]
+
+  @@index([groupId])
+}
+
+model Group {
+  id                        String        @id @default(cuid())
+  name                      String        @unique
+  logoUrl                   String?
+  isCore                    Boolean       @default(false)
+  createdAt                 DateTime      @default(now())
+  users                     User[]
+  tournaments               Tournament[]  @relation("TournamentOpponentGroup")
+  friendlyMatchParticipants Participant[] @relation("ParticipantFriendlyMatchGroup")
 }
 
 model Account {
@@ -105,53 +123,61 @@ model SiteSettings {
 }
 
 model Tournament {
-  id                 String                  @id @default(cuid())
-  name               String
-  description        String                  @default("")
-  format             TournamentFormat        @default(SINGLE_ELIMINATION)
-  topCut             Int                     @default(0)
-  currentStage       TournamentStage         @default(SINGLE_ELIMINATION)
-  maxParticipants    Int?
-  autoApproveSignups Boolean                 @default(true)
-  swissRounds        Int                     @default(4)
-  imageUrl           String?
-  cardBackImage      String?
-  active             Boolean                 @default(false)
-  completed          Boolean                 @default(false)
-  regulation         String                  @default("m-c")
-  startingCoins      Int                     @default(0)
-  coinPrizePool      Int                     @default(0)
-  prizeWinnersCount  Int                     @default(0)
-  prizeDistribution  Json                    @default("[]")
-  maxCopiesPerPlayer Int                     @default(3)
-  maxCopiesLeague    Int?
-  rostersLocked      Boolean                 @default(false)
-  rostersPublic      Boolean                 @default(false)
-  checkInOpen        Boolean                 @default(false)
-  participants       Participant[]
-  packs              TournamentPack[]
-  matches            Match[]
-  prizePayouts       TournamentPrizePayout[]
+  id                       String                  @id @default(cuid())
+  name                     String
+  description              String                  @default("")
+  format                   TournamentFormat        @default(FRIENDLY_MATCH)
+  topCut                   Int                     @default(0)
+  currentStage             TournamentStage         @default(FRIENDLY_MATCH)
+  maxParticipants          Int?
+  friendlyMatchGroupId     String?
+  friendlyMatchSize        Int                     @default(1)
+  friendlyMatchInviteToken String?                 @unique
+  autoApproveSignups       Boolean                 @default(true)
+  swissRounds              Int                     @default(4)
+  imageUrl                 String?
+  cardBackImage            String?
+  active                   Boolean                 @default(false)
+  completed                Boolean                 @default(false)
+  regulation               String                  @default("m-c")
+  startingCoins            Int                     @default(0)
+  coinPrizePool            Int                     @default(0)
+  prizeWinnersCount        Int                     @default(0)
+  prizeDistribution        Json                    @default("[]")
+  maxCopiesPerPlayer       Int                     @default(3)
+  maxCopiesLeague          Int?
+  rostersLocked            Boolean                 @default(false)
+  rostersPublic            Boolean                 @default(false)
+  checkInOpen              Boolean                 @default(false)
+  participants             Participant[]
+  packs                    TournamentPack[]
+  matches                  Match[]
+  prizePayouts             TournamentPrizePayout[]
+  friendlyMatchGroup       Group?                  @relation("TournamentOpponentGroup", fields: [friendlyMatchGroupId], references: [id], onDelete: SetNull)
 }
 
 model Participant {
-  id             String                  @id @default(cuid())
-  userId         String
-  tournamentId   String
-  status         ParticipantStatus       @default(PENDING)
-  checkedIn      Boolean                 @default(false)
-  coins          Int                     @default(0)
-  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tournament     Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  purchases      Purchase[]
-  ownedPokemon   OwnedPokemon[]
-  roster         Roster?
-  player1Matches Match[]                 @relation("MatchPlayer1")
-  player2Matches Match[]                 @relation("MatchPlayer2")
-  wonMatches     Match[]                 @relation("MatchWinner")
-  player1Votes   Match[]                 @relation("MatchPlayer1Vote")
-  player2Votes   Match[]                 @relation("MatchPlayer2Vote")
-  prizePayouts   TournamentPrizePayout[]
+  id                        String                  @id @default(cuid())
+  userId                    String
+  tournamentId              String
+  friendlyMatchGroupId      String?
+  status                    ParticipantStatus       @default(PENDING)
+  checkedIn                 Boolean                 @default(false)
+  friendlyMatchSubstitute   Boolean                 @default(false)
+  friendlyMatchForcedLineup Boolean                 @default(false)
+  coins                     Int                     @default(0)
+  user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament                Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  friendlyMatchGroup        Group?                  @relation("ParticipantFriendlyMatchGroup", fields: [friendlyMatchGroupId], references: [id], onDelete: SetNull)
+  purchases                 Purchase[]
+  ownedPokemon              OwnedPokemon[]
+  roster                    Roster?
+  player1Matches            Match[]                 @relation("MatchPlayer1")
+  player2Matches            Match[]                 @relation("MatchPlayer2")
+  wonMatches                Match[]                 @relation("MatchWinner")
+  player1Votes              Match[]                 @relation("MatchPlayer1Vote")
+  player2Votes              Match[]                 @relation("MatchPlayer2Vote")
+  prizePayouts              TournamentPrizePayout[]
 
   @@unique([userId, tournamentId])
   @@index([tournamentId])
@@ -174,31 +200,35 @@ model TournamentPrizePayout {
 }
 
 model Match {
-  id                String           @id @default(cuid())
-  tournamentId      String
-  roundNumber       Int
-  stage             TournamentStage?
-  bracketPosition   Int?
-  player1Id         String?
-  player2Id         String?
-  winnerId          String?
-  player1Vote       String?
-  player2Vote       String?
-  player1Score      Int?
-  player2Score      Int?
-  adminOverrideById String?
-  adminOverrideAt   DateTime?
-  status            MatchStatus      @default(PENDING)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  tournament        Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  player1           Participant?     @relation("MatchPlayer1", fields: [player1Id], references: [id], onDelete: SetNull)
-  player2           Participant?     @relation("MatchPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
-  winner            Participant?     @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
-  player1Voted      Participant?     @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
-  player2Voted      Participant?     @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
-  adminOverrideBy   User?            @relation("MatchAdminOverride", fields: [adminOverrideById], references: [id], onDelete: SetNull)
-  messages          MatchMessage[]
+  id                                String           @id @default(cuid())
+  tournamentId                      String
+  roundNumber                       Int
+  stage                             TournamentStage?
+  bracketPosition                   Int?
+  player1Id                         String?
+  player2Id                         String?
+  winnerId                          String?
+  isDraw                            Boolean          @default(false)
+  player1DrawVote                   Boolean          @default(false)
+  player2DrawVote                   Boolean          @default(false)
+  friendlyMatchParticipationCounted Boolean          @default(false)
+  player1Vote                       String?
+  player2Vote                       String?
+  player1Score                      Int?
+  player2Score                      Int?
+  adminOverrideById                 String?
+  adminOverrideAt                   DateTime?
+  status                            MatchStatus      @default(PENDING)
+  createdAt                         DateTime         @default(now())
+  updatedAt                         DateTime         @updatedAt
+  tournament                        Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player1                           Participant?     @relation("MatchPlayer1", fields: [player1Id], references: [id], onDelete: SetNull)
+  player2                           Participant?     @relation("MatchPlayer2", fields: [player2Id], references: [id], onDelete: SetNull)
+  winner                            Participant?     @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  player1Voted                      Participant?     @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
+  player2Voted                      Participant?     @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
+  adminOverrideBy                   User?            @relation("MatchAdminOverride", fields: [adminOverrideById], references: [id], onDelete: SetNull)
+  messages                          MatchMessage[]
 
   @@index([tournamentId, roundNumber])
 }
