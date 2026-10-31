@@ -99,14 +99,24 @@ export async function deleteGroup(formData: FormData): Promise<GroupActionResult
   const auth = await requireAdmin();
   if ("error" in auth) return auth;
   const groupId = text(formData, "groupId");
-  const group = await prisma.group.findUnique({ where: { id: groupId } });
-  if (!group) return { error: "Group not found." };
-  if (group.isCore) return { error: "The core group cannot be deleted." };
+  if (!groupId) return { error: "Choose a group." };
 
   try {
-    await prisma.group.delete({ where: { id: groupId } });
+    const result = await prisma.$transaction(async (tx) => {
+      const group = await tx.group.findUnique({ where: { id: groupId } });
+      if (!group) return { error: "Group not found." };
+      if (group.isCore) return { error: "The core group cannot be deleted." };
+
+      await tx.user.updateMany({ where: { groupId }, data: { groupId: null } });
+      await tx.group.delete({ where: { id: groupId } });
+      return null;
+    });
+    if (result) return result;
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      (error.code === "P2003" || error.code === "P2014")
+    ) {
       return { error: "This group has friendly match history and cannot be deleted." };
     }
     throw error;
