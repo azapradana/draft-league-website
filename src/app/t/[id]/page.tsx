@@ -12,6 +12,9 @@ import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
 import { RichText } from "@/components/rich-text";
 import SwissRoundTabs from "@/components/SwissRoundTabs";
+import RoundNotificationBanner from "@/components/RoundNotificationBanner";
+import TournamentRewardModal from "@/components/TournamentRewardModal";
+import { parsePrizeDistribution } from "@/lib/prize-distribution";
 import { plannedTopCutPlayerCounts, topCutStageLabel } from "@/lib/top-cut-stages";
 
 export default async function TournamentOverview({
@@ -45,6 +48,8 @@ export default async function TournamentOverview({
       maxParticipants: true,
       regulation: true,
       startingCoins: true,
+      coinPrizePool: true,
+      prizeDistribution: true,
       maxCopiesPerPlayer: true,
       maxCopiesLeague: true,
       checkInOpen: true,
@@ -285,8 +290,34 @@ export default async function TournamentOverview({
     return participant.user.name ?? participant.user.username ?? "Unnamed player";
   }
 
+  const championId =
+    tournamentCompleted
+      ? tournament.format === "SWISS" && tournament.topCut === 0
+        ? (swissStandings[0]?.id ?? null)
+        : (finalMatch?.winnerId ?? null)
+      : null;
+  const champion = championId
+    ? (approvedParticipants.find((participant) => participant.id === championId) ??
+      null)
+    : null;
+  const formatSummary =
+    tournament.format === "SWISS"
+      ? `Swiss: ${tournament.swissRounds} Rounds | Top Cut: ${
+          tournament.topCut > 0 ? `Top ${tournament.topCut}` : "None"
+        }`
+      : "Single Elimination";
+  const prizeDistribution = parsePrizeDistribution(tournament.prizeDistribution) ?? [];
+  const roundInProgress = currentRound !== null && !tournamentCompleted;
+
   return (
     <div className="space-y-8">
+      {roundInProgress && (
+        <RoundNotificationBanner
+          tournamentId={tournament.id}
+          round={currentRound}
+          label={`Round ${currentRound}`}
+        />
+      )}
       {showMatchUnauthorized && (
         <div
           role="alert"
@@ -296,6 +327,20 @@ export default async function TournamentOverview({
         </div>
       )}
       <section>
+        {champion && (
+          <div className="mb-5 flex items-center gap-4 rounded-2xl border border-[#F5C542] bg-gradient-to-r from-[#F5C542]/25 via-[#F5C542]/10 to-transparent px-5 py-4">
+            <span aria-hidden="true" className="text-3xl">🏆</span>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F5C542]">
+                Grand Champion
+              </p>
+              <p className="text-xl font-bold">{displayName(champion)}</p>
+              <p className="text-sm text-[#9FB0E6]">
+                Winner of {tournament.name}
+              </p>
+            </div>
+          </div>
+        )}
         {tournament.imageUrl && (
           <div className="mb-5 overflow-hidden rounded-2xl border border-[#243775]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -323,6 +368,16 @@ export default async function TournamentOverview({
 
       <section className="rounded-2xl border border-[#243775] bg-[#0C1638] p-6">
         <h3 className="text-xl font-semibold">Rules and settings</h3>
+        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-[#F5C542]/40 bg-[#101C45] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-[#9FB0E6]">Format</p>
+            <p className="mt-1 font-semibold text-[#F5C542]">{formatSummary}</p>
+          </div>
+          <TournamentRewardModal
+            coinPrizePool={tournament.coinPrizePool}
+            distribution={prizeDistribution}
+          />
+        </div>
         <dl className="mt-5 grid gap-5 sm:grid-cols-2">
           <div>
             <dt className="text-sm text-[#9FB0E6]">Tournament format</dt>
