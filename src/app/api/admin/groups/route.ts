@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       select: { id: true },
     });
     const user = await prisma.user.findUnique({
-      where: { username: username.trim() },
+      where: { usernameLower: username.trim().toLowerCase() },
       select: { id: true },
     });
     if (!group || !user) {

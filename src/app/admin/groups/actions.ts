@@ -185,7 +185,7 @@ export async function addUserToGroupByUsername(
   const group = await prisma.group.findUnique({ where: { id: groupId }, select: { id: true } });
   if (!group) return { error: "Group not found." };
   const user = await prisma.user.findFirst({
-    where: { username: { equals: username, mode: "insensitive" } },
+    where: { usernameLower: username.toLowerCase() },
     select: { id: true },
   });
   if (!user) return { error: "No user with that username." };

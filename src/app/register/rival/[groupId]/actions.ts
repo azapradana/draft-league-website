@@ -8,6 +8,12 @@ import { GUEST_FORBIDDEN_ERROR, isGuestSession } from "@/lib/guest-access";
 import { checkRivalInvitation, consumeInvitation, joinRivalWar } from "@/lib/friendly-war";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
+import {
+  isValidUsername,
+  USERNAME_INVALID_ERROR,
+  USERNAME_TAKEN_ERROR,
+  usernameKey,
+} from "@/lib/username";
 
 export type RivalActionResult = { success: true } | { error: string };
 
@@ -26,10 +32,11 @@ export async function registerRivalUser(formData: FormData): Promise<RivalAction
 
   const username = field(formData, "username").trim();
   const password = field(formData, "password");
-  if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-    return { error: "Username must be 3-20 characters: lowercase letters, numbers, or underscores." };
-  }
+  if (!isValidUsername(username)) return { error: USERNAME_INVALID_ERROR };
   if (password.length < 8) return { error: "Password must be at least 8 characters." };
+  if (await prisma.user.findUnique({ where: { usernameLower: usernameKey(username) }, select: { id: true } })) {
+    return { error: USERNAME_TAKEN_ERROR };
+  }
 
   const passwordHash = await bcrypt.hash(password, 12);
   const settings = await getSiteSettings();
@@ -40,7 +47,7 @@ export async function registerRivalUser(formData: FormData): Promise<RivalAction
       await tx.user.create({
         data: {
           username,
-          name: username,
+          usernameLower: usernameKey(username),
           passwordHash,
           coinsBalance: settings.initialPlayerCoins,
           groupId: check.invitation.groupId,
@@ -49,7 +56,7 @@ export async function registerRivalUser(formData: FormData): Promise<RivalAction
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "That username is already taken. Please choose another." };
+      return { error: USERNAME_TAKEN_ERROR };
     }
     if (error instanceof Error && error.message === INVITE_RACE_ERROR) {
       return { error: INVITE_RACE_ERROR };

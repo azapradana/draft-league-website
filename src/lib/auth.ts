@@ -29,7 +29,7 @@ const providers: NextAuthOptions["providers"] = [
       const user = await prisma.user.findFirst({
         where: {
           OR: [
-            { username: { equals: identifier, mode: "insensitive" } },
+            { usernameLower: identifier.toLowerCase() },
             { email: { equals: identifier, mode: "insensitive" } },
           ],
         },

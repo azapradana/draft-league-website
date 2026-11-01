@@ -80,7 +80,7 @@ export async function POST(
         return { kind: "invalid-group" };
       }
       const user = await tx.user.findUnique({
-        where: { username },
+        where: { usernameLower: username.toLowerCase() },
         select: { id: true },
       });
       if (!user) return { kind: "not-found" };

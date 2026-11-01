@@ -52,10 +52,13 @@ export function RivalSignupForm({ groupId, invite }: { groupId: string; invite: 
           className={inputClass}
           maxLength={20}
           minLength={3}
-          pattern="[a-z0-9_]{3,20}"
+          pattern="[A-Za-z0-9_.\-]{3,20}"
           required
-          title="Use 3-20 lowercase letters, numbers, or underscores."
+          title="3 to 20 characters: letters, numbers, _ . -"
         />
+        <span className="block text-xs text-slate-400">
+          3 to 20 characters: letters, numbers, _ . -
+        </span>
       </label>
       <label className="block space-y-2 text-sm">
         <span>Password</span>
