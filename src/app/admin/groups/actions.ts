@@ -45,6 +45,14 @@ function parseName(formData: FormData): string | { error: string } {
   return name;
 }
 
+function parseAccentColor(formData: FormData): string | null | { error: string } {
+  if (formData.get("clearAccent") === "on") return null;
+  const value = text(formData, "accentColor");
+  if (!value) return null;
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return { error: "Accent color must be a hex value like #F5C542." };
+  return value.toLowerCase();
+}
+
 function done(message: string, extra: { token?: string; groupId?: string } = {}): GroupActionResult {
   revalidatePath("/admin/groups");
   return { success: true, message, ...extra };
@@ -78,12 +86,14 @@ export async function updateGroup(formData: FormData): Promise<GroupActionResult
   if (typeof name !== "string") return name;
   const logoUrl = parseLogoUrl(formData);
   if (logoUrl !== null && typeof logoUrl !== "string") return logoUrl;
+  const accentColor = parseAccentColor(formData);
+  if (accentColor !== null && typeof accentColor !== "string") return accentColor;
 
   try {
     // Keep the existing logo when neither an upload nor a link was provided.
     await prisma.group.update({
       where: { id: groupId },
-      data: { name, ...(logoUrl ? { logoUrl } : {}) },
+      data: { name, accentColor, ...(logoUrl ? { logoUrl } : {}) },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

@@ -53,7 +53,11 @@ function GroupAvatar({ url, name }: { url: string | null; name: string }) {
   );
 }
 
-function GroupEditForm({ group }: { group: { id: string; name: string; logoUrl: string | null } }) {
+function GroupEditForm({
+  group,
+}: {
+  group: { id: string; name: string; logoUrl: string | null; accentColor: string | null };
+}) {
   return (
     <ActionForm action={updateGroup} className="grid gap-4 md:grid-cols-2">
       <input type="hidden" name="groupId" value={group.id} />
@@ -72,6 +76,26 @@ function GroupEditForm({ group }: { group: { id: string; name: string; logoUrl: 
         <span className={labelClass}>Replace logo with link</span>
         <input name="logoUrl" type="url" placeholder="https://" className={inputClass} />
       </label>
+      <div>
+        <span className={labelClass}>Overlay accent color</span>
+        <div className="flex items-center gap-3">
+          <input
+            name="accentColor"
+            type="color"
+            defaultValue={group.accentColor ?? "#f5c542"}
+            aria-label="Overlay accent color"
+            className="h-10 w-14 cursor-pointer rounded-lg border border-[#243775] bg-[#070D24] p-1"
+          />
+          <label className="flex items-center gap-2 text-sm text-[#B9C5E8]">
+            <input
+              name="clearAccent"
+              type="checkbox"
+              defaultChecked={!group.accentColor}
+            />
+            Use default gold (uncheck to apply the chosen color)
+          </label>
+        </div>
+      </div>
       <div className="md:col-span-2">
         <ImageUpload
           name="logoUpload"

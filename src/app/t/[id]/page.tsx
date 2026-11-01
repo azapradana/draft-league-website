@@ -11,6 +11,7 @@ import CheckInButton from "./check-in-button";
 import { serializeTeam } from "@/lib/team-access";
 import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import JoinTournamentButton from "./join-tournament-button";
+import CopyOverlayLinks from "./copy-overlay-links";
 import PokemonArtwork from "./pokemon-artwork";
 import GroupBadge from "@/components/GroupBadge";
 import { RichText } from "@/components/rich-text";
@@ -508,6 +509,13 @@ export default async function TournamentOverview({
               />
             )}
           </div>
+        </section>
+      )}
+
+      {tournament.format === "FRIENDLY_MATCH" && (
+        <section aria-label="Stream overlays" className="space-y-2">
+          <p className="text-sm text-[#9FB0E6]">OBS browser-source overlays</p>
+          <CopyOverlayLinks tournamentId={tournament.id} />
         </section>
       )}
 

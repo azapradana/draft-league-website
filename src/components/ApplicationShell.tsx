@@ -23,7 +23,7 @@ export default function ApplicationShell(props: ApplicationShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
-  if (pathname.startsWith("/t/")) {
+  if (pathname.startsWith("/t/") || pathname.startsWith("/overlay/")) {
     return props.children;
   }
 

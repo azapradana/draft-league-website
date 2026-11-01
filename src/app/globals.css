@@ -24,6 +24,39 @@ body {
   }
 }
 
+@keyframes overlay-pop {
+  0% { transform: scale(1.35); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes overlay-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.overlay-pop {
+  display: inline-block;
+  animation: overlay-pop 0.5s ease-out;
+}
+
+.overlay-fade {
+  animation: overlay-fade 0.4s ease-out;
+}
+
+.overlay-bar {
+  transition: width 0.6s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-pop,
+  .overlay-fade {
+    animation: none;
+  }
+  .overlay-bar {
+    transition: none;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
