@@ -20,10 +20,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireUser();
-  if (!auth.ok) return authFailure(auth);
-
   const { id: tournamentId } = await params;
+  const auth = await requireUser(tournamentId);
+  if (!auth.ok) return authFailure(auth);
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     select: { mode: true, rostersPublic: true },
@@ -64,7 +63,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireUser();
+  const { id: tournamentId } = await params;
+  const auth = await requireUser(tournamentId);
   if (!auth.ok) return authFailure(auth);
 
   const body: unknown = await request.json().catch(() => null);
@@ -76,7 +76,6 @@ export async function PUT(
     return NextResponse.json({ error: "Send the team paste as text." }, { status: 400 });
   }
 
-  const { id: tournamentId } = await params;
   const mode = await prisma.tournament.findUnique({
     where: { id: tournamentId },
     select: { mode: true },

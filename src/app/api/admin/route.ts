@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePackDataCache } from "@/lib/pack-data";
 import { SITE_SETTINGS_ID } from "@/lib/site-settings";
 import { awardTournamentPrizes } from "@/lib/tournament-prizes";
+import { startTournament } from "@/lib/tournament-start";
 import {
   parsePrizeDistribution,
   suggestPrizeDistribution,
@@ -824,7 +825,11 @@ export async function POST(request: NextRequest) {
         }
 
         if ("checkInOpen" in body) {
-          updateData.checkInOpen = asBoolean(body.checkInOpen, tournament.checkInOpen);
+          // Friendly Match has no check-in, and check-in cannot reopen once a tournament has started.
+          updateData.checkInOpen =
+            tournament.format === TournamentFormat.FRIENDLY_MATCH || tournament.startedAt
+              ? false
+              : asBoolean(body.checkInOpen, tournament.checkInOpen);
         }
 
         if ("autoApproveSignups" in body) {
@@ -981,6 +986,46 @@ export async function POST(request: NextRequest) {
         return NextResponse.redirect(new URL(`/admin/t/${tournamentId}`, request.url));
       }
 
+      case "setInviteActive": {
+        const tournamentId = asString(body.tournamentId);
+        const active = asOptionalBoolean(body.active);
+        if (!tournamentId || active === undefined) {
+          return NextResponse.json(
+            { error: "Tournament ID and active flag are required." },
+            { status: 400 },
+          );
+        }
+
+        const result = await prisma.tournament.updateMany({
+          where: {
+            id: tournamentId,
+            format: TournamentFormat.FRIENDLY_MATCH,
+            friendlyMatchInviteToken: { not: null },
+          },
+          data: { friendlyMatchInviteActive: active },
+        });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "Invitation link not found." }, { status: 404 });
+        }
+        return NextResponse.json({ success: true, active });
+      }
+
+      case "unlockGuest": {
+        const userId = asString(body.userId);
+        if (!userId) {
+          return NextResponse.json({ error: "User ID is required." }, { status: 400 });
+        }
+
+        const result = await prisma.user.updateMany({
+          where: { id: userId, role: "GUEST" },
+          data: { role: "PLAYER", boundTournamentId: null },
+        });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "Guest not found." }, { status: 404 });
+        }
+        return NextResponse.json({ success: true });
+      }
+
       case "createPack": {
         const name = asString(body.name).trim();
         const description = asString(body.description);
@@ -1131,6 +1176,20 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.redirect(new URL("/admin/packs", request.url), 303);
+      }
+
+      case "startTournament": {
+        const id = asString(body.id);
+        if (!id) {
+          return NextResponse.json({ error: "Tournament ID is required." }, { status: 400 });
+        }
+
+        const result = await startTournament(id, request);
+        if (!result.ok) {
+          return NextResponse.json({ error: result.error }, { status: result.status });
+        }
+        revalidatePackDataCache();
+        return NextResponse.json({ success: true, startedAt: result.startedAt });
       }
 
       case "deleteTournament": {

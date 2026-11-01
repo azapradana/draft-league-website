@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { guardGuestPage } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import TournamentNavigation from "./tournament-navigation";
 import { CoinBalanceProvider } from "./coin-balance";
@@ -18,6 +19,8 @@ export default async function TournamentLayout({
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/t/${id}`)}`);
   }
+
+  guardGuestPage(session, id);
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },

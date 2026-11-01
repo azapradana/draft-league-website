@@ -175,6 +175,54 @@ export type PairingResult =
 
 class PairingError extends Error {}
 
+// Records a war entry plus its tournament Participant row. Friendly Match has no check-in, so the
+// participant is always checkedIn; anyone joining after Start goes straight to the substitute bench.
+export async function joinWarEntry(
+  tx: Prisma.TransactionClient,
+  war: { id: string; tournamentId: string },
+  userId: string,
+  groupId: string,
+  started: boolean,
+) {
+  await tx.friendlyWarParticipant.upsert({
+    where: { warId_userId: { warId: war.id, userId } },
+    update: {},
+    create: { warId: war.id, userId, groupId, status: started ? "BENCH" : "JOINED" },
+  });
+  await tx.participant.upsert({
+    where: { userId_tournamentId: { userId, tournamentId: war.tournamentId } },
+    update: { checkedIn: true },
+    create: {
+      userId,
+      tournamentId: war.tournamentId,
+      status: "APPROVED",
+      checkedIn: true,
+      friendlyMatchGroupId: groupId,
+      friendlyMatchSubstitute: started,
+    },
+  });
+}
+
+// Puts a user who just registered through a rival invitation into the matching war (bench if started).
+export async function joinRivalWar(tx: Prisma.TransactionClient, userId: string, groupId: string) {
+  const war = await tx.friendlyWar.findFirst({
+    where: {
+      status: { in: ["OPEN", "IN_PROGRESS"] },
+      tournamentId: { not: null },
+      groups: { some: { groupId } },
+    },
+    select: { id: true, tournamentId: true, tournament: { select: { startedAt: true } } },
+  });
+  if (!war?.tournamentId) return;
+  await joinWarEntry(
+    tx,
+    { id: war.id, tournamentId: war.tournamentId },
+    userId,
+    groupId,
+    war.tournament?.startedAt != null,
+  );
+}
+
 // Ensures a tournament Participant row exists so the user can sit in a Match slot.
 async function ensureParticipant(tx: Prisma.TransactionClient, tournamentId: string, userId: string) {
   return tx.participant.upsert({
@@ -230,10 +278,29 @@ export async function generateWarPairings(warId: string): Promise<PairingResult>
         });
       }
 
-      const entries = await tx.friendlyWarParticipant.findMany({
-        where: { warId, status: { not: "BENCH" }, groupId: { in: [coreGroup.id, rivalGroupId] } },
-        select: { id: true, userId: true, groupId: true, forceAssigned: true, status: true },
-      });
+      const loadEntries = () =>
+        tx.friendlyWarParticipant.findMany({
+          where: { warId, status: { not: "BENCH" }, groupId: { in: [coreGroup.id, rivalGroupId] } },
+          select: { id: true, userId: true, groupId: true, forceAssigned: true, status: true },
+        });
+      let entries = await loadEntries();
+
+      // Nobody opted in from 7DS (or members are only bound via their group): fall back to the
+      // group's members so the draw is not blocked.
+      if (!entries.some((e) => e.groupId === coreGroup.id && e.status === "SELECTED")) {
+        const coreMembers = await tx.user.findMany({
+          where: { groupId: coreGroup.id },
+          select: { id: true },
+        });
+        for (const member of coreMembers) {
+          await tx.friendlyWarParticipant.upsert({
+            where: { warId_userId: { warId, userId: member.id } },
+            update: { status: "SELECTED" },
+            create: { warId, userId: member.id, groupId: coreGroup.id, status: "SELECTED" },
+          });
+        }
+        entries = await loadEntries();
+      }
       const pick = (groupId: string, requireSelected: boolean) => {
         const pool = entries.filter(
           (e) => e.groupId === groupId && (!requireSelected || e.status === "SELECTED"),

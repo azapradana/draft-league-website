@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { finalizeCoreSquad } from "@/lib/friendly-war";
+import { GUEST_FORBIDDEN_ERROR, guestMayAccess } from "@/lib/guest-access";
+import { finalizeCoreSquad, joinWarEntry } from "@/lib/friendly-war";
 import { prisma } from "@/lib/prisma";
 
 export type WarActionResult = { success: true; message?: string } | { error: string };
@@ -15,13 +16,14 @@ function refresh(tournamentId: string) {
 async function loadOpenWar(tournamentId: string) {
   return prisma.friendlyWar.findUnique({
     where: { tournamentId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, tournament: { select: { startedAt: true } } },
   });
 }
 
 export async function joinWar(tournamentId: string): Promise<WarActionResult> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return { error: "Sign in to join the war." };
+  if (!guestMayAccess(session, tournamentId)) return { error: GUEST_FORBIDDEN_ERROR };
 
   const [war, user] = await Promise.all([
     loadOpenWar(tournamentId),
@@ -31,21 +33,28 @@ export async function joinWar(tournamentId: string): Promise<WarActionResult> {
     }),
   ]);
   if (!war) return { error: "No Friendly Match war exists for this tournament." };
-  if (war.status !== "OPEN") return { error: "The opt-in window is closed." };
+  // Joining stays open after Start; late joiners go on the substitute bench.
+  const started = war.tournament?.startedAt != null;
+  const joinable = war.status === "OPEN" || (war.status === "IN_PROGRESS" && started);
+  if (!joinable) return { error: "The opt-in window is closed." };
   if (!user?.groupId || !user.group?.isCore) return { error: "Only 7DS members can join this war." };
 
-  await prisma.friendlyWarParticipant.upsert({
-    where: { warId_userId: { warId: war.id, userId: session.user.id } },
-    update: {},
-    create: { warId: war.id, userId: session.user.id, groupId: user.groupId },
-  });
+  const userId = session.user.id;
+  const groupId = user.groupId;
+  await prisma.$transaction((tx) =>
+    joinWarEntry(tx, { id: war.id, tournamentId }, userId, groupId, started),
+  );
   refresh(tournamentId);
-  return { success: true, message: "You joined the war." };
+  return {
+    success: true,
+    message: started ? "You joined the war on the substitute bench." : "You joined the war.",
+  };
 }
 
 export async function leaveWar(tournamentId: string): Promise<WarActionResult> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return { error: "Sign in first." };
+  if (!guestMayAccess(session, tournamentId)) return { error: GUEST_FORBIDDEN_ERROR };
   const war = await loadOpenWar(tournamentId);
   if (!war) return { error: "No Friendly Match war exists for this tournament." };
   if (war.status !== "OPEN") return { error: "The opt-in window is closed." };

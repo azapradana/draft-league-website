@@ -2,6 +2,7 @@ import { ParticipantStatus } from "@prisma/client";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { guardGuestPage } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 import TournamentStatusTabs from "./tournament-status-tabs";
@@ -13,6 +14,7 @@ export default async function Home({
 }) {
   const { category } = await searchParams;
   const session = await getServerSession(authOptions);
+  if (session) guardGuestPage(session);
   const [settings, tournaments] = await Promise.all([
     getSiteSettings(),
     prisma.tournament.findMany({

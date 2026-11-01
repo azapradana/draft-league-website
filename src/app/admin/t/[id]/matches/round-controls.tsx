@@ -94,8 +94,8 @@ export default function RoundControls({
               : "Generating round…"
             : currentRound === null
               ? isFriendlyMatch
-                ? "Start Friendly Match / Generate Pairings"
-                : "Start Tournament / Generate Round 1"
+                ? "Generate Pairings"
+                : "Generate Round 1"
               : "Start Next Round"}
         </button>
       ) : null}

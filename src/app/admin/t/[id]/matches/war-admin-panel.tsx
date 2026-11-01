@@ -7,7 +7,6 @@ import {
   declareWarMatchDraw,
   forceAssignToWar,
   removeFromWar,
-  startWarPairings,
   type WarAdminResult,
 } from "./war-actions";
 
@@ -65,27 +64,13 @@ export default function WarAdminPanel({
       )}
 
       {warStatus === "IN_PROGRESS" && !pairingsSeeded && (
-        <div className="space-y-2">
-          <p className="text-sm text-[#9FB0E6]">
-            Randomly pairs active 7DS players against rival players. This can only be done once.
-          </p>
-          <button
-            className={button}
-            disabled={pending}
-            onClick={() => {
-              if (window.confirm("Generate the one-time random pairings?")) {
-                submit(() => startWarPairings(tournamentId));
-              }
-            }}
-            type="button"
-          >
-            Generate pairings
-          </button>
-        </div>
+        <p className="text-sm text-[#9FB0E6]">
+          Use Start tournament above to generate the one-time random pairings.
+        </p>
       )}
       {warStatus === "OPEN" && (
         <p className="text-sm text-[#9FB0E6]">
-          Finalize the 7DS roster from the war page before generating pairings.
+          Start tournament finalizes the 7DS roster and generates the one-time pairings.
         </p>
       )}
 

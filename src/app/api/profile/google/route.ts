@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { guestApiBlock } from "@/lib/guest-access";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { prisma } from "@/lib/prisma";
 
@@ -19,6 +20,9 @@ export async function DELETE(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Sign in to manage linked accounts." }, { status: 401 });
   }
+
+  const guestBlock = guestApiBlock(session);
+  if (guestBlock) return guestBlock;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

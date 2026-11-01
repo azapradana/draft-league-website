@@ -24,7 +24,7 @@ export default async function WarOptInPage({ params }: { params: Promise<{ id: s
   const war = await prisma.friendlyWar.findUnique({
     where: { tournamentId: id },
     include: {
-      tournament: { select: { name: true } },
+      tournament: { select: { name: true, startedAt: true } },
       groups: { include: { group: { select: { name: true, logoUrl: true, isCore: true } } } },
       entries: {
         where: { group: { isCore: true } },
@@ -48,6 +48,7 @@ export default async function WarOptInPage({ params }: { params: Promise<{ id: s
   const isCoreMember = Boolean(me?.group?.isCore);
   const isAdmin = session.user.role === "ADMIN";
   const isOpen = war.status === "OPEN";
+  const canJoin = isOpen || (war.status === "IN_PROGRESS" && war.tournament?.startedAt != null);
 
   const myEntry = war.entries.find((entry) => entry.userId === session.user.id);
   const forcedCount = war.entries.filter((e) => e.forceAssigned && e.status === "SELECTED").length;
@@ -122,7 +123,7 @@ export default async function WarOptInPage({ params }: { params: Promise<{ id: s
           {statusText}
         </p>
 
-        {isOpen && isCoreMember && !myEntry && (
+        {canJoin && isCoreMember && !myEntry && (
           <WarActionButton action={joinWar.bind(null, id)} label="Join War" pendingLabel="Joining…" />
         )}
         {isOpen && myEntry && !myEntry.forceAssigned && (
@@ -133,10 +134,10 @@ export default async function WarOptInPage({ params }: { params: Promise<{ id: s
             variant="secondary"
           />
         )}
-        {isOpen && !isCoreMember && (
+        {canJoin && !isCoreMember && (
           <p className="text-sm text-slate-400">Only 7DS members can opt in to this war.</p>
         )}
-        {!isOpen && <p className="text-sm text-slate-400">The opt-in window is closed.</p>}
+        {!canJoin && <p className="text-sm text-slate-400">The opt-in window is closed.</p>}
       </section>
 
       {isAdmin && isOpen && (

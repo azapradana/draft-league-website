@@ -49,14 +49,23 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             friendlyMatchGroupId: true,
+            friendlyMatchInviteActive: true,
             format: true,
             startingCoins: true,
+            startedAt: true,
           },
         })
       : null;
     if (inviteToken && (!invitation || invitation.format !== "FRIENDLY_MATCH" || !invitation.friendlyMatchGroupId)) {
       return NextResponse.json(
         { error: "This Friendly Match invitation is invalid or expired." },
+        { status: 400 },
+      );
+    }
+
+    if (invitation && !invitation.friendlyMatchInviteActive) {
+      return NextResponse.json(
+        { error: "This Friendly Match invitation link has been disabled." },
         { status: 400 },
       );
     }
@@ -69,7 +78,11 @@ export async function POST(request: NextRequest) {
           passwordHash,
           coinsBalance: settings.initialPlayerCoins,
           ...(invitation?.friendlyMatchGroupId
-            ? { groupId: invitation.friendlyMatchGroupId }
+            ? {
+                groupId: invitation.friendlyMatchGroupId,
+                role: "GUEST" as const,
+                boundTournamentId: invitation.id,
+              }
             : {}),
         },
         select: { id: true },
@@ -82,6 +95,7 @@ export async function POST(request: NextRequest) {
             friendlyMatchGroupId: invitation.friendlyMatchGroupId,
             status: "APPROVED",
             checkedIn: true,
+            friendlyMatchSubstitute: invitation.startedAt !== null,
             coins: invitation.startingCoins,
           },
         });

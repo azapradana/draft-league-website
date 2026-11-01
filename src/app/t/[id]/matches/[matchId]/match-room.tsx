@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import MatchChat, { type MatchMessage } from "@/components/MatchChat";
 import GroupBadge from "@/components/GroupBadge";
+import MatchSchedule from "@/components/MatchSchedule";
 import MatchRosterInspector, { type MatchPlayer } from "@/components/MatchRosterInspector";
 import { usePersonalWallet } from "@/components/wallet/personal-wallet";
 
@@ -20,6 +21,7 @@ type MatchData = {
   isDraw: boolean;
   isFriendlyMatch: boolean;
   mode: "GACHA" | "REGULAR";
+  rostersPublic?: boolean;
   tournamentName: string;
   player1: MatchPlayer;
   player2: MatchPlayer;
@@ -177,7 +179,7 @@ export default function MatchRoom({
   const rosterTabs = ownPlayer
     ? [
         { key: "mine", player: ownPlayer, label: regularMode ? "My Team" : "My Roster" },
-        ...(regularMode && !isAdmin
+        ...(regularMode && !isAdmin && !match.rostersPublic
           ? []
           : [
               {
@@ -298,6 +300,9 @@ export default function MatchRoom({
           )}
         />
         <div className="space-y-3">
+          {match.isFriendlyMatch && match.player1 && match.player2 && (
+            <MatchSchedule endpoint={`${matchEndpoint}/schedule`} />
+          )}
           {ownPlayer && opponent && (
             <section className="rounded-xl border border-[#243775] bg-[#0C1638] p-3">
               <h2 className="text-sm font-bold">Confirm match result</h2>

@@ -12,7 +12,6 @@ import { serializeTeam } from "@/lib/team-access";
 import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import JoinTournamentButton from "./join-tournament-button";
 import PokemonArtwork from "./pokemon-artwork";
-import WarScoreboard from "./war-scoreboard";
 import GroupBadge from "@/components/GroupBadge";
 import { RichText } from "@/components/rich-text";
 import SwissRoundTabs from "@/components/SwissRoundTabs";
@@ -60,6 +59,7 @@ export default async function TournamentOverview({
       maxCopiesPerPlayer: true,
       maxCopiesLeague: true,
       checkInOpen: true,
+      startedAt: true,
       rostersLocked: true,
       rostersPublic: true,
       participants: {
@@ -127,6 +127,14 @@ export default async function TournamentOverview({
 
   const isRegular = tournament.mode === "REGULAR";
   const isAdminViewer = session.user.role === "ADMIN";
+  const guestHasNoMatches =
+    session.user.role === "GUEST" &&
+    !tournament.matches.some(
+      (match) =>
+        Boolean(participation?.id) &&
+        (match.player1Id === participation?.id ||
+          match.player2Id === participation?.id),
+    );
   const canViewAllRosters =
     session.user.role === "ADMIN" || tournament.rostersPublic;
   const approvedParticipants = await prisma.participant.findMany({
@@ -420,7 +428,6 @@ export default async function TournamentOverview({
           Unauthorized: You are not a participant in this match room
         </div>
       )}
-      <WarScoreboard tournamentId={tournament.id} />
       <section>
         {champion && !isWar && (
           <div className="mb-5 flex items-center gap-4 rounded-2xl border border-[#F5C542] bg-gradient-to-r from-[#F5C542]/25 via-[#F5C542]/10 to-transparent px-5 py-4">
@@ -617,6 +624,10 @@ export default async function TournamentOverview({
               <p className="mt-3 text-sm font-semibold text-amber-200">
                 This tournament has reached its participant limit.
               </p>
+            ) : tournament.startedAt && tournament.format !== "FRIENDLY_MATCH" ? (
+              <p className="mt-3 text-sm font-semibold text-amber-200">
+                This tournament has started and is closed to new players.
+              </p>
             ) : (
               <JoinTournamentButton
                 tournamentId={id}
@@ -676,6 +687,14 @@ export default async function TournamentOverview({
                 ? "One-time group pairings. Your active match is highlighted."
                 : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}. Your active pairing is highlighted.`}
           </p>
+          {guestHasNoMatches && (
+            <p
+              className="mt-4 rounded-xl border border-dashed border-[#F5C542]/40 bg-[#070D24]/60 p-4 text-sm text-[#9FB0E6]"
+              role="status"
+            >
+              You have no matches yet. Your pairing will appear here once the admin starts the war.
+            </p>
+          )}
           {tournament.format === "SWISS" && (
             <Link
               className="mt-3 inline-flex text-sm font-semibold text-[#F5C542] underline underline-offset-2"

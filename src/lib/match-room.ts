@@ -26,7 +26,7 @@ export async function getMatchRoomData({
       player1DrawVote: true,
       player2DrawVote: true,
       isDraw: true,
-      tournament: { select: { name: true, format: true, mode: true } },
+      tournament: { select: { name: true, format: true, mode: true, rostersPublic: true } },
       player1: {
         select: {
           id: true,
@@ -142,10 +142,15 @@ export async function getMatchRoomData({
   const teamByParticipant = new Map<string, TeamPokemon[]>();
 
   for (const participant of [match.player1, match.player2]) {
-    if (participant && isRegular && (isAdmin || participant.user.id === userId)) {
+    if (!participant || !isRegular) {
+      continue;
+    }
+    const canSeeSecrets = isAdmin || participant.user.id === userId;
+    if (canSeeSecrets || match.tournament.rostersPublic) {
+      // Opponents only get the public fields (no EVs/IVs).
       teamByParticipant.set(
         participant.id,
-        serializeTeam(participant.team?.parsed, true) as TeamPokemon[],
+        serializeTeam(participant.team?.parsed, canSeeSecrets) as TeamPokemon[],
       );
     }
   }
@@ -240,6 +245,7 @@ export async function getMatchRoomData({
     isDraw: match.isDraw,
     isFriendlyMatch: match.tournament.format === "FRIENDLY_MATCH",
     mode: match.tournament.mode,
+    rostersPublic: match.tournament.rostersPublic,
     tournamentName: match.tournament.name,
     player1,
     player2,

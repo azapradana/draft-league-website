@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { guardGuestPage } from "@/lib/guest-access";
 import { checkRivalInvitation } from "@/lib/friendly-war";
 import { prisma } from "@/lib/prisma";
 import { ClaimInvitationButton, RivalSignupForm } from "./rival-forms";
@@ -42,6 +43,7 @@ export default async function RivalInvitationPage({
 
   const { groupName, groupLogoUrl } = check.invitation;
   const session = await getServerSession(authOptions);
+  if (session) guardGuestPage(session);
   const callbackUrl = `/register/rival/${groupId}?invite=${encodeURIComponent(invite)}`;
   const currentUser = session?.user?.id
     ? await prisma.user.findUnique({

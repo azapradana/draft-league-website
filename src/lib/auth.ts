@@ -115,12 +115,13 @@ export const authOptions: NextAuthOptions = {
 
       const currentUser = await prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, role: true },
+        select: { id: true, role: true, boundTournamentId: true },
       });
 
       if (!currentUser) {
         delete token.id;
         delete token.role;
+        delete token.boundTournamentId;
         delete token.sub;
         return token;
       }
@@ -128,6 +129,7 @@ export const authOptions: NextAuthOptions = {
       token.id = currentUser.id;
       token.sub = currentUser.id;
       token.role = currentUser.role;
+      token.boundTournamentId = currentUser.boundTournamentId;
 
       return token;
     },
@@ -138,6 +140,10 @@ export const authOptions: NextAuthOptions = {
 
       if (session.user && token.role) {
         session.user.role = token.role;
+      }
+
+      if (session.user) {
+        session.user.boundTournamentId = token.boundTournamentId ?? null;
       }
 
       return session;

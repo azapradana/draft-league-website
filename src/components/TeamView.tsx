@@ -41,30 +41,60 @@ export default function TeamView({
       className={
         horizontal
           ? "grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6"
-          : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+          : "grid gap-2"
       }
     >
       {team.map((pokemon, index) => {
         const evs = formatEvs(pokemon.evs);
+        const artwork = artworkBySpecies[pokemon.species] ?? {
+          dex: 0,
+          name: pokemon.species,
+          isMega: true,
+          imageUrl: null,
+        };
+        if (!horizontal) {
+          return (
+            <li
+              key={`${pokemon.species}-${index}`}
+              className="min-w-0 rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
+            >
+              <div className="flex items-center gap-2">
+                <PokemonArtwork species={artwork} className="h-10 w-10 shrink-0 text-[0.5rem]" />
+                <div className="min-w-0">
+                  <p className="break-words font-bold leading-tight text-[#EEF2FF]">
+                    {pokemon.species}
+                  </p>
+                  {pokemon.item ? (
+                    <p className="break-words text-xs text-[#F5C542]">@ {pokemon.item}</p>
+                  ) : null}
+                </div>
+              </div>
+              <p className="mt-2 break-words text-xs text-[#9FB0E6]">
+                {pokemon.ability || "No ability"} · {pokemon.nature || "Hardy"}
+              </p>
+              <ul className="mt-2 grid grid-cols-1 gap-1 min-[420px]:grid-cols-2">
+                {pokemon.moves.map((move) => (
+                  <li
+                    key={move}
+                    className="break-words rounded-md bg-[#0C1638] px-2 py-1 text-xs text-[#EEF2FF]"
+                  >
+                    {move}
+                  </li>
+                ))}
+              </ul>
+              {pokemon.evs ? (
+                <p className="mt-2 break-words text-xs text-[#F5C542]">EVs: {evs || "none"}</p>
+              ) : null}
+            </li>
+          );
+        }
         return (
           <li
             key={`${pokemon.species}-${index}`}
-            className={
-              horizontal
-                ? "flex flex-col items-center gap-2 rounded-xl border border-[#243775] bg-[#070D24] p-2 text-xs"
-                : "flex items-start gap-3 rounded-xl border border-[#243775] bg-[#070D24] p-3 text-sm"
-            }
+            className="flex flex-col items-center gap-2 rounded-xl border border-[#243775] bg-[#070D24] p-2 text-xs"
           >
-            <PokemonArtwork
-              species={artworkBySpecies[pokemon.species] ?? {
-                dex: 0,
-                name: pokemon.species,
-                isMega: true,
-                imageUrl: null,
-              }}
-              className={horizontal ? "h-16 w-16" : "h-16 w-16 sm:h-20 sm:w-20"}
-            />
-            <div className={horizontal ? "w-full min-w-0 text-center" : "min-w-0 flex-1"}>
+            <PokemonArtwork species={artwork} className="h-16 w-16" />
+            <div className="w-full min-w-0 text-center">
               <p className="break-words font-bold text-[#EEF2FF]">
                 {pokemon.species}
                 {pokemon.item ? (
@@ -74,13 +104,7 @@ export default function TeamView({
               <p className="mt-1 text-[#9FB0E6]">
                 {pokemon.ability || "No ability"} · {pokemon.nature || "Hardy"}
               </p>
-              <ul
-                className={
-                  horizontal
-                    ? "mt-2 space-y-0.5 text-[#EEF2FF]"
-                    : "mt-2 list-disc pl-5 text-[#EEF2FF]"
-                }
-              >
+              <ul className="mt-2 space-y-0.5 text-[#EEF2FF]">
                 {pokemon.moves.map((move) => (
                   <li key={move}>{move}</li>
                 ))}

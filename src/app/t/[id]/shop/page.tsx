@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { guardGuestPage } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { getTournamentShopPacks } from "@/lib/pack-data";
 import ShopPacks from "./shop-packs";
@@ -15,6 +16,8 @@ export default async function TournamentShopPage({
   if (!session?.user?.id) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/t/${id}/shop`)}`);
   }
+
+  guardGuestPage(session);
 
   const [tournament, packs] = await Promise.all([
     prisma.tournament.findUnique({

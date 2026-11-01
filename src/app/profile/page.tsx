@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { guardGuestPage } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { ProfileSettings } from "./profile-settings";
 
@@ -12,6 +13,7 @@ export default async function ProfilePage() {
   if (!userId) {
     redirect("/login?callbackUrl=%2Fprofile");
   }
+  guardGuestPage(session);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

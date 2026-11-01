@@ -7,6 +7,7 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { AdminDialog } from "../admin-dialog";
 import { ActionForm } from "./action-form";
 import { GroupSelect } from "./group-select";
+import { GuestList } from "../guest-list";
 import {
   addUserToGroupByUsername,
   assignUserToGroup,
@@ -114,7 +115,7 @@ export default async function AdminGroupsPage({
     ...(g === "none" ? { groupId: null } : g ? { groupId: g } : {}),
   };
 
-  const [groups, coreMembers, totalUsers] = await Promise.all([
+  const [groups, coreMembers, totalUsers, guests] = await Promise.all([
     prisma.group.findMany({
       orderBy: [{ isCore: "desc" }, { name: "asc" }],
       include: {
@@ -133,6 +134,17 @@ export default async function AdminGroupsPage({
       select: { id: true, username: true, name: true },
     }),
     prisma.user.count({ where: userWhere }),
+    prisma.user.findMany({
+      where: { role: "GUEST" },
+      orderBy: [{ username: "asc" }, { id: "asc" }],
+      take: MEMBER_LIST_LIMIT,
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        boundTournament: { select: { id: true, name: true } },
+      },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
@@ -247,6 +259,14 @@ export default async function AdminGroupsPage({
             </AdminDialog>
           </div>
         </div>
+
+        <section aria-labelledby="guests-heading" className="space-y-1">
+          <h2 id="guests-heading" className="text-lg font-bold">Guests</h2>
+          <p className="text-sm text-[#9FB0E6]">
+            Invitation-link registrants stay restricted to one tournament until unlocked.
+          </p>
+          <GuestList guests={guests} />
+        </section>
 
         <section aria-labelledby="rivals-heading" className="space-y-3">
           <h2 id="rivals-heading" className="text-lg font-bold">Rival groups</h2>

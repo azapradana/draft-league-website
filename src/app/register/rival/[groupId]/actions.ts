@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { checkRivalInvitation, consumeInvitation } from "@/lib/friendly-war";
+import { GUEST_FORBIDDEN_ERROR, isGuestSession } from "@/lib/guest-access";
+import { checkRivalInvitation, consumeInvitation, joinRivalWar } from "@/lib/friendly-war";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -44,7 +45,7 @@ export async function registerRivalUser(formData: FormData): Promise<RivalAction
           coinsBalance: settings.initialPlayerCoins,
           groupId: check.invitation.groupId,
         },
-      });
+      }).then((created) => joinRivalWar(tx, created.id, check.invitation.groupId));
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -62,6 +63,7 @@ export async function registerRivalUser(formData: FormData): Promise<RivalAction
 export async function claimRivalInvitation(formData: FormData): Promise<RivalActionResult> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return { error: "Sign in to accept this invitation." };
+  if (isGuestSession(session)) return { error: GUEST_FORBIDDEN_ERROR };
 
   const groupId = field(formData, "groupId");
   const check = await checkRivalInvitation(groupId, field(formData, "invite"));
@@ -77,15 +79,17 @@ export async function claimRivalInvitation(formData: FormData): Promise<RivalAct
     return { error: "Your account already belongs to a group. Ask an admin to move you." };
   }
 
+  const userId = session.user.id;
   try {
     await prisma.$transaction(async (tx) => {
       if (!(await consumeInvitation(tx, check.invitation.id))) throw new Error(INVITE_RACE_ERROR);
       // Re-check inside the transaction so concurrent claims cannot overwrite a group.
       const updated = await tx.user.updateMany({
-        where: { id: session.user.id, groupId: null },
+        where: { id: userId, groupId: null },
         data: { groupId },
       });
       if (updated.count !== 1) throw new Error("Your account already belongs to a group.");
+      await joinRivalWar(tx, userId, groupId);
     });
   } catch (error) {
     if (error instanceof Error) return { error: error.message };

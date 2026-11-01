@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { guestApiBlock } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { canAccessMatch } from "@/lib/match-room";
 
@@ -15,6 +16,9 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to view match chat." }, { status: 401 });
   }
+
+  const guestBlock = guestApiBlock(session, (await params).id);
+  if (guestBlock) return guestBlock;
 
   const { id: tournamentId, matchId } = await params;
   const canAccess = await canAccessMatch({
@@ -54,6 +58,9 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to send match chat messages." }, { status: 401 });
   }
+
+  const guestBlock = guestApiBlock(session, (await params).id);
+  if (guestBlock) return guestBlock;
 
   const { id: tournamentId, matchId } = await params;
   const canAccess = await canAccessMatch({

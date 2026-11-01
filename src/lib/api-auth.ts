@@ -1,12 +1,17 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { GUEST_FORBIDDEN_ERROR, guestMayAccess } from "@/lib/guest-access";
 
-export async function requireUser() {
+export async function requireUser(tournamentId?: string) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
     return { ok: false as const, status: 401, error: "Sign in to continue." };
+  }
+
+  if (!guestMayAccess(session, tournamentId)) {
+    return { ok: false as const, status: 403, error: GUEST_FORBIDDEN_ERROR };
   }
 
   return { ok: true as const, session, userId: session.user.id, isAdmin: session.user.role === "ADMIN" };

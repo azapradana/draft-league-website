@@ -14,7 +14,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (request.nextUrl.pathname.startsWith("/admin") && token.role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/", request.url));
+    const guestHome =
+      token.role === "GUEST" && token.boundTournamentId
+        ? `/t/${token.boundTournamentId}`
+        : "/";
+    return NextResponse.redirect(new URL(guestHome, request.url));
   }
 
   return NextResponse.next();

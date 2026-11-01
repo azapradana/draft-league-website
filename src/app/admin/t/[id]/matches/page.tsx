@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { ParticipantStatus } from "@prisma/client";
 import MatchesRoster from "./matches-roster";
 import RoundControls from "./round-controls";
+import StartTournamentButton from "./start-tournament-button";
 import WarAdminPanel from "./war-admin-panel";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -55,6 +56,7 @@ export default async function AdminTournamentMatchesPage({
       name: true,
       completed: true,
       checkInOpen: true,
+      startedAt: true,
       format: true,
       swissRounds: true,
       topCut: true,
@@ -258,6 +260,8 @@ export default async function AdminTournamentMatchesPage({
     currentRoundComplete && currentRoundWinners > 1;
   const canStartRoundOne =
     currentRound === null &&
+    tournament.format !== "FRIENDLY_MATCH" &&
+    tournament.startedAt !== null &&
     !tournament.checkInOpen &&
     eligibleParticipants.length > 0;
   const canStartAnotherRound =
@@ -367,9 +371,19 @@ export default async function AdminTournamentMatchesPage({
           <h1 className="mt-2 text-3xl font-bold">{tournament.name}</h1>
           <p className="mt-2 text-sm text-[#9FB0E6]">
             {currentRound === null
-              ? "Tournament has not started."
+              ? tournament.startedAt === null
+                ? "Tournament has not started."
+                : "Tournament started. No pairings generated yet."
               : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}`}
           </p>
+          <div className="mt-5">
+            <StartTournamentButton
+              tournamentId={tournament.id}
+              isFriendlyMatch={tournament.format === "FRIENDLY_MATCH"}
+              started={tournament.startedAt !== null}
+              completed={tournament.completed}
+            />
+          </div>
           <div className={war ? "hidden" : "mt-5"}>
             <RoundControls
               tournamentId={tournament.id}
@@ -384,9 +398,13 @@ export default async function AdminTournamentMatchesPage({
               }
             />
           </div>
-          {tournament.checkInOpen && currentRound === null && (
+          {tournament.format !== "FRIENDLY_MATCH" && currentRound === null && (
             <p className="mt-3 text-sm text-[#9FB0E6]">
-              Close check-in in tournament settings before starting Round 1.
+              {tournament.startedAt === null
+                ? "Start the tournament before generating Round 1."
+                : tournament.checkInOpen
+                  ? "Close check-in in tournament settings before generating Round 1."
+                  : "Round 1 pairs approved, checked-in players only."}
             </p>
           )}
           {currentStage === "COMPLETED" &&

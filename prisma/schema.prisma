@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   PLAYER
   ADMIN
+  GUEST
 }
 
 enum ParticipantStatus {
@@ -55,6 +56,9 @@ model User {
   googleEmail                     String?
   role                            Role                     @default(PLAYER)
   groupId                         String?
+  boundTournamentId               String?
+  timezone                        String?
+  boundTournament                 Tournament?              @relation("UserBoundTournament", fields: [boundTournamentId], references: [id], onDelete: SetNull)
   friendlyMatchParticipationCount Int                      @default(0)
   friendlyMatchCount              Int                      @default(0)
   coinsBalance                    Int                      @default(0)
@@ -63,12 +67,14 @@ model User {
   sessions                        Session[]
   participants                    Participant[]
   matchMessages                   MatchMessage[]
+  scheduledMatches                Match[]                  @relation("MatchScheduledBy")
   adminOverriddenMatches          Match[]                  @relation("MatchAdminOverride")
   prizePayouts                    TournamentPrizePayout[]
   createdInvitations              GroupInvitation[]
   friendlyWarEntries              FriendlyWarParticipant[]
 
   @@index([groupId])
+  @@index([boundTournamentId])
 }
 
 enum FriendlyWarStatus {
@@ -217,39 +223,42 @@ model SiteSettings {
 }
 
 model Tournament {
-  id                       String                  @id @default(cuid())
-  name                     String
-  description              String                  @default("")
-  mode                     TournamentMode          @default(GACHA)
-  format                   TournamentFormat        @default(FRIENDLY_MATCH)
-  topCut                   Int                     @default(0)
-  currentStage             TournamentStage         @default(FRIENDLY_MATCH)
-  maxParticipants          Int?
-  friendlyMatchGroupId     String?
-  friendlyMatchSize        Int                     @default(1)
-  friendlyMatchInviteToken String?                 @unique
-  autoApproveSignups       Boolean                 @default(true)
-  swissRounds              Int                     @default(4)
-  imageUrl                 String?
-  cardBackImage            String?
-  active                   Boolean                 @default(false)
-  completed                Boolean                 @default(false)
-  regulation               String                  @default("m-c")
-  startingCoins            Int                     @default(0)
-  coinPrizePool            Int                     @default(0)
-  prizeWinnersCount        Int                     @default(0)
-  prizeDistribution        Json                    @default("[]")
-  maxCopiesPerPlayer       Int                     @default(3)
-  maxCopiesLeague          Int?
-  rostersLocked            Boolean                 @default(false)
-  rostersPublic            Boolean                 @default(false)
-  checkInOpen              Boolean                 @default(false)
-  participants             Participant[]
-  packs                    TournamentPack[]
-  matches                  Match[]
-  prizePayouts             TournamentPrizePayout[]
-  friendlyMatchGroup       Group?                  @relation("TournamentOpponentGroup", fields: [friendlyMatchGroupId], references: [id], onDelete: SetNull)
-  friendlyWar              FriendlyWar?
+  id                        String                  @id @default(cuid())
+  name                      String
+  description               String                  @default("")
+  mode                      TournamentMode          @default(GACHA)
+  format                    TournamentFormat        @default(FRIENDLY_MATCH)
+  topCut                    Int                     @default(0)
+  currentStage              TournamentStage         @default(FRIENDLY_MATCH)
+  maxParticipants           Int?
+  friendlyMatchGroupId      String?
+  friendlyMatchSize         Int                     @default(1)
+  friendlyMatchInviteToken  String?                 @unique
+  friendlyMatchInviteActive Boolean                 @default(true)
+  boundGuests               User[]                  @relation("UserBoundTournament")
+  autoApproveSignups        Boolean                 @default(true)
+  swissRounds               Int                     @default(4)
+  imageUrl                  String?
+  cardBackImage             String?
+  active                    Boolean                 @default(false)
+  completed                 Boolean                 @default(false)
+  regulation                String                  @default("m-c")
+  startingCoins             Int                     @default(0)
+  coinPrizePool             Int                     @default(0)
+  prizeWinnersCount         Int                     @default(0)
+  prizeDistribution         Json                    @default("[]")
+  maxCopiesPerPlayer        Int                     @default(3)
+  maxCopiesLeague           Int?
+  rostersLocked             Boolean                 @default(false)
+  rostersPublic             Boolean                 @default(false)
+  checkInOpen               Boolean                 @default(false)
+  startedAt                 DateTime?
+  participants              Participant[]
+  packs                     TournamentPack[]
+  matches                   Match[]
+  prizePayouts              TournamentPrizePayout[]
+  friendlyMatchGroup        Group?                  @relation("TournamentOpponentGroup", fields: [friendlyMatchGroupId], references: [id], onDelete: SetNull)
+  friendlyWar               FriendlyWar?
 }
 
 model Participant {
@@ -275,6 +284,7 @@ model Participant {
   player1Votes              Match[]                 @relation("MatchPlayer1Vote")
   player2Votes              Match[]                 @relation("MatchPlayer2Vote")
   prizePayouts              TournamentPrizePayout[]
+  proposedTimeOptions       MatchTimeOption[]
 
   @@unique([userId, tournamentId])
   @@index([tournamentId])
@@ -315,6 +325,8 @@ model Match {
   player2Score                      Int?
   adminOverrideById                 String?
   adminOverrideAt                   DateTime?
+  scheduledAt                       DateTime?
+  scheduledById                     String?
   status                            MatchStatus      @default(PENDING)
   createdAt                         DateTime         @default(now())
   updatedAt                         DateTime         @updatedAt
@@ -325,9 +337,23 @@ model Match {
   player1Voted                      Participant?     @relation("MatchPlayer1Vote", fields: [player1Vote], references: [id], onDelete: SetNull)
   player2Voted                      Participant?     @relation("MatchPlayer2Vote", fields: [player2Vote], references: [id], onDelete: SetNull)
   adminOverrideBy                   User?            @relation("MatchAdminOverride", fields: [adminOverrideById], references: [id], onDelete: SetNull)
+  scheduledBy                       User?            @relation("MatchScheduledBy", fields: [scheduledById], references: [id], onDelete: SetNull)
   messages                          MatchMessage[]
+  timeOptions                       MatchTimeOption[]
 
   @@index([tournamentId, roundNumber])
+}
+
+model MatchTimeOption {
+  id           String      @id @default(cuid())
+  matchId      String
+  proposedById String
+  startsAt     DateTime
+  createdAt    DateTime    @default(now())
+  match        Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  proposedBy   Participant @relation(fields: [proposedById], references: [id], onDelete: Cascade)
+
+  @@index([matchId, startsAt])
 }
 
 model MatchMessage {

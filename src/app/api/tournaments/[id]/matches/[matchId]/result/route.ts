@@ -2,6 +2,7 @@ import { MatchStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { guestApiBlock } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
 import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
@@ -28,6 +29,9 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to submit a match result." }, { status: 401 });
   }
+
+  const guestBlock = guestApiBlock(session, (await params).id);
+  if (guestBlock) return guestBlock;
 
   const { id: tournamentId, matchId } = await params;
   let body: unknown;

@@ -184,6 +184,7 @@ export async function generateRound(
         Array<{
           id: string;
           checkInOpen: boolean;
+          startedAt: Date | null;
           completed: boolean;
           format: string;
           friendlyMatchGroupId: string | null;
@@ -193,7 +194,7 @@ export async function generateRound(
           currentStage: TournamentStage;
         }>
       >`
-        SELECT "id", "checkInOpen", "completed", "format", "friendlyMatchGroupId", "friendlyMatchSize", "swissRounds", "topCut", "currentStage"
+        SELECT "id", "checkInOpen", "startedAt", "completed", "format", "friendlyMatchGroupId", "friendlyMatchSize", "swissRounds", "topCut", "currentStage"
         FROM "Tournament"
         WHERE "id" = ${tournamentId}
         FOR UPDATE
@@ -402,6 +403,11 @@ export async function generateRound(
               409,
             );
           }
+        } else if (!tournament[0].startedAt) {
+          throw new RoundGenerationError(
+            "Start the tournament before generating Round 1.",
+            409,
+          );
         } else if (tournament[0].checkInOpen) {
           throw new RoundGenerationError(
             "Close check-in before generating Round 1.",
@@ -496,6 +502,12 @@ export async function generateRound(
         });
 
         if (!latestMatch) {
+          if (!tournament[0].startedAt) {
+            throw new RoundGenerationError(
+              "Start the tournament before generating Round 1.",
+              409,
+            );
+          }
           if (tournament[0].checkInOpen) {
             throw new RoundGenerationError(
               "Close check-in before generating Round 1.",

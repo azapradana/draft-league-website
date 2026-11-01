@@ -44,12 +44,14 @@ function NavigationLinks({
   tournamentId,
   swissFormat,
   regular,
+  guest,
   pathname,
   onNavigate,
 }: {
   tournamentId: string;
   swissFormat: boolean;
   regular: boolean;
+  guest: boolean;
   pathname: string;
   onNavigate?: () => void;
 }) {
@@ -59,7 +61,7 @@ function NavigationLinks({
     ...(regular
       ? [{ label: "My Team", href: `${basePath}/team` }]
       : [
-          { label: "Shop", href: `${basePath}/shop` },
+          ...(guest ? [] : [{ label: "Shop", href: `${basePath}/shop` }]),
           { label: "My Roster", href: `${basePath}/roster` },
         ]),
     ...(swissFormat
@@ -118,6 +120,7 @@ export default function TournamentNavigation({
   role,
 }: TournamentNavigationProps) {
   const pathname = usePathname();
+  const guest = role === "GUEST";
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -151,13 +154,15 @@ export default function TournamentNavigation({
 
       <aside className="fixed bottom-0 left-0 top-0 z-20 hidden w-64 flex-col border-r border-[#243775]/60 bg-[#0C1638] px-4 py-6 md:flex">
         <div className="px-3">
-          <Link
-            className="mb-5 inline-flex min-h-11 items-center text-sm font-semibold text-[#9FB0E6] transition-colors hover:text-[#EEF2FF]"
-            href="/"
-          >
-            <span aria-hidden="true" className="mr-2">←</span>
-            All tournaments
-          </Link>
+          {!guest && (
+            <Link
+              className="mb-5 inline-flex min-h-11 items-center text-sm font-semibold text-[#9FB0E6] transition-colors hover:text-[#EEF2FF]"
+              href="/"
+            >
+              <span aria-hidden="true" className="mr-2">←</span>
+              All tournaments
+            </Link>
+          )}
           <h1 className="break-words text-xl font-bold leading-tight text-[#EEF2FF]">
             {tournamentName}
           </h1>
@@ -180,6 +185,7 @@ export default function TournamentNavigation({
         <NavigationLinks
           tournamentId={tournamentId}
           regular={regular}
+          guest={guest}
           swissFormat={swissFormat}
           pathname={pathname}
         />
@@ -248,19 +254,22 @@ export default function TournamentNavigation({
           <NavigationLinks
             tournamentId={tournamentId}
             regular={regular}
+            guest={guest}
             swissFormat={swissFormat}
             pathname={pathname}
             onNavigate={() => setMenuOpen(false)}
           />
 
           <div className="mt-auto space-y-3 border-t border-[#243775] pt-4">
-            <Link
-              className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-[#9FB0E6] transition-colors hover:bg-[#122050] hover:text-[#EEF2FF]"
-              href="/"
-              onClick={() => setMenuOpen(false)}
-            >
-              ← Back to all tournaments
-            </Link>
+            {!guest && (
+              <Link
+                className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-[#9FB0E6] transition-colors hover:bg-[#122050] hover:text-[#EEF2FF]"
+                href="/"
+                onClick={() => setMenuOpen(false)}
+              >
+                ← Back to all tournaments
+              </Link>
+            )}
             <AccountMenu email={email} name={name} role={role} placement="top" />
           </div>
         </aside>

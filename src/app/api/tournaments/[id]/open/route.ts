@@ -3,6 +3,7 @@ import { ParticipantStatus, TournamentMode } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { guestApiBlock } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 
 class GachaError extends Error {
@@ -48,6 +49,9 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Sign in to open a pack." }, { status: 401 });
   }
+
+  const guestBlock = guestApiBlock(session, (await params).id);
+  if (guestBlock) return guestBlock;
   const userId = session.user.id;
 
   let body: unknown;

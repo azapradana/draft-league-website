@@ -57,7 +57,8 @@ export default async function AdminTournamentParticipantsPage({
           </p>
           <h1 className="mt-2 text-3xl font-bold">{tournament.name}</h1>
           <p className="mt-2 text-sm text-[#9FB0E6]">
-            Review join requests, manage player status, and check check-in progress.
+            Review join requests, manage player status
+            {tournament.format === "FRIENDLY_MATCH" ? "." : ", and check check-in progress."}
           </p>
         </header>
 
@@ -89,12 +90,14 @@ export default async function AdminTournamentParticipantsPage({
                       <p className="mt-1 text-sm text-[#9FB0E6]">
                         Status: <span className="font-semibold text-[#EEF2FF]">{participant.status}</span>
                       </p>
-                      <p className="mt-1 text-sm text-[#9FB0E6]">
-                        Check-in:{" "}
-                        <span className={participant.checkedIn ? "font-semibold text-emerald-300" : "font-semibold text-[#EEF2FF]"}>
-                          {participant.checkedIn ? "Checked in" : "Not checked in"}
-                        </span>
-                      </p>
+                      {tournament.format !== "FRIENDLY_MATCH" && (
+                        <p className="mt-1 text-sm text-[#9FB0E6]">
+                          Check-in:{" "}
+                          <span className={participant.checkedIn ? "font-semibold text-emerald-300" : "font-semibold text-[#EEF2FF]"}>
+                            {participant.checkedIn ? "Checked in" : "Not checked in"}
+                          </span>
+                        </p>
+                      )}
                       {tournament.format === "FRIENDLY_MATCH" && (
                         <p className="mt-1 text-sm text-[#9FB0E6]">
                           Group: {participant.friendlyMatchGroup?.name ?? "Unassigned"}

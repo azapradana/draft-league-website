@@ -7,6 +7,8 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { TournamentFormatFields } from "../../tournament-format-fields";
 import { PrizeConfigurationForm } from "./prize-configuration-form";
+import { GuestAccessButton } from "./guest-access-button";
+import { GuestList } from "../../guest-list";
 
 export default async function AdminTournamentSettingsPage({
   params,
@@ -18,7 +20,7 @@ export default async function AdminTournamentSettingsPage({
   if (session.user.role !== "ADMIN") redirect("/");
 
   const { id } = await params;
-  const [tournament, groups] = await Promise.all([
+  const [tournament, groups, guests] = await Promise.all([
     prisma.tournament.findUnique({
       where: { id },
       include: { friendlyMatchGroup: { select: { name: true } } },
@@ -27,6 +29,16 @@ export default async function AdminTournamentSettingsPage({
       where: { isCore: false },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
+    }),
+    prisma.user.findMany({
+      where: { role: "GUEST", boundTournamentId: id },
+      orderBy: { username: "asc" },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        boundTournament: { select: { id: true, name: true } },
+      },
     }),
   ]);
   if (!tournament) notFound();
@@ -126,8 +138,29 @@ export default async function AdminTournamentSettingsPage({
                     </a>
                   </p>
                   <p className="mt-2 text-xs text-[#9FB0E6]">
-                    Share this link with rival players. New accounts will join the group and this war automatically.
+                    Share this link with rival players. New accounts become restricted guests bound to this tournament and join the group and this war automatically.
                   </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${
+                        tournament.friendlyMatchInviteActive
+                          ? "bg-emerald-950 text-emerald-300"
+                          : "bg-red-950 text-red-300"
+                      }`}
+                    >
+                      {tournament.friendlyMatchInviteActive ? "ACTIVE" : "DISABLED"}
+                    </span>
+                    <GuestAccessButton
+                      action="setInviteActive"
+                      label={tournament.friendlyMatchInviteActive ? "Disable link" : "Enable link"}
+                      pendingLabel="Saving..."
+                      payload={{
+                        tournamentId: tournament.id,
+                        active: !tournament.friendlyMatchInviteActive,
+                      }}
+                      tone={tournament.friendlyMatchInviteActive ? "danger" : "default"}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -216,17 +249,24 @@ export default async function AdminTournamentSettingsPage({
                 {isRegular ? "Teams open (visible to participants, without EVs)" : "Show rosters to participants"}
               </span>
             </label>
-            <label className="flex items-center gap-3">
-              <input type="hidden" name="checkInOpen" value="false" />
-              <input
-                type="checkbox"
-                name="checkInOpen"
-                value="true"
-                defaultChecked={tournament.checkInOpen}
-                className="h-4 w-4 accent-[#F5C542]"
-              />
-              <span className="text-sm text-[#9FB0E6]">Open participant check-in</span>
-            </label>
+            {tournament.format !== "FRIENDLY_MATCH" && (
+              <label className="flex items-center gap-3">
+                <input type="hidden" name="checkInOpen" value="false" />
+                <input
+                  type="checkbox"
+                  name="checkInOpen"
+                  value="true"
+                  defaultChecked={tournament.checkInOpen}
+                  disabled={tournament.startedAt !== null}
+                  className="h-4 w-4 accent-[#F5C542]"
+                />
+                <span className="text-sm text-[#9FB0E6]">
+                  {tournament.startedAt !== null
+                    ? "Check-in closed (tournament started)"
+                    : "Open participant check-in"}
+                </span>
+              </label>
+            )}
             <div className="md:col-span-2">
               <button
                 type="submit"
@@ -237,6 +277,17 @@ export default async function AdminTournamentSettingsPage({
             </div>
           </form>
         </section>
+
+        {tournament.format === "FRIENDLY_MATCH" && (
+          <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
+            <h2 className="text-xl font-semibold">Guests</h2>
+            <p className="mt-2 text-sm text-[#9FB0E6]">
+              Players who registered through the invitation link. Guests stay restricted to this
+              tournament, even after it ends, until you unlock them.
+            </p>
+            <GuestList guests={guests} showTournament={false} />
+          </section>
+        )}
 
         {!isRegular && (
         <section className="mt-6 rounded-2xl border border-[#243775] bg-[#0C1638] p-5 sm:p-7">
