@@ -273,6 +273,8 @@ model Participant {
   friendlyMatchSubstitute   Boolean                 @default(false)
   friendlyMatchForcedLineup Boolean                 @default(false)
   coins                     Int                     @default(0)
+  droppedAt                 DateTime?
+  droppedById               String?
   user                      User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   tournament                Tournament              @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   friendlyMatchGroup        Group?                  @relation("ParticipantFriendlyMatchGroup", fields: [friendlyMatchGroupId], references: [id], onDelete: SetNull)
@@ -317,6 +319,7 @@ model Match {
   player1Id                         String?
   player2Id                         String?
   winnerId                          String?
+  forfeitedParticipantId            String?
   isDraw                            Boolean          @default(false)
   player1DrawVote                   Boolean          @default(false)
   player2DrawVote                   Boolean          @default(false)

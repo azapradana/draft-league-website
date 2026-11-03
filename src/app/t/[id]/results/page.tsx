@@ -27,6 +27,7 @@ export default async function TournamentResultsPage({
     select: {
       id: true,
       coins: true,
+      droppedAt: true,
       user: { select: { username: true, name: true, email: true } },
       roster: { select: { speciesIds: true } },
       ownedPokemon: {
@@ -78,7 +79,14 @@ export default async function TournamentResultsPage({
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-xl font-bold">{playerName}</h3>
+                    <h3 className="text-xl font-bold">
+                      {playerName}
+                      {participant.droppedAt && (
+                        <span className="ml-2 rounded-full border border-red-400/60 px-2 py-0.5 align-middle text-xs font-semibold text-red-300">
+                          Dropped
+                        </span>
+                      )}
+                    </h3>
                     <p className="mt-1 text-sm text-[#9FB0E6]">
                       {participant.ownedPokemon.length} Pokémon collected
                     </p>

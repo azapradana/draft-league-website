@@ -120,17 +120,25 @@ export async function POST(
         },
         select: {
           id: true,
+          droppedAt: true,
           user: { select: { name: true, username: true, email: true } },
         },
       });
-      if (participants.length < tournament.topCut) {
+      const droppedIds = new Set(
+        participants.filter(({ droppedAt }) => droppedAt).map(({ id }) => id),
+      );
+      const eligibleCount = participants.length - droppedIds.size;
+      if (eligibleCount < tournament.topCut) {
         throw new TopCutGenerationError(
-          `Top ${tournament.topCut} requires at least ${tournament.topCut} checked-in players; ${participants.length} are eligible.`,
+          `Top ${tournament.topCut} requires at least ${tournament.topCut} checked-in players; ${eligibleCount} are eligible.`,
           409,
         );
       }
 
-      const standings = buildSwissStandings(participants, swissMatches);
+      // Dropped players stay in the record so opponents keep forfeit wins, but are never seeded.
+      const standings = buildSwissStandings(participants, swissMatches).filter(
+        ({ id }) => !droppedIds.has(id),
+      );
       const seededIds = standings
         .slice(0, tournament.topCut)
         .map(({ id }) => id);

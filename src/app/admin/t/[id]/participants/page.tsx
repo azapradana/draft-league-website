@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ParticipantLineupButton from "../participant-lineup-button";
 import AddFriendlyMatchPlayerForm from "../add-friendly-match-player-form";
+import DropParticipantButton from "@/components/DropParticipantButton";
 
 export default async function AdminTournamentParticipantsPage({
   params,
@@ -21,6 +22,7 @@ export default async function AdminTournamentParticipantsPage({
       id: true,
       name: true,
       format: true,
+      completed: true,
       friendlyMatchSize: true,
       friendlyMatchGroup: { select: { id: true, name: true } },
       _count: { select: { matches: true } },
@@ -86,7 +88,14 @@ export default async function AdminTournamentParticipantsPage({
                     className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between"
                   >
                     <div className="min-w-52">
-                      <h3 className="font-semibold">{playerName}</h3>
+                      <h3 className="font-semibold">
+                        {playerName}
+                        {participant.droppedAt && (
+                          <span className="ml-2 rounded-full border border-red-400/60 px-2 py-0.5 text-xs font-semibold text-red-300">
+                            Dropped
+                          </span>
+                        )}
+                      </h3>
                       <p className="mt-1 text-sm text-[#9FB0E6]">
                         Status: <span className="font-semibold text-[#EEF2FF]">{participant.status}</span>
                       </p>
@@ -107,6 +116,18 @@ export default async function AdminTournamentParticipantsPage({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                      {participant.status === "APPROVED" &&
+                        !participant.droppedAt &&
+                        !tournament.completed && (
+                          <DropParticipantButton
+                            compact
+                            endpoint={`/api/admin/tournaments/${tournament.id}/participants/${participant.id}/drop`}
+                            buttonLabel="Drop player"
+                            title={`Drop ${playerName}?`}
+                            description="This cannot be undone. The player is removed from all future pairings and their remaining matches are forfeited (or taken over by a bench player in a Friendly Match)."
+                            confirmLabel="Drop player"
+                          />
+                        )}
                       {tournament.format === "FRIENDLY_MATCH" &&
                         tournament._count.matches === 0 &&
                         participant.status === "APPROVED" && (

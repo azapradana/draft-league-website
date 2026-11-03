@@ -7,6 +7,13 @@ export function SwissStandingsTable({
   standings: SwissStanding[];
   topCut?: number;
 }) {
+  const seededIds = new Set(
+    standings
+      .filter((standing) => !standing.droppedAt)
+      .slice(0, topCut)
+      .map((standing) => standing.id),
+  );
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
@@ -27,7 +34,7 @@ export function SwissStandingsTable({
               standing.user.username ??
               standing.user.email ??
               "Unnamed player";
-            const isTopCutSeed = topCut > 0 && index < topCut;
+            const isTopCutSeed = seededIds.has(standing.id);
 
             return (
               <tr
@@ -39,6 +46,11 @@ export function SwissStandingsTable({
                 <td className="px-3 py-4 font-bold text-[#F5C542]">{index + 1}</td>
                 <td className="px-3 py-4 font-semibold">
                   {playerName}
+                  {standing.droppedAt && (
+                    <span className="ml-2 rounded-full border border-red-400/60 px-2 py-0.5 text-[10px] font-bold uppercase text-red-300">
+                      Dropped
+                    </span>
+                  )}
                   {isTopCutSeed && (
                     <span className="ml-2 rounded-full bg-[#F5C542]/15 px-2 py-1 text-[10px] font-bold uppercase text-[#F5C542]">
                       Top {topCut}

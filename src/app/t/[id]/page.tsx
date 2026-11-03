@@ -8,6 +8,7 @@ import {
   hasCompletedSwissRounds,
 } from "@/lib/tournament-standings";
 import CheckInButton from "./check-in-button";
+import DropParticipantButton from "@/components/DropParticipantButton";
 import { serializeTeam } from "@/lib/team-access";
 import { getTeamArtworkBySpeciesNames } from "@/lib/team-artwork";
 import JoinTournamentButton from "./join-tournament-button";
@@ -51,6 +52,7 @@ export default async function TournamentOverview({
       topCut: true,
       currentStage: true,
       completed: true,
+      active: true,
       maxParticipants: true,
       regulation: true,
       mode: true,
@@ -65,7 +67,7 @@ export default async function TournamentOverview({
       rostersPublic: true,
       participants: {
         where: { userId: session.user.id },
-        select: { id: true, status: true, checkedIn: true, team: { select: { id: true } } },
+        select: { id: true, status: true, checkedIn: true, droppedAt: true, team: { select: { id: true } } },
       },
       matches: {
         orderBy: [
@@ -145,6 +147,7 @@ export default async function TournamentOverview({
       id: true,
       userId: true,
       checkedIn: true,
+      droppedAt: true,
       team: isRegular ? { select: { parsed: true } } : false,
       friendlyMatchSubstitute: true,
       friendlyMatchGroup: { select: { name: true } },
@@ -355,10 +358,13 @@ export default async function TournamentOverview({
     participant: {
       id: string;
       user: { name: string | null; username: string | null };
+      droppedAt?: Date | null;
     } | null,
   ) {
     if (!participant) return "Bye";
-    return participant.user.name ?? participant.user.username ?? "Unnamed player";
+    const name =
+      participant.user.name ?? participant.user.username ?? "Unnamed player";
+    return participant.droppedAt ? `${name} (Dropped)` : name;
   }
 
   const friendlyScore = { coreWins: 0, rivalWins: 0, draws: 0 };
@@ -618,6 +624,25 @@ export default async function TournamentOverview({
                 )}
               </p>
             )}
+            {participation.status === "APPROVED" && participation.droppedAt && (
+              <p className="mt-2 text-sm font-semibold text-red-300">
+                You have dropped from this tournament.
+              </p>
+            )}
+            {participation.status === "APPROVED" &&
+              !participation.droppedAt &&
+              tournament.active &&
+              !tournament.completed && (
+                <div className="mt-4">
+                  <DropParticipantButton
+                    endpoint={`/api/tournaments/${id}/drop`}
+                    buttonLabel="Drop from tournament"
+                    title="Drop from tournament?"
+                    description="This cannot be undone. You will be removed from all future pairings and any remaining matches will be forfeited to your opponents."
+                    confirmLabel="Drop from tournament"
+                  />
+                </div>
+              )}
             {participation.status === "REJECTED" && (
               <p className="mt-2 text-sm text-[#9FB0E6]">
                 Your request was declined. Contact a tournament admin if you
@@ -876,6 +901,7 @@ export default async function TournamentOverview({
                               ) : match.winner ? (
                                 <p className="mt-2 text-sm text-[#9FB0E6]">
                                   Winner: {displayName(match.winner)}
+                                  {match.forfeitedParticipantId && " · by forfeit"}
                                 </p>
                               ) : isWar && match.status === "COMPLETED" ? (
                                 <p className="mt-2 text-sm text-[#9FB0E6]">Draw</p>
@@ -966,6 +992,11 @@ export default async function TournamentOverview({
                           {participant.user.name ??
                             participant.user.username ??
                             "Unnamed player"}
+                          {participant.droppedAt && (
+                            <span className="rounded-full border border-red-400/60 px-2 py-0.5 text-xs font-semibold text-red-300">
+                              Dropped
+                            </span>
+                          )}
                           {medal && (
                             <span
                               aria-label={

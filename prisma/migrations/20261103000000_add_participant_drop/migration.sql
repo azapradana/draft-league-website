@@ -1,0 +1,3 @@
+ALTER TABLE "Participant" ADD COLUMN IF NOT EXISTS "droppedAt" TIMESTAMP(3);
+ALTER TABLE "Participant" ADD COLUMN IF NOT EXISTS "droppedById" TEXT;
+ALTER TABLE "Match" ADD COLUMN IF NOT EXISTS "forfeitedParticipantId" TEXT;

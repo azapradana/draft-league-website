@@ -29,6 +29,7 @@ export default async function TournamentStandingsPage({
         where: { status: "APPROVED", checkedIn: true },
         select: {
           id: true,
+          droppedAt: true,
           user: { select: { name: true, username: true, email: true } },
         },
       },

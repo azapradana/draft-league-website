@@ -153,6 +153,19 @@ function createSwissMatchInputs(
   return matches;
 }
 
+async function withoutDropped(
+  tx: Prisma.TransactionClient,
+  tournamentId: string,
+  participantIds: string[],
+) {
+  const dropped = await tx.participant.findMany({
+    where: { tournamentId, id: { in: participantIds }, droppedAt: { not: null } },
+    select: { id: true },
+  });
+  const droppedIds = new Set(dropped.map(({ id }) => id));
+  return participantIds.filter((id) => !droppedIds.has(id));
+}
+
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
 
@@ -264,6 +277,7 @@ export async function generateRound(
           where: {
             tournamentId,
             status: ParticipantStatus.APPROVED,
+            droppedAt: null,
           },
           select: {
             id: true,
@@ -423,10 +437,11 @@ export async function generateRound(
           },
           select: {
             id: true,
+            droppedAt: true,
             user: { select: { name: true, username: true, email: true } },
           },
         });
-        if (participants.length < 2) {
+        if (participants.filter(({ droppedAt }) => !droppedAt).length < 2) {
           throw new RoundGenerationError(
             "At least two approved participants must be checked in to start Swiss rounds.",
             409,
@@ -435,7 +450,13 @@ export async function generateRound(
 
         roundNumber =
           lastSwissRound === undefined ? 1 : roundNumber;
-        const standings = buildSwissStandings(participants, swissMatches);
+        // Dropped players stay in the record so their opponents keep forfeit wins.
+        const droppedIds = new Set(
+          participants.filter(({ droppedAt }) => droppedAt).map(({ id }) => id),
+        );
+        const standings = buildSwissStandings(participants, swissMatches).filter(
+          ({ id }) => !droppedIds.has(id),
+        );
         if (lastSwissRound === undefined) shuffle(standings);
         participantIds = standings.map(({ id }) => id);
         matches = createSwissMatchInputs(
@@ -478,7 +499,11 @@ export async function generateRound(
             409,
           );
         }
-        participantIds = latestRoundMatches.map((match) => match.winnerId!);
+        participantIds = await withoutDropped(
+          tx,
+          tournamentId,
+          latestRoundMatches.map((match) => match.winnerId!),
+        );
         if (participantIds.length < 2) {
           throw new RoundGenerationError(
             "The tournament is complete; there is no next playoff round.",
@@ -519,6 +544,7 @@ export async function generateRound(
               tournamentId,
               status: ParticipantStatus.APPROVED,
               checkedIn: true,
+              droppedAt: null,
             },
             select: { id: true },
           });
@@ -566,7 +592,11 @@ export async function generateRound(
               409,
             );
           }
-          participantIds = previousMatches.map((match) => match.winnerId!);
+          participantIds = await withoutDropped(
+            tx,
+            tournamentId,
+            previousMatches.map((match) => match.winnerId!),
+          );
           if (new Set(participantIds).size !== participantIds.length) {
             throw new RoundGenerationError(
               "A participant cannot advance from more than one match in the same round.",

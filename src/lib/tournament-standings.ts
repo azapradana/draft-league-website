@@ -1,5 +1,6 @@
 export type SwissParticipant = {
   id: string;
+  droppedAt?: Date | null;
   user: {
     name: string | null;
     username: string | null;
