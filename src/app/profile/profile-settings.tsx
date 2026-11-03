@@ -70,7 +70,7 @@ export function ProfileSettings({
   }
 
   async function unlinkGoogle() {
-    if (!window.confirm("Unlink Google from your Draft League account?")) {
+    if (!window.confirm("Unlink Google from your 7DS Tournament Platform account?")) {
       return;
     }
 
@@ -177,7 +177,7 @@ export function ProfileSettings({
         ) : (
           <p className="rounded-xl border border-[#243775] bg-[#070D24] p-4 text-sm leading-6 text-[#9FB0E6]">
             This account does not have a password. Sign in with your linked provider to keep
-            accessing Draft League.
+            accessing 7DS Tournament Platform.
           </p>
         )}
       </section>

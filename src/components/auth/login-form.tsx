@@ -94,7 +94,7 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
         </button>
       )}
       <p className="text-center text-sm text-slate-300">
-        New to Draft League?{" "}
+        New to 7DS Tournament Platform?{" "}
         <Link className="font-semibold text-amber-300 hover:underline" href="/signup">
           Create an account
         </Link>

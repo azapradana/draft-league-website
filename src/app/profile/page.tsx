@@ -74,7 +74,7 @@ export default async function ProfilePage() {
               </p>
               <h1 className="mt-1 truncate text-3xl font-black tracking-tight">{displayName}</h1>
               <p className="mt-1 truncate text-sm text-[#9FB0E6]">
-                {user.username ? `@${user.username}` : user.email ?? "Draft League account"}
+                {user.username ? `@${user.username}` : user.email ?? "7DS Tournament Platform account"}
               </p>
             </div>
           </div>

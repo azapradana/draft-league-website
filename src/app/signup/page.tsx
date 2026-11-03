@@ -53,7 +53,7 @@ export default async function SignupPage({
         <div>
           <h1 className="text-2xl font-semibold">Create your account</h1>
           <p className="mt-2 text-sm text-slate-300">
-            Choose a username and password to join Draft League.
+            Choose a username and password to join 7DS Tournament Platform.
           </p>
           {inviteError && (
             <p className="mt-2 rounded-md border border-rose-400/40 bg-rose-950/40 px-3 py-2 text-sm text-rose-200" role="alert">

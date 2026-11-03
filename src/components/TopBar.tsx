@@ -17,7 +17,7 @@ function getPageTitle(pathname: string) {
   if (pathname.startsWith("/admin/t/")) return "Tournament administration";
   if (pathname.startsWith("/admin/packs/")) return "Edit global pack";
   if (pathname.startsWith("/profile/")) return "Profile settings";
-  return "Draft League";
+  return "7DS";
 }
 
 export default function TopBar({
@@ -42,7 +42,7 @@ export default function TopBar({
       </button>
       <div className="min-w-0">
         <p className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-[#7181B3] sm:block">
-          Draft League
+          7DS Tournament Platform
         </p>
         <p className="truncate text-sm font-bold text-[#EEF2FF] sm:mt-0.5 sm:text-base">
           {title}

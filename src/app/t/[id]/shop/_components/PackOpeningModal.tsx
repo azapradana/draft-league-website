@@ -116,7 +116,7 @@ export default function PackOpeningModal({
       />
     ) : (
       <span className="pack-copy">
-        <strong>Draft League</strong>
+        <strong>7DS Tournament Platform</strong>
         <b>Mystery<br />Pack</b>
       </span>
     );

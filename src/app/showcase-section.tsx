@@ -7,7 +7,7 @@ function Header({ accentColor }: { accentColor: string }) {
   return (
     <div className="mb-7">
       <p className="text-xs font-extrabold uppercase tracking-[0.2em]" style={{ color: accentColor }}>
-        Our members
+        7DS Section
       </p>
       <h2 className="display-font mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
         Member showcase

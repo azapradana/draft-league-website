@@ -5,7 +5,7 @@ export const SITE_SETTINGS_ID = "global";
 
 export const DEFAULT_SITE_SETTINGS = {
   id: SITE_SETTINGS_ID,
-  siteTitle: "Draft League",
+  siteTitle: "7DS Tournament Platform",
   heroHeadline: "Your next great draft starts here.",
   heroSubheading: "Build your roster, challenge the field, and make your run count.",
   heroBackgroundImage: null,
