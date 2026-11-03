@@ -12,6 +12,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { revalidatePackDataCache } from "@/lib/pack-data";
 import { SITE_SETTINGS_ID } from "@/lib/site-settings";
+import {
+  isShowcaseBlobUrl,
+  normalizeShowcaseLink,
+} from "@/lib/showcase";
+import { checkShowcaseImageBytes } from "@/lib/showcase-image";
 import { awardTournamentPrizes } from "@/lib/tournament-prizes";
 import { startTournament } from "@/lib/tournament-start";
 import {
@@ -207,6 +212,81 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ success: true, settings });
+      }
+
+      case "addShowcaseSlide": {
+        const imageUrl = asString(body.imageUrl).trim();
+        const linkUrl = normalizeShowcaseLink(asString(body.linkUrl));
+        if (linkUrl === undefined) {
+          return NextResponse.json({ error: "The link must be a valid http(s) URL." }, { status: 400 });
+        }
+        if (!isShowcaseBlobUrl(imageUrl)) {
+          return NextResponse.json({ error: "Upload an image for this slide." }, { status: 400 });
+        }
+        const imageResponse = await fetch(imageUrl, { cache: "no-store" }).catch(() => null);
+        if (!imageResponse?.ok) {
+          return NextResponse.json({ error: "The uploaded image could not be read." }, { status: 400 });
+        }
+        const imageBytes = new Uint8Array(await imageResponse.arrayBuffer());
+        if (imageBytes.length > 2 * 1024 * 1024) {
+          return NextResponse.json({ error: "Images must be 2 MB or smaller." }, { status: 413 });
+        }
+        const sizeError = checkShowcaseImageBytes(imageBytes);
+        if (sizeError) {
+          return NextResponse.json({ error: sizeError }, { status: 422 });
+        }
+        const last = await prisma.showcaseSlide.aggregate({ _max: { sortOrder: true } });
+        const slide = await prisma.showcaseSlide.create({
+          data: { imageUrl, linkUrl, sortOrder: (last._max.sortOrder ?? -1) + 1 },
+        });
+        return NextResponse.json({ success: true, slide }, { status: 201 });
+      }
+
+      case "moveShowcaseSlide": {
+        const id = asString(body.id);
+        const direction = asString(body.direction);
+        if (direction !== "up" && direction !== "down") {
+          return NextResponse.json({ error: "Invalid direction." }, { status: 400 });
+        }
+        const slides = await prisma.showcaseSlide.findMany({
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true },
+        });
+        const index = slides.findIndex((slide) => slide.id === id);
+        if (index === -1) {
+          return NextResponse.json({ error: "Slide not found." }, { status: 404 });
+        }
+        const target = direction === "up" ? index - 1 : index + 1;
+        if (target >= 0 && target < slides.length) {
+          [slides[index], slides[target]] = [slides[target], slides[index]];
+        }
+        await prisma.$transaction(
+          slides.map((slide, order) =>
+            prisma.showcaseSlide.update({ where: { id: slide.id }, data: { sortOrder: order } }),
+          ),
+        );
+        return NextResponse.json({ success: true });
+      }
+
+      case "setShowcaseSlideVisible": {
+        const id = asString(body.id);
+        const visible = asOptionalBoolean(body.visible);
+        if (visible === undefined) {
+          return NextResponse.json({ error: "Invalid visibility." }, { status: 400 });
+        }
+        const result = await prisma.showcaseSlide.updateMany({ where: { id }, data: { visible } });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "Slide not found." }, { status: 404 });
+        }
+        return NextResponse.json({ success: true });
+      }
+
+      case "deleteShowcaseSlide": {
+        const result = await prisma.showcaseSlide.deleteMany({ where: { id: asString(body.id) } });
+        if (result.count === 0) {
+          return NextResponse.json({ error: "Slide not found." }, { status: 404 });
+        }
+        return NextResponse.json({ success: true });
       }
 
       case "createTournament": {

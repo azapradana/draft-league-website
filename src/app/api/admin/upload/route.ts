@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { getServerSession } from "next-auth";
 import { NextResponse, type NextRequest } from "next/server";
 import { authOptions } from "@/lib/auth";
+import { checkShowcaseImageBytes } from "@/lib/showcase-image";
 
 const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
 const MAX_MULTIPART_OVERHEAD_BYTES = 64 * 1024;
@@ -103,6 +104,16 @@ export async function POST(request: NextRequest) {
   const header = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   if (!matchesImageType(header, file.type)) {
     return NextResponse.json({ error: "The file contents do not match an allowed image type." }, { status: 400 });
+  }
+
+  if (formData.get("purpose") === "showcase") {
+    if (file.type === "image/x-icon" || file.type === "image/vnd.microsoft.icon") {
+      return NextResponse.json({ error: "Use a PNG, JPG, WebP or GIF image." }, { status: 415 });
+    }
+    const sizeError = checkShowcaseImageBytes(new Uint8Array(await file.arrayBuffer()));
+    if (sizeError) {
+      return NextResponse.json({ error: sizeError }, { status: 422 });
+    }
   }
 
   try {

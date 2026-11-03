@@ -224,6 +224,17 @@ model SiteSettings {
   initialPlayerCoins  Int     @default(500)
 }
 
+model ShowcaseSlide {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  linkUrl   String?
+  sortOrder Int
+  visible   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([sortOrder])
+}
+
 model Tournament {
   id                        String                  @id @default(cuid())
   name                      String

@@ -1,11 +1,13 @@
 import { ParticipantStatus } from "@prisma/client";
 import Link from "next/link";
+import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { guardGuestPage } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
 import TournamentStatusTabs from "./tournament-status-tabs";
+import { ShowcaseSection, ShowcaseSkeleton } from "./showcase-section";
 
 export default async function Home({
   searchParams,
@@ -123,6 +125,10 @@ export default async function Home({
           </div>
         </div>
       </section>
+
+      <Suspense fallback={<ShowcaseSkeleton accentColor={settings.accentColor} />}>
+        <ShowcaseSection accentColor={settings.accentColor} />
+      </Suspense>
 
       <section
         id="tournaments"

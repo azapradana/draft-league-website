@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getSiteSettings } from "@/lib/site-settings";
+import { prisma } from "@/lib/prisma";
+import { ShowcaseManager } from "./showcase-manager";
 import { SiteSettingsForm } from "./site-settings-form";
 
 export default async function AdminSettingsPage() {
@@ -16,6 +18,10 @@ export default async function AdminSettingsPage() {
   }
 
   const settings = await getSiteSettings();
+  const slides = await prisma.showcaseSlide.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, imageUrl: true, linkUrl: true, visible: true },
+  });
 
   return (
     <main className="min-h-screen bg-[#070D24] px-5 py-8 text-[#EEF2FF] sm:px-8 sm:py-12">
@@ -42,6 +48,7 @@ export default async function AdminSettingsPage() {
         </div>
 
         <SiteSettingsForm settings={settings} />
+        <ShowcaseManager slides={slides} />
       </div>
     </main>
   );
