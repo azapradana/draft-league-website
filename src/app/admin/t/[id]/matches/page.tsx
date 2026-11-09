@@ -263,7 +263,7 @@ export default async function AdminTournamentMatchesPage({
     tournament.format !== "FRIENDLY_MATCH" &&
     tournament.startedAt !== null &&
     !tournament.checkInOpen &&
-    eligibleParticipants.length > 0;
+    eligibleParticipants.length >= (tournament.format === "DOUBLE_ELIMINATION" ? 2 : 1);
   const canStartAnotherRound =
     currentStage === "SWISS"
       ? swissRoundNumbers.length < tournament.swissRounds
@@ -278,7 +278,9 @@ export default async function AdminTournamentMatchesPage({
     swissStageComplete &&
     currentRoundComplete;
   const showRoundControl =
-    currentRound === null
+    tournament.format === "DOUBLE_ELIMINATION" && currentRound !== null
+      ? false
+      : currentRound === null
       ? canStartRoundOne
       : currentStage === "SWISS"
         ? swissRoundNumbers.length < tournament.swissRounds
@@ -318,7 +320,9 @@ export default async function AdminTournamentMatchesPage({
         ? `Swiss · Round ${match.roundNumber}`
         : tournament.format === "FRIENDLY_MATCH"
           ? "Friendly Match · Pairings"
-          : `Single Elimination · Round ${match.roundNumber}`;
+          : tournament.format === "DOUBLE_ELIMINATION"
+            ? `${match.bracket?.replace(/_/g, " ") ?? "Bracket"} · Round ${match.roundNumber}`
+            : `Single Elimination · Round ${match.roundNumber}`;
     const hasLaterRound = tournament.matches.some(
       (laterMatch) => laterMatch.roundNumber > match.roundNumber,
     );
@@ -327,6 +331,7 @@ export default async function AdminTournamentMatchesPage({
       id: match.id,
       roundNumber: match.roundNumber,
       roundLabel,
+      isDoubleElimination: tournament.format === "DOUBLE_ELIMINATION",
       isTopCut,
       isDraw: match.isDraw,
       tableNumber,
@@ -348,7 +353,7 @@ export default async function AdminTournamentMatchesPage({
       adminOverrideAt: match.adminOverrideAt?.toISOString() ?? null,
       disabledReason: tournament.completed
         ? "This tournament is complete; match results are read-only."
-        : hasLaterRound
+        : tournament.format !== "DOUBLE_ELIMINATION" && hasLaterRound
           ? "This match has already fed into a later round and is read-only."
           : null,
     };

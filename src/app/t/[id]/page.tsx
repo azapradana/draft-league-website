@@ -21,6 +21,8 @@ import RoundNotificationBanner from "@/components/RoundNotificationBanner";
 import TournamentRewardModal from "@/components/TournamentRewardModal";
 import { parsePrizeDistribution } from "@/lib/prize-distribution";
 import { plannedTopCutPlayerCounts, topCutStageLabel } from "@/lib/top-cut-stages";
+import DoubleEliminationBracket from "./double-elimination-bracket";
+import { rankDoubleElimination } from "@/lib/double-elimination-standings";
 
 export default async function TournamentOverview({
   params,
@@ -156,6 +158,7 @@ export default async function TournamentOverview({
       userId: true,
       checkedIn: true,
       droppedAt: true,
+      bracketSeed: true,
       team: isRegular ? { select: { parsed: true } } : false,
       friendlyMatchSubstitute: true,
       friendlyMatchGroup: { select: { name: true } },
@@ -230,6 +233,9 @@ export default async function TournamentOverview({
   const participation = Array.isArray(tournament.participants)
     ? tournament.participants[0]
     : undefined;
+  const canViewDoubleBracket =
+    isAdminViewer ||
+    (session.user.role !== "GUEST" && participation?.status === "APPROVED");
   const swissMatches = tournament.matches.filter(
     (match) =>
       match.stage === "SWISS" ||
@@ -288,7 +294,9 @@ export default async function TournamentOverview({
     (match) => match.roundNumber === currentRound,
   );
   const finalMatch =
-    finalRoundMatches.length === 1 ? finalRoundMatches[0] : null;
+    tournament.format === "DOUBLE_ELIMINATION"
+      ? tournament.matches.find((match) => match.bracket === "GRAND_FINAL") ?? null
+      : finalRoundMatches.length === 1 ? finalRoundMatches[0] : null;
   const bracketCompleted =
     (tournament.format !== "SWISS" || swissStageComplete) &&
     (tournament.format !== "SWISS" ||
@@ -300,6 +308,7 @@ export default async function TournamentOverview({
       finalMatch.winnerId === finalMatch.player2Id) &&
     tournament.matches.every((match) => match.status === "COMPLETED");
   const tournamentCompleted =
+    tournament.format === "DOUBLE_ELIMINATION" ||
     tournament.format === "FRIENDLY_MATCH" ||
     (tournament.format === "SWISS" && tournament.topCut === 0)
       ? tournament.completed
@@ -326,7 +335,9 @@ export default async function TournamentOverview({
     }
   }
 
-  const participantsToDisplay = tournamentCompleted
+  const participantsToDisplay = tournamentCompleted && tournament.format === "DOUBLE_ELIMINATION"
+    ? rankDoubleElimination(approvedParticipants, tournament.matches)
+    : tournamentCompleted
     ? [...approvedParticipants].sort((a, b) => {
         if (tournament.format === "SWISS" && tournament.topCut === 0) {
           const rankDifference =
@@ -420,7 +431,9 @@ export default async function TournamentOverview({
       ? `Swiss: ${tournament.swissRounds} Rounds | Top Cut: ${
           tournament.topCut > 0 ? `Top ${tournament.topCut}` : "None"
         }`
-      : "Single Elimination";
+      : tournament.format === "DOUBLE_ELIMINATION"
+        ? "Double Elimination"
+        : "Single Elimination";
   const prizeDistribution = parsePrizeDistribution(tournament.prizeDistribution) ?? [];
   const roundInProgress = currentRound !== null && !tournamentCompleted;
   const isWar =
@@ -555,7 +568,9 @@ export default async function TournamentOverview({
                 ? `Friendly Match · ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize} · one pairing round`
                 : tournament.format === "SWISS"
                   ? `Swiss Rounds · ${tournament.swissRounds} rounds`
-                  : "Single Elimination"}
+                  : tournament.format === "DOUBLE_ELIMINATION"
+                    ? "Double Elimination"
+                    : "Single Elimination"}
             </dd>
           </div>
           <div>
@@ -724,6 +739,8 @@ export default async function TournamentOverview({
               ? tournament.format === "FRIENDLY_MATCH"
                 ? "The one-time group pairings will appear here when the war starts."
                 : "Pairings will appear here when the tournament starts."
+              : tournament.format === "DOUBLE_ELIMINATION"
+                ? "Winners and losers brackets lead to a single Grand Final."
               : tournament.format === "FRIENDLY_MATCH"
                 ? "One-time group pairings. Your active match is highlighted."
                 : `${currentStage.replace(/_/g, " ")} · Round ${currentRound}. Your active pairing is highlighted.`}
@@ -744,9 +761,35 @@ export default async function TournamentOverview({
               View Swiss standings
             </Link>
           )}
+          {tournament.format === "DOUBLE_ELIMINATION" &&
+            canViewDoubleBracket && (
+            <Link className="mt-3 inline-flex text-sm font-semibold text-[#F5C542] underline underline-offset-2" href={`/t/${tournament.id}/results`}>
+              View results
+            </Link>
+          )}
         </div>
 
-        {rounds.length === 0 ? (
+        {tournament.format === "DOUBLE_ELIMINATION" ? (
+          canViewDoubleBracket ? (
+            <DoubleEliminationBracket
+              tournamentId={id}
+              isAdmin={isAdminViewer}
+              ownId={participation?.id ?? null}
+              matches={tournament.matches.flatMap((match) => match.bracket && match.bracketPosition !== null ? [{
+                id: match.id,
+                bracket: match.bracket,
+                round: match.roundNumber,
+                position: match.bracketPosition,
+                status: match.status,
+                winnerId: match.winnerId,
+                nextWinMatchId: match.nextWinMatchId,
+                nextLoseMatchId: match.nextLoseMatchId,
+                player1: match.player1 ? { id: match.player1.id, name: displayName(match.player1) } : null,
+                player2: match.player2 ? { id: match.player2.id, name: displayName(match.player2) } : null,
+              }] : [])}
+            />
+          ) : <p className="mt-6 text-[#9FB0E6]">The bracket is available to approved participants.</p>
+        ) : rounds.length === 0 ? (
           <div className="mt-6 flex items-start gap-4 rounded-xl border border-dashed border-[#243775] p-5 text-[#9FB0E6]">
             <svg
               aria-hidden="true"

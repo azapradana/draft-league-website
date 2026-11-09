@@ -65,6 +65,7 @@ Add the following models and fields to `prisma/schema.prisma`:
 2. **Single Elimination**: Checked-in approved participants are shuffled and paired; a bye is automatically resolved for an odd field.
 3. **Swiss**: All checked-in approved participants play every configured Swiss round. Pairings follow current standings where possible, avoid rematches, and award byes to the lowest-ranked player without a previous bye.
 4. Swiss matches award 3 match points for a win and 0 for a loss. Standings rank by match points, opponent match-win percentage (minimum 33.3%), match wins, then player name. Admin-declared results may retain game scores for auditing; game-win tie-breakers are not used.
+5. Regular tournaments may use Double Elimination. Generate Round 1 after Start to create the full winners and losers brackets and a single Grand Final. Byes advance automatically; the Grand Final winner is champion without a bracket reset.
 
 ### Phase 3: Match Room & Interaction (`/t/[id]/matches/[matchId]`)
 1. **Match Room Access**: Paired players and admins can access the match room.

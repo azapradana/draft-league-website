@@ -301,12 +301,6 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           );
         }
-        if (body.format === "DOUBLE_ELIMINATION") {
-          return NextResponse.json(
-            { error: "Double Elimination is not available yet." },
-            { status: 400 },
-          );
-        }
         if (modeValue === "GACHA" && (body.format === "FRIENDLY_MATCH" || body.format === "DOUBLE_ELIMINATION")) {
           return NextResponse.json(
             { error: "This format requires Regular mode." },
@@ -374,7 +368,7 @@ export async function POST(request: NextRequest) {
         }
         if (!format) {
           return NextResponse.json(
-            { error: "Choose Friendly Match, Single Elimination, or Swiss Rounds." },
+            { error: "Choose Friendly Match, Single Elimination, Double Elimination, or Swiss Rounds." },
             { status: 400 },
           );
         }
@@ -676,9 +670,6 @@ export async function POST(request: NextRequest) {
 
         if ("format" in body) {
           const formatValue = asString(body.format);
-          if (formatValue === "DOUBLE_ELIMINATION" && tournament.format !== "DOUBLE_ELIMINATION") {
-            return NextResponse.json({ error: "Double Elimination is not available yet." }, { status: 400 });
-          }
           if (
             formatValue !== "FRIENDLY_MATCH" &&
             formatValue !== "SINGLE_ELIMINATION" &&
@@ -686,7 +677,7 @@ export async function POST(request: NextRequest) {
             formatValue !== "SWISS"
           ) {
             return NextResponse.json(
-              { error: "Choose Friendly Match, Single Elimination, or Swiss Rounds." },
+              { error: "Choose Friendly Match, Single Elimination, Double Elimination, or Swiss Rounds." },
               { status: 400 },
             );
           }

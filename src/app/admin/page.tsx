@@ -183,7 +183,9 @@ export default async function AdminPage() {
                             ? `Friendly Match Ã‚Â· ${tournament.friendlyMatchSize}v${tournament.friendlyMatchSize}`
                             : tournament.format === "SWISS"
                             ? `Swiss Ã‚Â· ${tournament.swissRounds} rounds${tournament.topCut > 0 ? ` Ã‚Â· Top ${tournament.topCut}` : ""}`
-                            : "Single Elimination"}
+                            : tournament.format === "DOUBLE_ELIMINATION"
+                              ? "Double Elimination"
+                              : "Single Elimination"}
                         </td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold tracking-wide ${statusClass}`}>

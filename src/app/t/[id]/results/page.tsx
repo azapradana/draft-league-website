@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import PokemonArtwork from "../pokemon-artwork";
+import { rankDoubleElimination } from "@/lib/double-elimination-standings";
 
 export default async function TournamentResultsPage({
   params,
@@ -17,9 +18,50 @@ export default async function TournamentResultsPage({
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
-    select: { id: true, name: true, mode: true },
+    select: { id: true, name: true, mode: true, format: true, completed: true },
   });
-  if (!tournament || tournament.mode !== "GACHA") notFound();
+  if (!tournament) notFound();
+
+  if (tournament.format === "DOUBLE_ELIMINATION" && tournament.mode === "REGULAR") {
+    if (session.user.role === "GUEST") notFound();
+    if (session.user.role !== "ADMIN") {
+      const participation = await prisma.participant.findUnique({
+        where: { userId_tournamentId: { userId: session.user.id, tournamentId: id } },
+        select: { status: true },
+      });
+      if (participation?.status !== "APPROVED") notFound();
+    }
+    const [players, matches] = await Promise.all([
+      prisma.participant.findMany({
+        where: { tournamentId: id, status: "APPROVED" },
+        select: { id: true, bracketSeed: true, droppedAt: true, user: { select: { name: true, username: true } } },
+      }),
+      prisma.match.findMany({
+        where: { tournamentId: id, bracket: { not: null } },
+        select: { bracket: true, roundNumber: true, bracketPosition: true, status: true, player1Id: true, player2Id: true, winnerId: true },
+      }),
+    ]);
+    const ranked = rankDoubleElimination(players, matches);
+    return (
+      <section className="space-y-5">
+        <h2 className="text-3xl font-bold">{tournament.name} results</h2>
+        {!tournament.completed ? (
+          <p className="text-[#9FB0E6]">Final placements appear when the Grand Final is complete.</p>
+        ) : (
+          <ol className="space-y-2">
+            {ranked.map((player, index) => (
+              <li key={player.id} className="rounded-xl border border-[#243775] bg-[#0C1638] p-4">
+                <span className="mr-3 font-bold text-[#F5C542]">{index + 1}.</span>
+                {player.user.name ?? player.user.username ?? "Player"}
+                {player.droppedAt && <span className="ml-2 text-sm text-red-300">Dropped</span>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    );
+  }
+  if (tournament.mode !== "GACHA") notFound();
 
   const participants = await prisma.participant.findMany({
     where: { tournamentId: id, status: "APPROVED" },

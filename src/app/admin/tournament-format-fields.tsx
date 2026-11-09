@@ -81,7 +81,7 @@ export function TournamentFormatFields({
             onChange={(event) => {
               const nextMode = event.target.value === "REGULAR" ? "REGULAR" : "GACHA";
               setMode(nextMode);
-              if (nextMode === "GACHA" && format === "FRIENDLY_MATCH") {
+              if (nextMode === "GACHA" && (format === "FRIENDLY_MATCH" || format === "DOUBLE_ELIMINATION")) {
                 setFormat("SINGLE_ELIMINATION");
               }
             }}
@@ -104,6 +104,7 @@ export function TournamentFormatFields({
             if (
               event.target.value === "FRIENDLY_MATCH" ||
               event.target.value === "SINGLE_ELIMINATION" ||
+              event.target.value === "DOUBLE_ELIMINATION" ||
               event.target.value === "SWISS"
             ) {
               setFormat(event.target.value);
@@ -119,6 +120,7 @@ export function TournamentFormatFields({
             </option>
           )}
           <option value="SINGLE_ELIMINATION">Single Elimination</option>
+          {mode === "REGULAR" && <option value="DOUBLE_ELIMINATION">Double Elimination</option>}
           <option value="SWISS">Swiss Rounds</option>
         </select>
       </label>

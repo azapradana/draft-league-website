@@ -10,6 +10,7 @@ type AdminMatch = {
   id: string;
   roundNumber: number;
   roundLabel: string;
+  isDoubleElimination: boolean;
   isTopCut: boolean;
   tableNumber: number | null;
   status: string;
@@ -115,7 +116,8 @@ export default function MatchesRoster({
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <span className="text-sm font-semibold text-[#9FB0E6]">
-                          {match.player2 ? `Table ${match.tableNumber}` : "Bye"}
+                          {match.isDoubleElimination ? `${match.roundLabel} · ` : ""}
+                          {match.player2 ? `Table ${match.tableNumber}` : match.status === "COMPLETED" ? "Bye" : "Awaiting players"}
                         </span>
                         <div className="flex flex-wrap items-center gap-3">
                           {match.player2 && (
@@ -148,9 +150,13 @@ export default function MatchesRoster({
                       </div>
 
                       {match.player2 === null ? (
-                        <p className="mt-2 text-sm text-emerald-300">
-                          {match.winner?.name ?? match.player1?.name ?? "Player"} advanced automatically.
-                        </p>
+                        match.status === "COMPLETED" && match.winner ? (
+                          <p className="mt-2 text-sm text-emerald-300">
+                            {match.winner.name} advanced automatically.
+                          </p>
+                        ) : (
+                          <p className="mt-2 text-sm text-[#9FB0E6]">Waiting for bracket entrants.</p>
+                        )
                       ) : (
                         <>
                           <p className="mt-2 text-sm text-[#CBD5F5]">
