@@ -98,6 +98,14 @@ export default async function TournamentOverview({
 
   if (!tournament) notFound();
 
+  if (
+    tournament.format === "DOUBLE_ELIMINATION" &&
+    session.user.role !== "ADMIN" &&
+    (session.user.role === "GUEST" || tournament.participants[0]?.status !== "APPROVED")
+  ) {
+    tournament.matches = [];
+  }
+
   const coreGroup =
     tournament.format === "FRIENDLY_MATCH"
       ? await prisma.group.findFirst({

@@ -301,9 +301,15 @@ export async function POST(request: NextRequest) {
             { status: 400 },
           );
         }
-        if (modeValue === "GACHA" && body.format === "FRIENDLY_MATCH") {
+        if (body.format === "DOUBLE_ELIMINATION") {
           return NextResponse.json(
-            { error: "Friendly Match tournaments must use the Regular mode." },
+            { error: "Double Elimination is not available yet." },
+            { status: 400 },
+          );
+        }
+        if (modeValue === "GACHA" && (body.format === "FRIENDLY_MATCH" || body.format === "DOUBLE_ELIMINATION")) {
+          return NextResponse.json(
+            { error: "This format requires Regular mode." },
             { status: 400 },
           );
         }
@@ -320,6 +326,7 @@ export async function POST(request: NextRequest) {
         const format =
           formatValue === "FRIENDLY_MATCH" ||
           formatValue === "SINGLE_ELIMINATION" ||
+          formatValue === "DOUBLE_ELIMINATION" ||
           formatValue === "SWISS"
             ? formatValue
             : null;
@@ -370,6 +377,9 @@ export async function POST(request: NextRequest) {
             { error: "Choose Friendly Match, Single Elimination, or Swiss Rounds." },
             { status: 400 },
           );
+        }
+        if (format === "DOUBLE_ELIMINATION" && mode !== TournamentMode.REGULAR) {
+          return NextResponse.json({ error: "Double Elimination is only available in Regular mode." }, { status: 400 });
         }
         if (
           format === "FRIENDLY_MATCH" &&
@@ -666,9 +676,13 @@ export async function POST(request: NextRequest) {
 
         if ("format" in body) {
           const formatValue = asString(body.format);
+          if (formatValue === "DOUBLE_ELIMINATION" && tournament.format !== "DOUBLE_ELIMINATION") {
+            return NextResponse.json({ error: "Double Elimination is not available yet." }, { status: 400 });
+          }
           if (
             formatValue !== "FRIENDLY_MATCH" &&
             formatValue !== "SINGLE_ELIMINATION" &&
+            formatValue !== "DOUBLE_ELIMINATION" &&
             formatValue !== "SWISS"
           ) {
             return NextResponse.json(
@@ -677,6 +691,12 @@ export async function POST(request: NextRequest) {
             );
           }
           updateData.format = formatValue;
+          if (formatValue === "DOUBLE_ELIMINATION" && tournament.mode !== TournamentMode.REGULAR) {
+            return NextResponse.json(
+              { error: "Double Elimination is only available for Regular tournaments." },
+              { status: 400 },
+            );
+          }
           if (
             formatValue === "FRIENDLY_MATCH" &&
             formatValue !== tournament.format &&

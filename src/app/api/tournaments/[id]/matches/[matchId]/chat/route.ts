@@ -28,6 +28,11 @@ export async function GET(
     isAdmin: session.user.role === "ADMIN",
   });
   if (!canAccess) {
+    const exists = await prisma.match.findFirst({
+      where: { id: matchId, tournamentId, tournament: { format: "DOUBLE_ELIMINATION" } },
+      select: { id: true },
+    });
+    if (exists) return NextResponse.json({ error: "Only the match players and admins can access this chat." }, { status: 403 });
     return NextResponse.json({ error: "Match not found." }, { status: 404 });
   }
 
@@ -70,6 +75,11 @@ export async function POST(
     isAdmin: session.user.role === "ADMIN",
   });
   if (!canAccess) {
+    const exists = await prisma.match.findFirst({
+      where: { id: matchId, tournamentId, tournament: { format: "DOUBLE_ELIMINATION" } },
+      select: { id: true },
+    });
+    if (exists) return NextResponse.json({ error: "Only the match players and admins can access this chat." }, { status: 403 });
     return NextResponse.json({ error: "Match not found." }, { status: 404 });
   }
 

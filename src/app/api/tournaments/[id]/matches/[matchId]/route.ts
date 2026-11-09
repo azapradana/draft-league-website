@@ -25,6 +25,11 @@ export async function GET(
     isAdmin: session.user.role === "ADMIN",
   });
   if (!match) {
+    const exists = await prisma.match.findFirst({
+      where: { id: matchId, tournamentId, tournament: { format: "DOUBLE_ELIMINATION" } },
+      select: { id: true },
+    });
+    if (exists) return NextResponse.json({ error: "Only the match players and admins can view this match." }, { status: 403 });
     return NextResponse.json({ error: "Match not found." }, { status: 404 });
   }
 

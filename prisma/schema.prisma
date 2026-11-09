@@ -29,7 +29,14 @@ enum MatchStatus {
 enum TournamentFormat {
   FRIENDLY_MATCH
   SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
   SWISS
+}
+
+enum MatchBracket {
+  WINNERS
+  LOSERS
+  GRAND_FINAL
 }
 
 enum TournamentMode {
@@ -283,6 +290,7 @@ model Participant {
   checkedIn                 Boolean                 @default(false)
   friendlyMatchSubstitute   Boolean                 @default(false)
   friendlyMatchForcedLineup Boolean                 @default(false)
+  bracketSeed               Int?
   coins                     Int                     @default(0)
   droppedAt                 DateTime?
   droppedById               String?
@@ -327,6 +335,12 @@ model Match {
   roundNumber                       Int
   stage                             TournamentStage?
   bracketPosition                   Int?
+  bracket                           MatchBracket?
+  nextWinMatchId                    String?
+  nextWinSlot                       Int?
+  nextLoseMatchId                   String?
+  nextLoseSlot                      Int?
+  autoResolved                      Boolean          @default(false)
   player1Id                         String?
   player2Id                         String?
   winnerId                          String?
@@ -358,6 +372,9 @@ model Match {
   timeOptions                       MatchTimeOption[]
 
   @@index([tournamentId, roundNumber])
+  @@index([tournamentId, bracket, roundNumber])
+  @@index([nextWinMatchId])
+  @@index([nextLoseMatchId])
 }
 
 model MatchTimeOption {

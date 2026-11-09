@@ -6,6 +6,8 @@ import {
 } from "@prisma/client";
 import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
+import { lockTournamentMatchesAndParticipants } from "@/lib/tournament-locks";
+import { advanceDoubleElimination } from "@/lib/double-elimination-progress";
 
 export type DropResult =
   | { ok: true; forfeitedMatches: number; replacedMatches: number }
@@ -88,14 +90,7 @@ export async function dropParticipant(
   participantId: string,
   droppedById: string,
 ): Promise<DropResult> {
-  // Same row lock as round generation so a drop never interleaves with pairing.
-  const locked = await tx.$queryRaw<Array<{ id: string }>>`
-    SELECT "id"
-    FROM "Tournament"
-    WHERE "id" = ${tournamentId}
-    FOR UPDATE
-  `;
-  if (locked.length === 0) {
+  if (!(await lockTournamentMatchesAndParticipants(tx, tournamentId))) {
     return { ok: false, statusCode: 404, error: "Tournament not found." };
   }
 
@@ -135,6 +130,12 @@ export async function dropParticipant(
     },
     select: { id: true, player1Id: true, player2Id: true },
   });
+
+  if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+    await advanceDoubleElimination(tx, tournamentId);
+    await closeTournamentIfComplete(tx, tournamentId);
+    return { ok: true, forfeitedMatches: openMatches.filter((match) => match.player1Id && match.player2Id).length, replacedMatches: 0 };
+  }
 
   const substitutes =
     tournament.format === TournamentFormat.FRIENDLY_MATCH && openMatches.length > 0

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-type TournamentFormat = "FRIENDLY_MATCH" | "SINGLE_ELIMINATION" | "SWISS";
+type TournamentFormat = "FRIENDLY_MATCH" | "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "SWISS";
 type TournamentMode = "GACHA" | "REGULAR";
 
 const FIELD_CLASS =

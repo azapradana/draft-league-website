@@ -6,6 +6,8 @@ import { guestApiBlock } from "@/lib/guest-access";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
 import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
+import { lockTournamentMatchesAndParticipants } from "@/lib/tournament-locks";
+import { advanceDoubleElimination } from "@/lib/double-elimination-progress";
 
 type SubmissionResult =
   | {
@@ -53,14 +55,8 @@ export async function POST(
   }
 
   const result = await prisma.$transaction(async (tx): Promise<SubmissionResult> => {
-    const lockedMatch = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT "id"
-      FROM "Match"
-      WHERE "id" = ${matchId} AND "tournamentId" = ${tournamentId}
-      FOR UPDATE
-    `;
-    if (lockedMatch.length === 0) {
-      return { ok: false, statusCode: 404, error: "Match not found." };
+    if (!(await lockTournamentMatchesAndParticipants(tx, tournamentId))) {
+      return { ok: false, statusCode: 404, error: "Tournament not found." };
     }
 
     const tournament = await tx.tournament.findUnique({
@@ -77,9 +73,12 @@ export async function POST(
         error: "This tournament is completed and no longer accepts match results.",
       };
     }
+    if (tournament.format === "DOUBLE_ELIMINATION" && session.user.role === "GUEST") {
+      return { ok: false, statusCode: 403, error: "Guests cannot participate in this tournament." };
+    }
 
-    const match = await tx.match.findUnique({
-      where: { id: matchId },
+    const match = await tx.match.findFirst({
+      where: { id: matchId, tournamentId },
       select: {
         status: true,
         player1Id: true,
@@ -88,8 +87,8 @@ export async function POST(
         player2Vote: true,
           player1DrawVote: true,
           player2DrawVote: true,
-        player1: { select: { userId: true } },
-        player2: { select: { userId: true } },
+        player1: { select: { userId: true, status: true } },
+        player2: { select: { userId: true, status: true } },
       },
     });
     if (!match) {
@@ -100,6 +99,12 @@ export async function POST(
     const isPlayer2 = match.player2?.userId === session.user.id;
     if (!isPlayer1 && !isPlayer2) {
       return { ok: false, statusCode: 403, error: "Only players in this match can vote." };
+    }
+    if (
+      tournament.format === "DOUBLE_ELIMINATION" &&
+      (isPlayer1 ? match.player1?.status : match.player2?.status) !== "APPROVED"
+    ) {
+      return { ok: false, statusCode: 403, error: "Only approved participants can vote." };
     }
 
     if (!match.player1Id || !match.player2Id) {
@@ -206,6 +211,9 @@ export async function POST(
     });
 
     if (status === MatchStatus.COMPLETED) {
+      if (tournament.format === "DOUBLE_ELIMINATION") {
+        await advanceDoubleElimination(tx, tournamentId);
+      }
       await recordFriendlyMatchParticipation(tx, tournamentId, matchId);
       await closeTournamentIfComplete(tx, tournamentId);
     }

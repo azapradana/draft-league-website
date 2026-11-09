@@ -51,6 +51,7 @@ export async function closeTournamentIfComplete(
       winnerId: true,
       status: true,
       isDraw: true,
+      bracket: true,
     },
   });
   if (matches.length === 0) return false;
@@ -72,7 +73,10 @@ export async function closeTournamentIfComplete(
     match.status === MatchStatus.COMPLETED &&
     (match.isDraw ? match.winnerId === null : hasValidWinner(match));
 
-  if (tournament.format === "FRIENDLY_MATCH") {
+  if (tournament.format === "DOUBLE_ELIMINATION") {
+    const final = matches.find((match) => match.bracket === "GRAND_FINAL");
+    if (!final || !hasValidWinner(final)) return false;
+  } else if (tournament.format === "FRIENDLY_MATCH") {
     const friendlyMatches = matches.filter(
       (match) => getStage(match) === TournamentStage.FRIENDLY_MATCH,
     );

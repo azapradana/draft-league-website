@@ -12,6 +12,19 @@ export async function POST(
   if (!auth.ok) return authFailure(auth);
 
   const result = await prisma.$transaction(async (tx) => {
+    if (auth.session.user.role === "GUEST") {
+      const tournament = await tx.tournament.findUnique({
+        where: { id: tournamentId },
+        select: { format: true },
+      });
+      if (tournament?.format === "DOUBLE_ELIMINATION") {
+        return {
+          ok: false as const,
+          statusCode: 403,
+          error: "Guests cannot participate in this tournament.",
+        };
+      }
+    }
     const participant = await tx.participant.findUnique({
       where: { userId_tournamentId: { userId: auth.userId, tournamentId } },
       select: { id: true },

@@ -7,6 +7,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
 import { recordFriendlyMatchParticipation } from "@/lib/friendly-match";
+import { lockTournamentMatchesAndParticipants } from "@/lib/tournament-locks";
+import { advanceDoubleElimination, clearDoubleEliminationDownstream } from "@/lib/double-elimination-progress";
 
 type OverrideResult =
   | { success: true }
@@ -56,19 +58,13 @@ export async function declareMatchWinner(
   let result: OverrideResult;
   try {
     result = await prisma.$transaction(async (tx): Promise<OverrideResult> => {
-    const lockedMatch = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT "id"
-      FROM "Match"
-      WHERE "id" = ${matchId} AND "tournamentId" = ${tournamentId}
-      FOR UPDATE
-    `;
-    if (lockedMatch.length === 0) {
-      return { error: "Match not found." };
+    if (!(await lockTournamentMatchesAndParticipants(tx, tournamentId))) {
+      return { error: "Tournament not found." };
     }
 
     const tournament = await tx.tournament.findUnique({
       where: { id: tournamentId },
-      select: { completed: true },
+      select: { completed: true, format: true },
     });
     if (!tournament) {
       return { error: "Tournament not found." };
@@ -77,12 +73,14 @@ export async function declareMatchWinner(
       return { error: "Completed tournaments no longer accept match overrides." };
     }
 
-    const match = await tx.match.findUnique({
-      where: { id: matchId },
+    const match = await tx.match.findFirst({
+      where: { id: matchId, tournamentId },
       select: {
         roundNumber: true,
         player1Id: true,
         player2Id: true,
+        winnerId: true,
+        status: true,
       },
     });
     if (!match) {
@@ -101,14 +99,24 @@ export async function declareMatchWinner(
       return { error: "The selected winner must have the higher score." };
     }
 
-    const laterMatch = await tx.match.findFirst({
-      where: { tournamentId, roundNumber: { gt: match.roundNumber } },
-      select: { id: true },
-    });
-    if (laterMatch) {
-      return {
-        error: "This match has already fed into a later round and can no longer be changed.",
-      };
+    if (tournament.format === "DOUBLE_ELIMINATION") {
+      if (
+        match.status === MatchStatus.COMPLETED &&
+        match.winnerId !== winnerId &&
+        !(await clearDoubleEliminationDownstream(tx, tournamentId, matchId))
+      ) {
+        return { error: "A downstream match has started or has a result; this result cannot be changed." };
+      }
+    } else {
+      const laterMatch = await tx.match.findFirst({
+        where: { tournamentId, roundNumber: { gt: match.roundNumber } },
+        select: { id: true },
+      });
+      if (laterMatch) {
+        return {
+          error: "This match has already fed into a later round and can no longer be changed.",
+        };
+      }
     }
 
     await tx.match.update({
@@ -117,12 +125,17 @@ export async function declareMatchWinner(
         winnerId,
         status: MatchStatus.COMPLETED,
         isDraw: false,
+        autoResolved: false,
+        forfeitedParticipantId: null,
         player1Score,
         player2Score,
         adminOverrideById: session.user.id,
         adminOverrideAt: new Date(),
       },
     });
+    if (tournament.format === "DOUBLE_ELIMINATION") {
+      await advanceDoubleElimination(tx, tournamentId);
+    }
     await recordFriendlyMatchParticipation(tx, tournamentId, matchId);
     await closeTournamentIfComplete(tx, tournamentId);
     return { success: true };

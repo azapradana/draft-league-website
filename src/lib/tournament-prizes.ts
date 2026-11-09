@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { buildSwissStandings } from "@/lib/tournament-standings";
 import { parsePrizeDistribution } from "@/lib/prize-distribution";
+import { rankDoubleElimination } from "@/lib/double-elimination-standings";
 
 type RankedParticipant = {
   id: string;
@@ -43,6 +44,7 @@ async function getPrizeRankings(
       id: true,
       userId: true,
       friendlyMatchGroupId: true,
+      bracketSeed: true,
       user: { select: { name: true, username: true, email: true } },
     },
   });
@@ -52,6 +54,7 @@ async function getPrizeRankings(
       roundNumber: true,
       stage: true,
       bracketPosition: true,
+      bracket: true,
       player1Id: true,
       player2Id: true,
       winnerId: true,
@@ -59,6 +62,10 @@ async function getPrizeRankings(
       isDraw: true,
     },
   });
+
+  if (tournament.format === TournamentFormat.DOUBLE_ELIMINATION) {
+    return rankDoubleElimination(participants, matches);
+  }
 
   if (tournament.format === TournamentFormat.FRIENDLY_MATCH) {
     const coreGroup = await tx.group.findFirst({

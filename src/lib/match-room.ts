@@ -30,9 +30,11 @@ export async function getMatchRoomData({
       player1: {
         select: {
           id: true,
+          status: true,
           user: {
             select: {
               id: true,
+              role: true,
               name: true,
               username: true,
               email: true,
@@ -46,9 +48,11 @@ export async function getMatchRoomData({
       player2: {
         select: {
           id: true,
+          status: true,
           user: {
             select: {
               id: true,
+              role: true,
               name: true,
               username: true,
               email: true,
@@ -71,6 +75,10 @@ export async function getMatchRoomData({
     match.player2?.user.id !== userId
   ) {
     return null;
+  }
+  if (!isAdmin && match.tournament.format === "DOUBLE_ELIMINATION") {
+    const viewer = [match.player1, match.player2].find((player) => player?.user.id === userId);
+    if (!viewer || viewer.status !== "APPROVED" || viewer.user.role === "GUEST") return null;
   }
 
   type MatchParticipant = NonNullable<NonNullable<typeof match>["player1"]>;
@@ -273,7 +281,14 @@ export async function canAccessMatch({
 
   const match = await prisma.match.findFirst({
     where: { id: matchId, tournamentId },
-    select: { player1: { select: { userId: true } }, player2: { select: { userId: true } } },
+    select: {
+      tournament: { select: { format: true } },
+      player1: { select: { userId: true, status: true, user: { select: { role: true } } } },
+      player2: { select: { userId: true, status: true, user: { select: { role: true } } } },
+    },
   });
-  return match?.player1?.userId === userId || match?.player2?.userId === userId;
+  const viewer = [match?.player1, match?.player2].find((player) => player?.userId === userId);
+  return Boolean(viewer) &&
+    (match?.tournament.format !== "DOUBLE_ELIMINATION" ||
+      (viewer?.status === "APPROVED" && viewer.user.role !== "GUEST"));
 }

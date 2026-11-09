@@ -1,4 +1,3 @@
-import { randomInt } from "node:crypto";
 import {
   MatchStatus,
   ParticipantStatus,
@@ -11,6 +10,9 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { closeTournamentIfComplete } from "@/lib/tournament-completion";
 import { buildSwissStandings } from "@/lib/tournament-standings";
+import { DoubleEliminationGenerationError, generateDoubleElimination } from "@/lib/double-elimination-generate";
+import { lockTournamentMatchesAndParticipants } from "@/lib/tournament-locks";
+import { shuffle } from "@/lib/shuffle";
 
 class RoundGenerationError extends Error {
   constructor(
@@ -19,14 +21,6 @@ class RoundGenerationError extends Error {
   ) {
     super(message);
   }
-}
-
-function shuffle<T>(values: T[]): T[] {
-  for (let index = values.length - 1; index > 0; index -= 1) {
-    const swapIndex = randomInt(index + 1);
-    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
-  }
-  return values;
 }
 
 function createMatchInputs(
@@ -200,6 +194,7 @@ export async function generateRound(
           startedAt: Date | null;
           completed: boolean;
           format: string;
+          mode: string;
           friendlyMatchGroupId: string | null;
           friendlyMatchSize: number;
           swissRounds: number;
@@ -207,7 +202,7 @@ export async function generateRound(
           currentStage: TournamentStage;
         }>
       >`
-        SELECT "id", "checkInOpen", "startedAt", "completed", "format", "friendlyMatchGroupId", "friendlyMatchSize", "swissRounds", "topCut", "currentStage"
+        SELECT "id", "checkInOpen", "startedAt", "completed", "format", "mode", "friendlyMatchGroupId", "friendlyMatchSize", "swissRounds", "topCut", "currentStage"
         FROM "Tournament"
         WHERE "id" = ${tournamentId}
         FOR UPDATE
@@ -221,6 +216,12 @@ export async function generateRound(
           "This tournament is completed and cannot start another round.",
           409,
         );
+      }
+
+      await lockTournamentMatchesAndParticipants(tx, tournamentId);
+
+      if (tournament[0].format === "DOUBLE_ELIMINATION") {
+        return generateDoubleElimination(tx, tournamentId);
       }
 
       const currentStage =
@@ -635,7 +636,7 @@ export async function generateRound(
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof RoundGenerationError) {
+    if (error instanceof RoundGenerationError || error instanceof DoubleEliminationGenerationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
 
